@@ -8,7 +8,7 @@ extends Node
 ##   --fight <monster>          put a monster in the arena (Lane E's brain and body
 ##                              when src/monster/<monster>.gd exists, else the stub)
 ##   --sandbox                  H20: left-click paints, keys 1-7 pick the element
-##   --autoplay                 scripted run, then quit (the smoke test)
+##   --autoplay [--seconds s]   scripted run, then quit (the smoke test)
 ##   --shot <dir> [--count n] [--every s]   save n rendered frames to <dir>, then quit
 ##   --cam dist,pitch           start the camera at this distance (m) and pitch (deg)
 ##   --tune key=value           override one HHTune number this run (repeatable)
@@ -44,6 +44,8 @@ func _ready() -> void:
 	fight.name = "Fight"
 	fight.sandbox = "--sandbox" in args
 	fight.autoplay = "--autoplay" in args or "--shot" in args
+	if "--seconds" in args:
+		fight.autoplay_seconds = float(_arg(args, "--seconds", "14"))
 	if "--shot" in args:
 		fight.autoplay_seconds = maxf(fight.autoplay_seconds, float(_arg(args, "--count", "6")) * float(_arg(args, "--every", "1.5")) + 1.0)
 	add_child(fight)

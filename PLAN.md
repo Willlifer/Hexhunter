@@ -1,7 +1,7 @@
 # PLAN — Hexhunt
 
 Phases with gates. The author checks each gate before the next phase starts.
-Status: **Phase 0 gate passed 2026-10-19 (H26). Phase 1 First Fight in progress**: lanes P (integrator, this session), C, E, F running in worktrees.
+Status: **Phase 1 First Fight built 2026-10-19; awaiting the author's Phase 1 gate check** (LEDGER L-7): lance vs Swampfang in the lilypad pond, `dist\Hexhunt.exe`.
 
 ## 0. Interview record
 

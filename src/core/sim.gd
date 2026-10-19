@@ -295,7 +295,7 @@ func _walk(u: Dictionary) -> void:
 	var next: Vector2i = u.path[0]
 	var ticks := HHTune.value("run_ticks") if u.run else HHTune.value("walk_ticks")
 	if u.kind == "monster":
-		ticks = HHTune.value("monster_walk_ticks")
+		ticks = float(u.get("walk_ticks", HHTune.value("monster_walk_ticks")))   # a brain may set its own pace
 	u.progress = float(u.progress) + charge.move_mult(u.hex) / ticks
 	if float(u.progress) >= 1.0 - 1e-6:          # float accumulation must not cost a tick
 		u.progress = 0.0
@@ -445,7 +445,8 @@ func telegraph(owner: String, hexes: Array, ticks: int, payload: Dictionary = {}
 	var id := _next_tg
 	_next_tg += 1
 	telegraphs.append({ "id": id, "owner": owner, "hexes": hexes.duplicate(), "left": maxi(1, ticks), "total": maxi(1, ticks), "payload": payload.duplicate() })
-	_emit({ "type": "telegraph", "id": id, "owner": owner, "hexes": hexes.duplicate(), "ticks": ticks, "name": str(payload.get("name", "")) })
+	_emit({ "type": "telegraph", "id": id, "owner": owner, "hexes": hexes.duplicate(), "ticks": ticks,
+		"name": str(payload.get("name", payload.get("clip", ""))), "payload": payload.duplicate() })
 	return id
 
 
@@ -472,9 +473,9 @@ func _resolve_telegraph(tg: Dictionary) -> void:
 			if int(u.guard) > 0:
 				dmg *= 1.0 - HHTune.value("guard_reduce")
 				_guard_counter(u, owner)
-				hurt(u, dmg, str(p.get("name", "telegraph")), 0.0)
+				hurt(u, dmg, str(p.get("name", p.get("clip", "telegraph"))), 0.0)
 			else:
-				hurt(u, dmg, str(p.get("name", "telegraph")), float(p.get("stagger", 0.0)))
+				hurt(u, dmg, str(p.get("name", p.get("clip", "telegraph"))), float(p.get("stagger", 0.0)))
 		if str(p.get("status", "")) != "" and int(u.guard) <= 0:
 			apply_status(u, str(p.status), int(p.get("status_ticks", 90)))
 		hit.append(u.id)

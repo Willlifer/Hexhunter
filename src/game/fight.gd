@@ -93,7 +93,7 @@ func _build_bodies() -> void:
 		if u.kind == "monster" and ResourceLoader.exists("res://src/monster/monster_body.gd"):
 			var s: GDScript = load("res://src/monster/monster_body.gd")
 			var body: Node3D = s.new()
-			for m in ["load_monster", "setup", "load_id"]:
+			for m in ["build", "load_monster", "setup", "load_id"]:
 				if body.has_method(m):
 					body.call(m, id)
 					break
@@ -210,11 +210,13 @@ func _note(e: Dictionary) -> void:
 		"cast": _log.append("t%d %s (%s)" % [e.tick, e.name, e.element])
 		"cast_refused": _log.append("t%d %s on cooldown" % [e.tick, str(e.skill).to_upper()])
 		"guard_block": _log.append("t%d GUARD blocked, counter!" % e.tick)
-		"telegraph": _log.append("t%d %s telegraphs %s (%d hexes)" % [e.tick, e.owner, e.name, (e.hexes as Array).size()])
+		"telegraph": _log.append("t%d %s telegraphs %s (%d hexes)" % [e.tick, str(e.get("owner", e.get("id", ""))), str(e.get("name", (e.get("payload", {}) as Dictionary).get("clip", ""))), (e.hexes as Array).size()])
+		"monster_state": _log.append("t%d %s is %s" % [e.tick, e.id, e.state])
 		"stagger": if e.id == player_id: _log.append("t%d staggered %d" % [e.tick, e.ticks])
 		"monster_anim":
 			if monster_bodies.has(e.id) and (monster_bodies[e.id] as Node).has_method("play"):
-				monster_bodies[e.id].play(str(e.clip))
+				var clips: Dictionary = monster_bodies[e.id].clips(str(e.id)) if (monster_bodies[e.id] as Node).has_method("clips") else {}
+				monster_bodies[e.id].play(str(e.clip), bool((clips.get(str(e.clip), {}) as Dictionary).get("loop", false)))
 		"over": _log.append("t%d OVER: %s" % [e.tick, e.result])
 
 

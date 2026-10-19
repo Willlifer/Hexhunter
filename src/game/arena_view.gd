@@ -160,8 +160,9 @@ func _sync_telegraphs(sim: HHSim) -> void:
 				add_child(mi)
 				tg_pool.append(mi)
 			mi.position = arena.surface(h) + Vector3(0, TG_LIFT, 0)
-			mi.set_instance_shader_parameter("progress", prog)
-			mi.set_instance_shader_parameter("tier", 1.0)
+			var ripple := bool((tg.payload as Dictionary).get("ripple", false))
+			mi.set_instance_shader_parameter("progress", 0.0 if ripple else prog)
+			mi.set_instance_shader_parameter("tier", 0.45 if ripple else 1.0)
 			mi.visible = true
 			n += 1
 	for i in range(n, tg_pool.size()):

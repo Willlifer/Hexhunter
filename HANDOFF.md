@@ -1,19 +1,20 @@
 # HANDOFF
 
 ## Where
-`<repo>`, branch `dev`. No remote (H6). Godot 4.7 console binary in Downloads (CLAUDE.md). Playable exe: `dist\Hexhunt.exe` (re-export with `godot --headless --path . --export-release "Windows Desktop" dist/Hexhunt.exe`).
+`<repo>`, branch `dev`. No remote (H6). Godot 4.7 console binary in Downloads (CLAUDE.md). Playable exe: `dist\Hexhunt.exe` (opens the pond fight).
 
-## Where it stands (2026-10-19, evening)
-Phase 0 gate passed (H26). Author's gate notes applied: walk 10 ticks/hex, run 7 (H22); arena 50 m across (H23); tile charge lasts 3x (H24); left-click becomes the auto-attack, paint stays a sandbox tool (H25). Self-test 35/35, smoke clean.
-Phase 1 is open. Merged to dev: Lane P (lance kit, auto-attack, HUD, F1 panel, telegraphs, brain/monster_move contracts), Lane F (sfx + HHSfx; MIDI in D:\Music Studio\Claude Playground\hexhunt), Lane C (pond generator, bench via --bench, arenas/pond.json; the exe opens on the pond). Lane E (Swampfang rig, clips, brain) still in its worktree.
+## Where it stands (2026-10-19, night)
+Phase 1 First Fight is built. All four lanes merged to dev: P (lance kit, auto-attack, HUD, F1 panel, telegraphs, HHSfx), C (pond generator, bench `--bench`, arenas/pond.json), E (rigkit Blender builder, Swampfang glb + 16 clips + brain), F (sfx manifest, MIDI loops outside the repo). Self-test 71/71 in 11 suites. Pond smoke run with the brain is clean.
+Waiting on the author's Phase 1 gate (L-7): play lance vs Swampfang in the pond and call the feel.
 
 ## Do this first
-1. Lane P: `src/core/sim.gd` orders for `attack` (left-click target), `cast {skill, aim}`; lance skills as data in `src/weapons/lance.gd`; HUD bar; F1 tune panel.
-2. When a lane hands back: run its suite + the full self-test in its worktree, merge to `dev`, re-export the exe for the author.
-3. Phase 1 gate (L-7): the author plays lance vs Swampfang in the pond.
+1. Author plays `dist\Hexhunt.exe`. Notes go into DECISIONS (Author rows) and HHTune / HHSwampfang.TUNE.
+2. L-9: trigger hit_react / stagger / collapse / death clips on the body from sim events (hurt, stagger, death).
+3. On the gate: Phase 2 fan-out (PLAN §3): lanes A weapons, B weapon animation, C biome tooling, D maps, E three monsters, F music handoff.
 
 ## Run
-`test.bat`. `run.bat` or `dist\Hexhunt.exe`. Shots: `run.bat --shot design/art/shots --cam 34,44`.
+`test.bat`. `run.bat` (pond fight) or `run.bat --sandbox` (paint tool). `run.bat --bench` (pond bench). Smoke: `godot --headless --path . -- --arena pond --fight swampfang --autoplay --seconds 40`. Shots: `run.bat --arena pond --fight swampfang --shot design/art/shots --cam 24,48 --seconds 24`. Monster previews: `godot --path . --script res://tools/monster_preview.gd`.
 
 ## Open questions
-- None blocking. LEDGER L-3 (light ring on grass), L-4 (FX cards), L-2 (windowed checks not in CI).
+- Feel: thrash_splash hits 15% on a 42-hex ring every ~3.7 s; the bot cannot dodge it, a human should. The author decides.
+- LEDGER L-2 (windowed checks not in CI), L-3 (light's ring on grass), L-4 (FX cards), L-8, L-9.
