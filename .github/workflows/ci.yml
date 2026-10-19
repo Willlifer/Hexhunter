@@ -1,0 +1,55 @@
+# Hexhunt gate: import, self-test, smoke run. Mirrors test.bat. A red run
+# blocks the merge; nothing is published from here (exports come at a phase
+# gate, Black | White's release.yml pattern).
+name: Gate
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: "4.7"
+  GODOT_URL: https://github.com/godotengine/godot/releases/download/4.7-stable
+
+jobs:
+  gate:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-stable-win64
+
+      - name: Install Godot
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot ~/dl
+          curl -fsSL -o ~/dl/godot.zip "$GODOT_URL/Godot_v${GODOT_VERSION}-stable_win64.exe.zip"
+          unzip -q ~/dl/godot.zip -d ~/godot
+
+      - name: Locate Godot
+        run: |
+          GODOT="$(find ~/godot -name '*_console.exe' | head -n1)"
+          [ -n "$GODOT" ] || { echo "Godot console binary not found"; exit 1; }
+          echo "GODOT=$GODOT" >> "$GITHUB_ENV"
+
+      - name: Import
+        run: '"$GODOT" --headless --path . --import'
+
+      - name: Self-test
+        run: '"$GODOT" --headless --path . -- --self-test'
+
+      - name: Smoke run
+        run: |
+          "$GODOT" --headless --path . -- --fight swampfang --autoplay 2>&1 | tee smoke.log
+          ! grep -q "SCRIPT ERROR" smoke.log

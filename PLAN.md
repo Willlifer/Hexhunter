@@ -1,7 +1,7 @@
 # PLAN — Hexhunt
 
 Phases with gates. The author checks each gate before the next phase starts.
-Status: **awaiting permission to begin Phase 0** (kickoff §7).
+Status: **Phase 0 built and green (2026-10-19); awaiting the author's Phase 0 gate check** (LEDGER L-1). Phase 1 lanes start on go.
 
 ## 0. Interview record
 
