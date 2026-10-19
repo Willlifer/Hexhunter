@@ -61,6 +61,14 @@ const DEFAULTS := {
 	"lance_r_dmg": 260.0,
 	"lance_r_steps": 2.0,
 	"lance_r_stagger": 0.6,
+	# potions (H40): T drinks one; a slow heal the ground can fight
+	"potion_count": 5.0,
+	"potion_windup": 15.0,       # 0.5 s to drink (a commitment)
+	"potion_heal_pct": 40.0,     # healed over potion_seconds
+	"potion_seconds": 6.0,
+	"potion_cd": 240.0,          # 8 s between potions
+	"dark_heal_cut": 0.3,        # each dark tier under you cuts healing by this (dark 3 = 10%)
+	"light_heal_bonus": 0.25,    # each light tier under you adds this
 	# hp
 	"player_hp": 3000.0,         # H36: 3x
 	"ground_tick_every": 30.0,   # standing effects apply once a second

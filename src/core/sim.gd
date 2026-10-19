@@ -21,7 +21,8 @@ extends RefCounted
 ## Orders per unit per tick (all optional):
 ##   { move: Vector2i, move_pos: Vector3 (the exact point), stop: true,
 ##     target: id, attack: true (right-click on the monster, H32), run: bool,
-##     swap: true, cast: { skill, aim: Vector2i }, paint: {...} (sandbox) }
+##     swap: true, cast: { skill, aim: Vector2i }, potion: true (T, H40),
+##     paint: {...} (sandbox) }
 
 const TICK := 1.0 / 30.0
 const NO_POS := Vector3(INF, INF, INF)
@@ -59,6 +60,8 @@ func add_player(id: String, hex: Vector2i, element: String = "fire", backup: Str
 	u.weapon = weapon
 	u.reach = HHWeapons.reach(weapon)
 	u.run = true
+	u.potions = int(HHTune.value("potion_count"))
+	u.cooldowns["t"] = 0
 	return u
 
 
@@ -79,7 +82,7 @@ func _unit(id: String, kind: String, hex: Vector2i) -> Dictionary:
 		"element": "", "backup": "", "reach": 1, "size": 0, "run": false, "target": "", "attacking": false,
 		"stagger": 0, "statuses": {}, "cooldowns": { "q": 0, "w": 0, "e": 0, "r": 0, "basic": 0 },
 		"crossed": hex, "weapon": "", "guard": 0, "leap": {}, "windup": {}, "allowed_kinds": [],
-		"untargetable": false, "resist": {},
+		"untargetable": false, "resist": {}, "potions": 0, "regen": {},
 	}
 	units[id] = u
 	order.append(id)
@@ -252,6 +255,13 @@ func _orders(u: Dictionary, o: Dictionary) -> void:
 	if o.has("cast") and u.kind == "player" and not held(u):
 		var cst: Dictionary = o.cast
 		HHWeapons.cast(self, u, str(cst.get("skill", "")), cst.get("aim", u.hex))
+	if o.get("potion", false) and u.kind == "player" and not held(u):
+		if int(u.potions) > 0 and int(u.cooldowns.get("t", 0)) <= 0:
+			u.cooldowns["t"] = int(HHTune.value("potion_cd"))
+			_stop(u)
+			begin_windup(u, "potion", int(HHTune.value("potion_windup")), {}, Callable(self, "_potion_land"))
+		else:
+			_emit({ "type": "cast_refused", "id": u.id, "skill": "t", "why": "none left" if int(u.potions) <= 0 else "cooldown" })
 	if o.has("paint") and sandbox:
 		var p: Dictionary = o.paint
 		paint([p.hex], str(p.element), u.id, int(p.get("steps", 1)))
@@ -497,7 +507,31 @@ func _ground(u: Dictionary) -> void:
 		heal(u, HHFormulas.tile_damage(u.max_hp, float(s.heal)).value, "light")
 
 
+## H40: the potion lands: a heal over potion_seconds that the ground can
+## fight (dark under you cuts it, light under you feeds it).
+func _potion_land(_sim: HHSim, u: Dictionary, _data: Dictionary) -> void:
+	u.potions = int(u.potions) - 1
+	var secs := HHTune.value("potion_seconds")
+	u.regen = { "ticks": int(secs * 30.0), "pct_per_s": HHTune.value("potion_heal_pct") / maxf(secs, 1.0) }
+	u["potion_tick"] = tick                              # brains read this (they tick before wind-ups land)
+	_emit({ "type": "potion", "id": u.id, "left": u.potions })
+
+
+## Healing rate under this unit: 1 - dark_heal_cut per dark tier, + light_heal_bonus per light tier.
+func heal_mult(u: Dictionary) -> float:
+	var dark := charge.intensity(u.hex, "dark")
+	var light := charge.intensity(u.hex, "light")
+	return clampf(1.0 - HHTune.value("dark_heal_cut") * dark + HHTune.value("light_heal_bonus") * light, 0.1, 2.0)
+
+
 func _statuses(u: Dictionary) -> void:
+	var rg: Dictionary = u.regen
+	if not rg.is_empty():
+		heal(u, HHFormulas.tile_damage(u.max_hp, float(rg.pct_per_s)).value * heal_mult(u), "potion")
+		rg.ticks = int(rg.ticks) - int(HHTune.value("ground_tick_every"))
+		if int(rg.ticks) <= 0:
+			u.regen = {}
+			_emit({ "type": "regen_end", "id": u.id })
 	for name in u.statuses.keys():
 		var st: Dictionary = u.statuses[name]
 		match name:

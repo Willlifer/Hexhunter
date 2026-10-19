@@ -8,6 +8,7 @@ extends Node3D
 ##   Q / E / R      cast at the hex under the cursor; W swaps elements
 ##   1-7            (sandbox) pick the element to paint
 ##   Shift          hold to walk (you run by default, H37);  Space  stop
+##   T              drink a potion (H40)
 ##   F1             tune panel;  Esc  quit
 ## `autoplay` runs a scripted walk, paint, attack and cast sequence for the
 ## smoke run and the capture tool, then quits.
@@ -236,7 +237,8 @@ func _note(e: Dictionary) -> void:
 			if e.id != player_id:
 				_body_react(str(e.id), "death", true)
 		"cast": _log.append("t%d %s (%s)" % [e.tick, e.name, e.element])
-		"cast_refused": _log.append("t%d %s on cooldown" % [e.tick, str(e.skill).to_upper()])
+		"cast_refused": _log.append("t%d %s: %s" % [e.tick, str(e.skill).to_upper(), str(e.get("why", "cooldown"))])
+		"potion": _log.append("t%d potion (%d left)" % [e.tick, int(e.left)])
 		"guard_block": _log.append("t%d GUARD blocked, counter!" % e.tick)
 		"telegraph": _log.append("t%d %s telegraphs %s (%d hexes)" % [e.tick, str(e.get("owner", e.get("id", ""))), str(e.get("name", (e.get("payload", {}) as Dictionary).get("clip", ""))), (e.hexes as Array).size()])
 		"monster_state": _log.append("t%d %s is %s" % [e.tick, e.id, e.state])
@@ -342,6 +344,7 @@ func _unhandled_input(ev: InputEvent) -> void:
 			paint_element = HHFormulas.ELEMENTS[i]
 		match ev.keycode:
 			KEY_SPACE: _order({ "stop": true })
+			KEY_T: _order({ "potion": true })
 			KEY_W: _order({ "swap": true })
 			KEY_Q, KEY_E, KEY_R:
 				var aim := _hex_under(get_viewport().get_mouse_position())

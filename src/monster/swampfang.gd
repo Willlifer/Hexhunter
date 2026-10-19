@@ -33,7 +33,7 @@ extends RefCounted
 ## Every feel number, in one place (ticks are 30 Hz; pct = percent of max HP).
 const TUNE := {
 	"aggro_hexes": 6,                 # calm -> aggravated when a player is this close (edge to edge)
-	"attack_gap_ticks": 30,           # 1.0 s from the end of one attack clip to the next telegraph
+	"attack_gap_ticks": 12,           # 0.4 s from the end of one attack clip to the next telegraph (author: actions more common)
 	"windup_mult": 1.8,               # H38: every telegraph window is the clip's contact tick x this (the clip slows to match)
 	"telegraph_min_ticks": 40,        # telegraph windows 1.3-3.0 s
 	"telegraph_max_ticks": 90,
@@ -65,7 +65,10 @@ const TUNE := {
 	"lunge_stagger": 0.7,
 	"lunge_paint_steps": 3,           # dark water
 	"roar_chance": 0.35,              # chance to roar instead of a ranged attack when not yet flagged
-	"roar_dmg_mult": 1.5,             # a flagged attack hits this much harder
+	"roar_radius_plus": 1,            # H41: a flagged attack's shape grows by this many rings (not harder: bigger)
+	"darkness_radius": 5,             # H40: the answer to a potion: dark over this radius around the drinker
+	"darkness_ticks": 45,             # its telegraph window
+	"darkness_cd_ticks": 450,         # at most one darkness every 15 s
 	"rear_arc_deg": 120.0,            # the weak arc centred on the tail
 	"rear_mult": 1.5,                 # damage multiplier from inside that arc
 	"bite_back_reach": 3,             # hexes beyond the footprint: a player behind, this close, draws the miss
@@ -96,6 +99,7 @@ var goals: Array = []                 ## every goal hex chosen (tests)
 var attacks: Array = []               ## every telegraph issued: [{ tick, clip, ticks, hexes }] (tests)
 var anim := ""                        ## the clip last asked for
 var repositioned := false             ## already picked a new spot since the last attack
+var darkness_at := -100000            ## tick of the last darkness
 var rolls := 0                        ## rng draws (tests)
 
 
@@ -151,6 +155,11 @@ func tick(sim: HHSim, u: Dictionary) -> void:
 	for pid in HHPhases.check(phase_state, hp_frac, sim.tick):
 		_on_phase(sim, u, str(pid))
 	var p := _nearest_player(sim, u)
+	if _potion_seen(sim) and sim.tick - darkness_at >= int(TUNE.darkness_cd_ticks) and not p.is_empty():
+		if state == "calm":
+			_force_phase(sim, u, "aggravated")        # a potion wakes it (H40)
+		_darkness(sim, u, p)
+		return
 	if state == "calm":
 		if (not p.is_empty() and _edge_dist(u, p) <= int(TUNE.aggro_hexes)):
 			_force_phase(sim, u, "aggravated")
@@ -259,6 +268,33 @@ func _emit_state(sim: HHSim, u: Dictionary) -> void:
 
 # ------------------------------------------------------------------ attacks
 
+## H40: a player drank a potion this tick.
+func _potion_seen(sim: HHSim) -> bool:
+	for pl in sim.players():
+		if sim.tick - int(pl.get("potion_tick", -100000)) <= 1:
+			return true
+	return false
+
+
+## H40: monsters don't like potions: darkness over the drinker's ground
+## (dark 2 on a wide area) so the heal starves until light clears it.
+func _darkness(sim: HHSim, u: Dictionary, p: Dictionary) -> void:
+	darkness_at = sim.tick
+	var hexes: Array = []
+	for h in HHHex.area(p.hex, int(TUNE.darkness_radius)):
+		if sim.arena.exists(h) and sim.charge.can_hold(h):
+			hexes.append(h)
+	var payload := { "dmg_pct": 0.0, "element": "dark", "paint_steps": 2, "status": "", "status_ticks": 0, "stagger": 0.0, "clip": "frill_roar", "name": "darkness" }
+	mode = "attack"
+	_stop(u)
+	if sim.has_method("telegraph"):
+		sim.call("telegraph", u.id, hexes, int(TUNE.darkness_ticks), payload)
+	attacks.append({ "tick": sim.tick, "clip": "darkness", "ticks": int(TUNE.darkness_ticks), "hexes": hexes.duplicate() })
+	_anim(sim, u, "frill_roar")
+	busy_until = sim.tick + _clip_ticks("frill_roar")
+	next_attack_at = busy_until + _gap()
+
+
 func _roar(sim: HHSim, u: Dictionary) -> void:
 	flagged = true
 	mode = "attack"
@@ -312,7 +348,12 @@ func _attack(sim: HHSim, u: Dictionary, clip: String, hexes: Array, payload: Dic
 	payload["clip"] = clip
 	payload["flagged"] = flagged
 	if flagged:
-		payload["dmg_pct"] = float(payload.dmg_pct) * float(TUNE.roar_dmg_mult)
+		var grown: Array = []
+		var own: Array = HHHex.area(u.hex, int(u.size))
+		for h in HHHex.fringe(hexes, int(TUNE.roar_radius_plus)):
+			if sim.arena.exists(h) and not h in own:
+				grown.append(h)
+		hexes = grown                                  # H41: a roared attack is BIGGER, not harder
 		flagged = false
 	if sim.has_method("telegraph"):
 		sim.call("telegraph", u.id, hexes, ticks, payload)

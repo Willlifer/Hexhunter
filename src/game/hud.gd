@@ -37,7 +37,7 @@ func _draw() -> void:
 	var cx := size.x * 0.5
 	var y := size.y - BOX - 22.0
 	# backing plate
-	var plate_w := ORB_R * 2 + GAP * 3 + BOX * 4 + GAP * 3 + 120.0
+	var plate_w := ORB_R * 2 + GAP * 3 + BOX * 4 + GAP * 3 + 200.0
 	draw_rect(Rect2(cx - plate_w * 0.5, y - 14.0, plate_w, BOX + 28.0), Color(0.05, 0.05, 0.07, 0.72))
 	# HP orb (left of the bar)
 	var ox := cx - plate_w * 0.5 + GAP + ORB_R
@@ -75,6 +75,22 @@ func _draw() -> void:
 	draw_circle(Vector2(ex + 40.0, ey + 10.0), 12.0, HHLook.element_color(str(p.backup)))
 	draw_arc(Vector2(ex + 40.0, ey + 10.0), 12.0, 0.0, TAU, 24, Color(0.8, 0.8, 0.8), 1.0)
 	_text(Vector2(ex + 20.0, y + BOX + 14.0), "%s / %s" % [p.element, p.backup], 11, Color(0.85, 0.85, 0.8), true)
+	# potions (H40): a T box right of the elements
+	var tx := ex + 70.0
+	var tr := Rect2(tx, y, BOX * 0.8, BOX)
+	draw_rect(tr, Color(0.16, 0.16, 0.2))
+	var tcd := int(p.cooldowns.get("t", 0))
+	draw_rect(Rect2(tr.position + Vector2(3, 3), tr.size - Vector2(6, 6)), Color(0.35, 0.12, 0.2))
+	if tcd > 0:
+		var tf := float(tcd) / maxf(1.0, HHTune.value("potion_cd"))
+		draw_rect(Rect2(tr.position.x, tr.position.y + tr.size.y * (1.0 - tf), tr.size.x, tr.size.y * tf), Color(0, 0, 0, 0.62))
+	draw_rect(tr, Color(0.75, 0.72, 0.6), false, 1.0)
+	_text(tr.position + Vector2(6, 18), "T", 16, Color(1, 1, 1))
+	_text(tr.get_center() + Vector2(0, 14), "x%d" % int(p.potions), 15, Color(1, 0.9, 0.7), true)
+	_text(Vector2(tr.get_center().x, tr.end.y + 14), "Potion", 11, Color(0.85, 0.85, 0.8), true)
+	if not (p.regen as Dictionary).is_empty():
+		var hm := sim.heal_mult(p)
+		_text(Vector2(ox, oy - ORB_R - 8.0), "healing x%.1f" % hm, 13, Color(0.5, 1.0, 0.6) if hm >= 1.0 else Color(1.0, 0.5, 0.5), true)
 	# stamina slot (reserved, H19)
 	draw_rect(Rect2(ox - ORB_R, y + BOX + 4.0, ORB_R * 2, 6.0), Color(0.2, 0.2, 0.25))
 	# statuses
