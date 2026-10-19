@@ -90,10 +90,10 @@ Lane F: music handoff to the author; melody is the author's.
 - Tests that cannot run headless are listed in LEDGER with the exact command.
 - Feel numbers live in one cfg and a live F1 panel.
 
-## 5. Open questions for the author (not blocking Phase 0)
-- Enclosed arena: hard wall at the hex boundary, or a soft push-back with the skirt visible?
-- Element choice: fixed per weapon loadout at the prep screen (active + backup), or any two of seven?
-- Stamina: the HUD reference mentions HP/Stamina. Does running or dodging cost stamina, or is it HP only in Phase 1?
+## 5. Open questions (resolved 2026-10-19)
+- Arena edge: hard boundary, edge hexes unwalkable (H17).
+- Element choice: any two of seven at the prep screen (H18).
+- Stamina: HP only in Phase 1, HUD slot reserved (H19).
 
 ## 6. Lanes (defined now, started only after Phase 0; not before the kickoff §7 answer)
 
