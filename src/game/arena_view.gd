@@ -1,31 +1,45 @@
 class_name HHArenaView
 extends Node3D
-## Draws an HHArena: the heightfield floor (GKMesh, Gauntlet kit materials),
-## the skirt, lighting, the painted-hex FX layers over the charge grid, and
-## the true-hex outlines. Reads the sim; never writes it.
+## Draws an HHArena: the floor (a Lane C GKAsset when one is given, else a
+## heightfield floor from GKMesh), lighting, the painted-hex FX layers over
+## the charge grid, the telegraph danger hexes, and the true-hex outlines.
+## Reads the sim; never writes it.
 
 const FX_LIFT := 0.04        # painted faces sit this far above the ground
-const OUTLINE_LIFT := 0.06
+const TG_LIFT := 0.07        # telegraphs above the paint
+const OUTLINE_LIFT := 0.09
 const TIER_RATE := 6.0       # tier fade in/out, per second
 
 var arena: HHArena
+var asset: GKAsset
 var floor_mi: MeshInstance3D
 var fx := {}                 # hex -> { face_h, face_v, mark, tier_h, tier_v, tier_m }
+var tg_pool: Array = []      # MeshInstance3D for telegraph hexes
 var true_hex: MeshInstance3D
 var dest_hex: MeshInstance3D
 var sun: DirectionalLight3D
+var _tg_mat: ShaderMaterial
 
 
-func build(a: HHArena) -> void:
+func build(a: HHArena, p_asset: GKAsset = null) -> void:
 	arena = a
+	asset = p_asset
 	for c in get_children():
 		c.queue_free()
 	fx = {}
-	_build_floor()
+	tg_pool = []
+	if asset != null:
+		var root := asset.instantiate(true)
+		root.name = "Env"
+		add_child(root)
+	else:
+		_build_floor()
 	_build_lights()
 	true_hex = _outline(HHLook.TRUE_HEX)
 	dest_hex = _outline(HHLook.DEST_HEX)
 	dest_hex.visible = false
+	_tg_mat = ShaderMaterial.new()
+	_tg_mat.shader = load("res://shaders/telegraph.gdshader")
 
 
 func _build_floor() -> void:
@@ -36,8 +50,6 @@ func _build_floor() -> void:
 	var step: float = hf.step
 	var ox: float = hf.origin[0]
 	var oz: float = hf.origin[1]
-	# subdivide each heightfield cell so hex-scale bumps read; the floor role
-	# inside the radius, the skirt role outside
 	var sub := 3
 	var fs := step / sub
 	for j in (rows - 1) * sub:
@@ -107,7 +119,7 @@ func _draw_outline(mi: MeshInstance3D, hex: Vector2i) -> void:
 	mi.visible = true
 
 
-## Per frame: the true-hex outlines and the FX layers from the sim.
+## Per frame: outlines, FX layers and telegraphs from the sim.
 func sync(sim: HHSim, player_id: String, delta: float) -> void:
 	var p := sim.unit(player_id)
 	if not p.is_empty():
@@ -118,6 +130,33 @@ func sync(sim: HHSim, player_id: String, delta: float) -> void:
 		else:
 			_draw_outline(dest_hex, path[-1])
 	_sync_fx(sim.charge, delta)
+	_sync_telegraphs(sim)
+
+
+func _sync_telegraphs(sim: HHSim) -> void:
+	var n := 0
+	for tg in sim.telegraphs:
+		var prog := 1.0 - float(tg.left) / maxf(1.0, float(tg.total))
+		for h in tg.hexes:
+			if not arena.exists(h):
+				continue
+			var mi: MeshInstance3D
+			if n < tg_pool.size():
+				mi = tg_pool[n]
+			else:
+				mi = MeshInstance3D.new()
+				mi.mesh = HHTileFX.hex_mesh()
+				mi.material_override = _tg_mat
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				add_child(mi)
+				tg_pool.append(mi)
+			mi.position = arena.world(h) + Vector3(0, TG_LIFT, 0)
+			mi.set_instance_shader_parameter("progress", prog)
+			mi.set_instance_shader_parameter("tier", 1.0)
+			mi.visible = true
+			n += 1
+	for i in range(n, tg_pool.size()):
+		(tg_pool[i] as MeshInstance3D).visible = false
 
 
 func _sync_fx(charge: HHCharge, delta: float) -> void:
@@ -132,7 +171,6 @@ func _sync_fx(charge: HHCharge, delta: float) -> void:
 		_set_face(node, "h", L.h, delta)
 		_set_face(node, "v", L.v, delta)
 		_set_mark(node, L, delta)
-	# fade out and drop what is gone
 	for hex in fx.keys():
 		if live.has(hex):
 			continue

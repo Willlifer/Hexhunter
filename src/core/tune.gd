@@ -28,6 +28,34 @@ const DEFAULTS := {
 	"burn_pct_per_s": 2.0,
 	"poison_pct_per_s": 1.5,
 	"stagger_max_ticks": 45.0,   # a full-strength hit holds you 1.5 s
+	"detonate_stagger": 0.35,    # a blast under you staggers this much (0..1)
+	"overfreeze_slow_ticks": 90.0,
+	# monsters
+	"monster_hp": 20000.0,
+	"monster_walk_ticks": 14.0,  # ticks per hex for a monster on the move (slow, weighty; H13)
+	"monster_stagger_mult": 0.5, # monsters are held half as long as players
+	# guard / leap
+	"guard_reduce": 0.7,         # Guard cuts a blocked hit by this fraction
+	"leap_height_m": 3.0,        # a vault's arc apex
+	# lance (H5): numbers for the first weapon
+	"lance_reach": 2.0,
+	"lance_basic_dmg": 60.0,
+	"lance_basic_ticks": 24.0,   # 0.8 s between basics
+	"lance_q_cd": 90.0,          # Pierce 3 s
+	"lance_q_len": 4.0,
+	"lance_q_dmg": 140.0,
+	"lance_q_stagger": 0.15,
+	"exchange_cd": 30.0,         # W 1 s
+	"lance_e_cd": 240.0,         # Guard 8 s
+	"lance_e_ticks": 60.0,       # Guard lasts 2 s
+	"lance_counter_mult": 2.0,
+	"lance_r_cd": 450.0,         # Eruption 15 s
+	"lance_r_range": 6.0,
+	"lance_r_air_ticks": 18.0,
+	"lance_r_radius": 2.0,
+	"lance_r_dmg": 260.0,
+	"lance_r_steps": 2.0,
+	"lance_r_stagger": 0.6,
 	# hp
 	"player_hp": 1000.0,
 	"ground_tick_every": 30.0,   # standing effects apply once a second

@@ -5,6 +5,7 @@ extends RefCounted
 func _sim(seed: int = 1) -> HHSim:
 	var a := HHArena.round_flat(seed, 17.5, 0.0)
 	var s := HHSim.new(a, seed)
+	s.sandbox = true
 	s.add_player("p1", Vector2i(0, 4))
 	return s
 
@@ -129,9 +130,13 @@ func test_stagger_holds(c: HHSelfTest.HHCheck) -> void:
 	for i in int(HHTune.value("stagger_max_ticks")) - 1:
 		s.step()
 	c.eq(p.hex, hex, "held in place while staggered")
+	c.ok((p.path as Array).is_empty(), "a stagger interrupts the walk")
+	for i in 3:
+		s.step()                                   # the hold runs out
+	s.step({ "p1": { "move": Vector2i(4, 4) } })
 	for i in int(HHTune.value("walk_ticks")) * 2:
 		s.step()
-	c.ok(p.hex != hex, "moves again after")
+	c.ok(p.hex != hex, "moves again after a new order")
 
 
 func test_walk_into_reach(c: HHSelfTest.HHCheck) -> void:

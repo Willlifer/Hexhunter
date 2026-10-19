@@ -3,13 +3,17 @@ extends Node
 ##   --self-test                run every tests/test_*.gd and exit (0 = green);
 ##                              report at user://self_test_report.json
 ##   --seed N                   the sim's seed (default 1)
-##   --arena <id>               round (default) or a file under arenas/<id>.json
-##   --fight <monster>          put a monster stub in the arena (Lane E fills it)
-##   --autoplay                 scripted sandbox run, then quit (the smoke test)
+##   --arena <id>               round (default) or arenas/<id>.json (rebuilt through
+##                              its generator when the file carries a "gen" block)
+##   --fight <monster>          put a monster in the arena (Lane E's brain and body
+##                              when src/monster/<monster>.gd exists, else the stub)
+##   --sandbox                  H20: left-click paints, keys 1-7 pick the element
+##   --autoplay                 scripted run, then quit (the smoke test)
 ##   --shot <dir> [--count n] [--every s]   save n rendered frames to <dir>, then quit
-##   --tune key=value           override one HHTune number this run (repeatable)
 ##   --cam dist,pitch           start the camera at this distance (m) and pitch (deg)
-## With no args (a double-clicked exe) it opens the sandbox with the Swampfang stub, wide view.
+##   --tune key=value           override one HHTune number this run (repeatable)
+##   --bench                    Lane C's arena bench (src/arena/bench/bench.gd)
+## With no args (a double-clicked exe) it opens the fight with Swampfang, wide view.
 
 const REPORT_PATH := "user://self_test_report.json"
 
@@ -24,18 +28,27 @@ func _ready() -> void:
 	if "--self-test" in args:
 		_self_test.call_deferred()
 		return
-	if args.is_empty():                                             # double-clicked: the fight sandbox, wide view
+	if "--bench" in args:
+		if ResourceLoader.exists("res://src/arena/bench/bench.gd"):
+			var s: GDScript = load("res://src/arena/bench/bench.gd")
+			s.open(get_tree())
+		else:
+			push_error("boot: no bench yet (src/arena/bench/bench.gd)")
+			get_tree().quit(2)
+		return
+	if args.is_empty():                                             # double-clicked: the fight, wide view
 		args = PackedStringArray(["--fight", "swampfang", "--cam", "34,44"])
 	var seed := int(_arg(args, "--seed", "1"))
-	var arena := _load_arena(_arg(args, "--arena", "round"), seed)
+	var loaded := _load_arena(_arg(args, "--arena", "round"), seed)
 	var fight := HHFight.new()
 	fight.name = "Fight"
+	fight.sandbox = "--sandbox" in args
 	fight.autoplay = "--autoplay" in args or "--shot" in args
 	if "--shot" in args:
 		fight.autoplay_seconds = maxf(fight.autoplay_seconds, float(_arg(args, "--count", "6")) * float(_arg(args, "--every", "1.5")) + 1.0)
 	add_child(fight)
-	fight.setup(arena, seed, _arg(args, "--fight", ""))
-	if "--cam" in args:                                          # "dist,pitch_deg" for review renders
+	fight.setup(loaded.arena, seed, _arg(args, "--fight", ""), loaded.asset)
+	if "--cam" in args:
 		var cp := _arg(args, "--cam", "18,48").split(",")
 		if cp.size() == 2:
 			fight.camera.dist = float(cp[0])
@@ -48,14 +61,26 @@ func _ready() -> void:
 		add_child(cap)
 
 
-func _load_arena(id: String, seed: int) -> HHArena:
+## { arena: HHArena, asset: GKAsset | null }. A JSON with a "gen" block is
+## rebuilt through src/arena/gen/<id>_gen.gd (build_both(params)) when that
+## script exists, so the mesh matches the underlay; else the JSON's cells
+## are used with the plain floor.
+func _load_arena(id: String, seed: int) -> Dictionary:
 	var path := "res://arenas/%s.json" % id
 	if id != "round" and FileAccess.file_exists(path):
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 		if parsed is Dictionary:
-			return HHArena.from_dict(parsed)
+			var d: Dictionary = parsed
+			if d.has("gen"):
+				var gen: Dictionary = d.gen
+				var gp := "res://src/arena/gen/%s_gen.gd" % str(gen.get("id", id))
+				if ResourceLoader.exists(gp):
+					var s: GDScript = load(gp)
+					var both: Dictionary = s.build_both(gen.get("params", {}))
+					return { "arena": both.arena, "asset": both.asset }
+			return { "arena": HHArena.from_dict(d), "asset": null }
 		push_warning("boot: arena '%s' failed to parse, using round" % id)
-	return HHArena.round_flat(seed)
+	return { "arena": HHArena.round_flat(seed), "asset": null }
 
 
 func _arg(args: PackedStringArray, key: String, fallback: String) -> String:
