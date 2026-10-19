@@ -8,14 +8,14 @@ class_name HHTune
 
 const DEFAULTS := {
 	# movement
-	"walk_ticks": 15.0,          # ticks per hex when walking (2 hexes/s, ~3.5 m/s at 1 m hexes)
-	"run_ticks": 10.0,           # ticks per hex when running
+	"walk_ticks": 10.0,          # ticks per hex when walking (3 hexes/s; author 2026-10-19: faster, H22)
+	"run_ticks": 7.0,            # ticks per hex when running
 	"max_step_m": 1.0,           # a neighbour more than this much higher or lower is a cliff
 	# charge grid (Black | White's cycles mapped onto ticks)
-	"charge_step_ticks": 90.0,   # one step of axis decay every 3 s
-	"charge_mark_ticks": 150.0,  # an unfired marker lasts 5 s
-	"charge_glaze_ticks": 120.0, # a glaze holds 4 s, decay paused under it
-	"charge_gale_ticks": 45.0,   # a gale's copies last 1.5 s
+	"charge_step_ticks": 270.0,  # one step of axis decay every 9 s (author 2026-10-19: 3x longer, H24)
+	"charge_mark_ticks": 450.0,  # an unfired marker lasts 15 s
+	"charge_glaze_ticks": 360.0, # a glaze holds 12 s, decay paused under it
+	"charge_gale_ticks": 135.0,  # a gale's copies last 4.5 s
 	# ground effects (per second while standing)
 	"fire_stand_pct": 3.0,       # per fire tier
 	"fire_cross_pct": 1.5,       # per fire tier, once per hex entered

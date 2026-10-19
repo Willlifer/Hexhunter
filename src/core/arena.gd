@@ -15,18 +15,18 @@ const HEX := 1.0
 
 var id := "round"
 var seed := 1
-var radius_m := 17.5          ## walkable floor radius
+var radius_m := 25.0          ## walkable floor radius (H23: 50 m across)
 var skirt_m := 12.0           ## scenery beyond the floor
 var cells := {}
 var hf := {}
-var spawns := { "player": [Vector2i(0, 6)], "monster": Vector2i(0, -4) }
+var spawns := { "player": [Vector2i(0, 8)], "monster": Vector2i(0, -6) }
 
 
 # ------------------------------------------------------------------ building
 
 ## A round floor of `radius_m` with a seeded gentle bump field and a rising
 ## rim beyond it. `bumps` = bump amplitude in metres (0 = flat).
-static func round_flat(p_seed: int = 1, p_radius_m: float = 17.5, bumps: float = 0.6) -> HHArena:
+static func round_flat(p_seed: int = 1, p_radius_m: float = 25.0, bumps: float = 0.6) -> HHArena:
 	var a := HHArena.new()
 	a.id = "round"
 	a.seed = p_seed
@@ -280,7 +280,7 @@ static func from_dict(d: Dictionary) -> HHArena:
 	var a := HHArena.new()
 	a.id = str(d.get("id", "round"))
 	a.seed = int(d.get("seed", 1))
-	a.radius_m = float(d.get("radius_m", 17.5))
+	a.radius_m = float(d.get("radius_m", 25.0))
 	a.skirt_m = float(d.get("skirt_m", 12.0))
 	var h: Dictionary = d.get("hf", {})
 	if not h.is_empty():

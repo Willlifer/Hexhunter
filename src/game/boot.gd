@@ -25,7 +25,7 @@ func _ready() -> void:
 		_self_test.call_deferred()
 		return
 	if args.is_empty():                                             # double-clicked: the fight sandbox, wide view
-		args = PackedStringArray(["--fight", "swampfang", "--cam", "30,42"])
+		args = PackedStringArray(["--fight", "swampfang", "--cam", "34,44"])
 	var seed := int(_arg(args, "--seed", "1"))
 	var arena := _load_arena(_arg(args, "--arena", "round"), seed)
 	var fight := HHFight.new()

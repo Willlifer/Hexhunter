@@ -1,23 +1,19 @@
 # HANDOFF
 
 ## Where
-`<repo>`, branch `dev`. No remote (H6). Godot 4.7 console binary in Downloads (CLAUDE.md).
+`<repo>`, branch `dev`. No remote (H6). Godot 4.7 console binary in Downloads (CLAUDE.md). Playable exe: `dist\Hexhunt.exe` (re-export with `godot --headless --path . --export-release "Windows Desktop" dist/Hexhunt.exe`).
 
-## Where it stands (2026-10-19)
-Phase 0 Foundation is built and green. Waiting on the author's Phase 0 gate check (LEDGER L-1).
-- import clean; `-- --self-test` 35/35 in 5 suites; `-- --fight swampfang --autoplay` clean (every reaction fires, hash printed).
-- Rendered frames: `design/art/shots/shot_00..06.png` (grass floor, hedge ring, stone skirt bowl, player capsule, monster sphere, true-hex + destination outlines, fire / glaze / dark painted hexes).
-- Core: HHHex, HHTune, HHFormulas, HHCharge (douse, fuse, glaze, gale, overheat, overfreeze), HHArena (heightfield + BFS), HHSim (30 Hz orders, glide, statuses, stagger, walk-into-reach, determinism), HHPhases.
-- View: HHArenaView (GKMesh floor, tile shaders), HHCameraRig, HHFight sandbox, HHCapture.
-- Docs: CLAUDE, PLAN, DECISIONS (H1-H21), LEDGER, guide/01-04.
+## Where it stands (2026-10-19, evening)
+Phase 0 gate passed (H26). Author's gate notes applied: walk 10 ticks/hex, run 7 (H22); arena 50 m across (H23); tile charge lasts 3x (H24); left-click becomes the auto-attack, paint stays a sandbox tool (H25). Self-test 35/35, smoke clean.
+Phase 1 is open. Lanes running in worktrees: C (pond + bench), E (rig builder + Swampfang), F (audio). Lane P (integrator) is session 0: lance kit, basic attack, HUD, F1 panel, fight.gd.
 
 ## Do this first
-1. Author: `run.bat --fight swampfang` and look at the shots. Say go, or what to change.
-2. On go: open Phase 1. Create worktrees for lanes P, C, E, F (guide/04-lanes.md). Lane P is the integrator and keeps `src/core`.
-3. Lane P's first job: the lance kit as orders (Q Pierce line, W Exchange, E Guard, R Eruption) plus the basic attack, then the HUD bar and the F1 tune panel.
+1. Lane P: `src/core/sim.gd` orders for `attack` (left-click target), `cast {skill, aim}`; lance skills as data in `src/weapons/lance.gd`; HUD bar; F1 tune panel.
+2. When a lane hands back: run its suite + the full self-test in its worktree, merge to `dev`, re-export the exe for the author.
+3. Phase 1 gate (L-7): the author plays lance vs Swampfang in the pond.
 
 ## Run
-`test.bat` (import + self-test). `run.bat [--fight swampfang] [--seed N] [--cam 30,42]`. Shots: `run.bat --fight swampfang --shot design/art/shots --cam 30,42`.
+`test.bat`. `run.bat` or `dist\Hexhunt.exe`. Shots: `run.bat --shot design/art/shots --cam 34,44`.
 
 ## Open questions
-- None blocking. Watch items in LEDGER: light's dark ring on grass (L-3), the FX cards not drawn yet (L-4).
+- None blocking. LEDGER L-3 (light ring on grass), L-4 (FX cards), L-2 (windowed checks not in CI).

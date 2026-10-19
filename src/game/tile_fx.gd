@@ -33,7 +33,7 @@ static func layers(e: Dictionary) -> Dictionary:
 	var g := int(e.get("glaze", 0))
 	if g > 0:
 		out.mark = "glaze"
-		out.crack = g <= 30
+		out.crack = g <= 60
 	return out
 
 

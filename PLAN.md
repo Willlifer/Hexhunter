@@ -1,7 +1,7 @@
 # PLAN — Hexhunt
 
 Phases with gates. The author checks each gate before the next phase starts.
-Status: **Phase 0 built and green (2026-10-19); awaiting the author's Phase 0 gate check** (LEDGER L-1). Phase 1 lanes start on go.
+Status: **Phase 0 gate passed 2026-10-19 (H26). Phase 1 First Fight in progress**: lanes P (integrator, this session), C, E, F running in worktrees.
 
 ## 0. Interview record
 
@@ -13,7 +13,7 @@ Status: **Phase 0 built and green (2026-10-19); awaiting the author's Phase 0 ga
 | d. Deliverable? | A game. |
 | e. Black \| White carry-over | Rules core (hex, formulas, tiles/charge math, phases) and meshes (Blender build scripts, base rig, weapon roster, tile shaders). |
 | g. Monster is... | A boss with phases and telegraphed moves. Light AI (calm / aggravated / threatened states), not an opponent. |
-| h. A hunt | Explore the world map, see a disturbance, monster bursts out, short cutscene, prep screen (weapon, skills, equippables, attunements), 35 x 35 m arena fight with projectiles to dodge, elements to paint, charges that interact with painted hexes, environment to exploit; victory gives equipment or a skill upgrade. |
+| h. A hunt | Explore the world map, see a disturbance, monster bursts out, short cutscene, prep screen (weapon, skills, equippables, attunements), 50 m arena fight (H23) with projectiles to dodge, elements to paint, charges that interact with painted hexes, environment to exploit; victory gives equipment or a skill upgrade. |
 | i. Smallest proof | A single fight in Godot: lance vs Swampfang in the pond (H5). That is Phase 1's gate. |
 | Elements | Black \| White's seven (H2). |
 | Map tooling | Seeded procedural generator per biome plus bench tool (H3). |
@@ -52,7 +52,7 @@ Four arenas, four monsters, three weapons with four skills each and three upgrad
 
 | Phase | Name | Mode | Gate (author checks) |
 |-------|------|------|----------------------|
-| 0 | Foundation | serial, one session | `godot --headless --path . --import` clean; `-- --self-test` exit 0 with report; an empty 35 m hex arena renders in a window with painted test hexes and the orbit camera. Doc set in place. |
+| 0 | Foundation | serial, one session | `godot --headless --path . --import` clean; `-- --self-test` exit 0 with report; an empty 50 m hex arena renders in a window with painted test hexes and the orbit camera. Doc set in place. |
 | 1 | First fight | up to 3 lanes (P, C, E) + F | Lance vs Swampfang in the pond, playable start to finish: ambush, fight with telegraphs, stagger, element painting and reactions, death/victory. Author plays it and calls the feel. |
 | 2 | Fan-out | 6 lanes (A-F) | Three weapons with all clips; four arenas; four monsters; music loops delivered. Each lane's own test green; self-test green on dev. |
 | 3 | Hunt loop and progression | 2 lanes | World map, disturbance, cutscene, prep screen, drops, three upgrade slots per skill with the kickoff examples implemented. |
