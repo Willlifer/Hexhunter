@@ -3,10 +3,11 @@ extends Node3D
 ## The orbit camera, from Black | White's BWCameraRig (itself the Temporal Sea
 ## V8 combat camera), reshaped for a third-person MMO (kickoff: "free-rotating,
 ## zoomable third-person orbit camera centred on the player, OSRS style").
-##   middle-drag or right-drag   orbit (yaw + pitch, pitch 15-80 deg)
+##   left-drag or middle-drag    orbit (yaw + pitch, pitch 15-80 deg)  (H32: left = look)
 ##   wheel                        zoom
 ##   arrow keys                   yaw (left/right) and pitch (up/down)
-##   a click without a drag       `clicked(button, screen_pos)` for HHFight
+##   a click without a drag       `clicked(button, screen_pos)` for HHFight (right = act)
+##   shake(amount)                a decaying kick on impacts
 ## The follow lags (a follow camera lags, it does not snap).
 
 signal clicked(button: int, screen_pos: Vector2)
@@ -32,6 +33,8 @@ var input_enabled := true
 var pivot_lift := 1.2         # look at the chest, not the feet
 
 var _follow_target := Vector3.ZERO
+var _shake := 0.0
+var _shake_seed := 0.0
 var _press := {}              # button -> press position
 var _dragging := false
 
@@ -72,6 +75,12 @@ func _update() -> void:
 	var dir := Vector3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch))
 	cam.position = pivot + dir * dist
 	cam.look_at(pivot, Vector3.UP)
+	if _shake > 0.001:
+		cam.position += Vector3(sin(_shake_seed * 13.1), cos(_shake_seed * 17.3), sin(_shake_seed * 7.7)) * _shake
+
+
+func shake(amount: float) -> void:
+	_shake = maxf(_shake, amount)
 
 
 func follow(p: Vector3, snap: bool = false) -> void:
@@ -98,6 +107,10 @@ func _process(delta: float) -> void:
 			pitch += p * KEY_PITCH * delta
 	if pivot.distance_to(_follow_target) > 0.002:
 		pivot = pivot.lerp(_follow_target, 1.0 - exp(-FOLLOW_LAG * delta))
+	if _shake > 0.001:
+		_shake *= exp(-9.0 * delta)
+		_shake_seed += delta * 60.0
+		_update()
 
 
 func _unhandled_input(ev: InputEvent) -> void:
@@ -121,9 +134,9 @@ func _unhandled_input(ev: InputEvent) -> void:
 					_press.erase(ev.button_index)
 					_dragging = false
 	elif ev is InputEventMouseMotion:
-		var orbit: bool = (ev.button_mask & (MOUSE_BUTTON_MASK_MIDDLE | MOUSE_BUTTON_MASK_RIGHT)) != 0
+		var orbit: bool = (ev.button_mask & (MOUSE_BUTTON_MASK_MIDDLE | MOUSE_BUTTON_MASK_LEFT)) != 0
 		if orbit:
-			var start: Vector2 = _press.get(MOUSE_BUTTON_MIDDLE, _press.get(MOUSE_BUTTON_RIGHT, ev.position))
+			var start: Vector2 = _press.get(MOUSE_BUTTON_MIDDLE, _press.get(MOUSE_BUTTON_LEFT, ev.position))
 			if _dragging or ev.position.distance_to(start) > DRAG_THRESHOLD:
 				_dragging = true
 				yaw -= ev.relative.x * YAW_PER_PX

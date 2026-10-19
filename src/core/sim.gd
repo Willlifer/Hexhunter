@@ -1,29 +1,30 @@
 class_name HHSim
 extends RefCounted
-## The fight as pure state on a fixed 30 Hz tick (H7, H8): units on a hex
-## underlay, the charge grid, telegraphs, statuses, events. No nodes. Same
-## seed + same orders = same fight (state_hash proves it), so co-op is
-## lockstep wiring later and replays are free. HHFight draws it and feeds it
-## orders; monster brains (Lane E) are objects in `brains` ticked here.
+## The fight as pure state on a fixed 30 Hz tick (H7, H8). No nodes. Same
+## seed + same orders = same fight (state_hash proves it). HHFight draws it
+## and feeds it orders; monster brains (Lane E) are objects in `brains`.
 ##
-## A unit: { id, kind: "player" | "monster", hex: Vector2i, pos: Vector3 (the
-##   glide, world), prev: Vector2i, progress: 0..1 along the current step,
-##   path: Array[Vector2i], facing: float (rad), hp, max_hp, element, backup,
-##   reach: int (hexes), size: int (footprint radius, monsters), run: bool,
-##   target: id | "", stagger: ticks, statuses: { name: { ticks } },
-##   cooldowns: { q, w, e, r, basic } ticks, crossed: Vector2i,
-##   weapon: "lance" | ..., attacking: bool (auto-attack intent),
-##   guard: ticks of Guard left, leap: {} | { to, ticks, total, on_land },
-##   allowed_kinds: [] (walkable rule) | [kinds] (monsters: where they may step),
-##   untargetable: bool (a dive, a vault), resist: { element: pct } }
+## Movement (H31): PLAYERS move freely on a continuous world position. The
+## hex underlay routes them around obstacles (a BFS path of waypoints that is
+## string-pulled so straight runs stay straight) and decides what hits them:
+## `u.hex` is always the hex under `u.pos`. Attacks originate from and land
+## on hexes. MONSTERS keep the hex-to-hex glide (slow, heavy, readable).
+## Players run by default (H37); `run: false` is the walk.
+##
+## A unit: { id, kind, hex, pos: Vector3, prev, progress (monsters), path:
+##   Array[Vector2i] (waypoints), goal_pos: Vector3 (players: the exact point
+##   clicked, NO_POS = none), facing, hp, max_hp, element, backup, reach, size,
+##   run, target, attacking, stagger, statuses, cooldowns { q w e r basic },
+##   crossed, weapon, guard, leap, windup { left, total, kind, data },
+##   allowed_kinds, untargetable, resist }
 ##
 ## Orders per unit per tick (all optional):
-##   { move: Vector2i, stop: true, target: id ("" clears), attack: true
-##     (target + auto-attack, H25), run: bool, swap: true (W),
-##     cast: { skill: "q" | "e" | "r", aim: Vector2i },
-##     paint: { element, hex, steps } (sandbox only, H20) }
+##   { move: Vector2i, move_pos: Vector3 (the exact point), stop: true,
+##     target: id, attack: true (right-click on the monster, H32), run: bool,
+##     swap: true, cast: { skill, aim: Vector2i }, paint: {...} (sandbox) }
 
 const TICK := 1.0 / 30.0
+const NO_POS := Vector3(INF, INF, INF)
 
 var rng := RandomNumberGenerator.new()
 var seed := 1
@@ -31,12 +32,12 @@ var tick := 0
 var arena: HHArena
 var charge: HHCharge
 var units := {}
-var order: Array = []          # unit ids in insertion order (deterministic iteration)
-var brains := {}               # unit id -> Object with tick(sim, u)
-var telegraphs: Array = []     # { id, owner, hexes, left, total, payload }
-var events: Array = []         # this tick's events
-var over := ""                 # "" | "win" | "dead"
-var sandbox := false           # H20: paint orders allowed
+var order: Array = []
+var brains := {}
+var telegraphs: Array = []
+var events: Array = []
+var over := ""
+var sandbox := false
 var _next_tg := 1
 
 
@@ -57,10 +58,10 @@ func add_player(id: String, hex: Vector2i, element: String = "fire", backup: Str
 	u.backup = backup
 	u.weapon = weapon
 	u.reach = HHWeapons.reach(weapon)
+	u.run = true
 	return u
 
 
-## A monster: a footprint and HP; Lane E's brain and body give it life.
 func add_monster(id: String, hex: Vector2i, hp: float = 20000.0, size: int = 2, allowed_kinds: Array = []) -> Dictionary:
 	var u := _unit(id, "monster", hex)
 	u.max_hp = hp
@@ -74,10 +75,10 @@ func add_monster(id: String, hex: Vector2i, hp: float = 20000.0, size: int = 2, 
 func _unit(id: String, kind: String, hex: Vector2i) -> Dictionary:
 	var u := {
 		"id": id, "kind": kind, "hex": hex, "prev": hex, "progress": 0.0, "path": [] as Array[Vector2i],
-		"pos": arena.stand(hex), "facing": 0.0, "hp": 1.0, "max_hp": 1.0, "element": "", "backup": "",
-		"reach": 1, "size": 0, "run": false, "target": "", "stagger": 0, "statuses": {},
-		"cooldowns": { "q": 0, "w": 0, "e": 0, "r": 0, "basic": 0 }, "crossed": hex,
-		"weapon": "", "attacking": false, "guard": 0, "leap": {}, "allowed_kinds": [],
+		"goal_pos": NO_POS, "pos": arena.stand(hex), "facing": 0.0, "hp": 1.0, "max_hp": 1.0,
+		"element": "", "backup": "", "reach": 1, "size": 0, "run": false, "target": "", "attacking": false,
+		"stagger": 0, "statuses": {}, "cooldowns": { "q": 0, "w": 0, "e": 0, "r": 0, "basic": 0 },
+		"crossed": hex, "weapon": "", "guard": 0, "leap": {}, "windup": {}, "allowed_kinds": [],
 		"untargetable": false, "resist": {},
 	}
 	units[id] = u
@@ -105,15 +106,14 @@ func targetable(u: Dictionary) -> bool:
 	return alive(u) and not bool(u.untargetable)
 
 
-## Hexes a monster's body covers: walls for everyone else.
 func footprint(u: Dictionary) -> Array:
 	if int(u.size) <= 0:
 		return [u.hex]
 	return HHHex.area(u.hex, int(u.size))
 
 
-## Walls for `me` this tick: living monsters' footprints (not its own), plus
-## for a monster the cells outside its allowed kinds.
+## Walls for `me`: living monsters' footprints (not its own) plus, for a
+## monster, the cells outside its allowed kinds.
 func blocked_for(me: Dictionary) -> Dictionary:
 	var b := {}
 	for id in order:
@@ -141,7 +141,6 @@ func unit_at(hex: Vector2i) -> Array:
 	return out
 
 
-## The footprint hex of `t` nearest to `from` (where a blow lands).
 func nearest_hex_of(t: Dictionary, from: Vector2i) -> Vector2i:
 	var best: Vector2i = t.hex
 	var bd := HHHex.distance(from, best)
@@ -153,10 +152,21 @@ func nearest_hex_of(t: Dictionary, from: Vector2i) -> Vector2i:
 	return best
 
 
+## Every targetable unit standing in `hexes` (footprints count), except `skip`.
+func units_in(hexes: Array, skip: String = "") -> Array:
+	var seen := {}
+	var out: Array = []
+	for h in hexes:
+		for u in unit_at(h):
+			if u.id == skip or seen.has(u.id) or not targetable(u):
+				continue
+			seen[u.id] = true
+			out.append(u)
+	return out
+
+
 # ------------------------------------------------------------------ the tick
 
-## One tick: orders, brains, movement, telegraphs, attacks, ground, charge
-## decay, statuses. Returns the events it raised.
 func step(orders: Dictionary = {}) -> Array:
 	events = []
 	if over != "":
@@ -173,7 +183,11 @@ func step(orders: Dictionary = {}) -> Array:
 	for id in order:
 		var u: Dictionary = units[id]
 		if alive(u):
-			_walk(u)
+			_windup(u)
+			if u.kind == "player":
+				_walk_free(u)
+			else:
+				_walk_hex(u)
 	_telegraphs()
 	for id in order:
 		var u: Dictionary = units[id]
@@ -202,10 +216,14 @@ func _emit(e: Dictionary) -> void:
 	events.append(e)
 
 
+## Committed to an action (wind-up, vault, stagger, paralysis): no new moves.
+func held(u: Dictionary) -> bool:
+	return int(u.stagger) > 0 or _paralysed(u) or not (u.leap as Dictionary).is_empty() or not (u.windup as Dictionary).is_empty()
+
+
 func _orders(u: Dictionary, o: Dictionary) -> void:
-	var held := int(u.stagger) > 0 or _paralysed(u) or not (u.leap as Dictionary).is_empty()
 	if o.get("stop", false):
-		u.path = [] as Array[Vector2i]
+		_stop(u)
 		u.target = ""
 		u.attacking = false
 	if o.has("run"):
@@ -216,19 +234,22 @@ func _orders(u: Dictionary, o: Dictionary) -> void:
 		if u.target == "":
 			u.attacking = false
 	if o.get("attack", false) and u.target != "":
-		u.attacking = true                                   # H25: left-click = auto-attack
-		u.path = [] as Array[Vector2i]
-	if o.has("move") and not held:
+		u.attacking = true
+		_stop(u)
+	if o.has("move") and not held(u):
 		var goal: Vector2i = o.move
 		var blocked := blocked_for(u)
 		var dest := arena.nearest_walkable(u.hex, goal, blocked)
 		u.target = ""
 		u.attacking = false
-		_set_path(u, arena.path(u.hex, dest, blocked))
+		var exact: Vector3 = o.get("move_pos", NO_POS)
+		if dest != goal:
+			exact = NO_POS
+		_set_route(u, arena.path(u.hex, dest, blocked), exact)
 		_emit({ "type": "move", "id": u.id, "to": dest })
-	if o.get("swap", false) and u.kind == "player":
+	if o.get("swap", false) and u.kind == "player" and not held(u):
 		HHWeapons.cast(self, u, "w", u.hex)
-	if o.has("cast") and u.kind == "player" and not held:
+	if o.has("cast") and u.kind == "player" and not held(u):
 		var cst: Dictionary = o.cast
 		HHWeapons.cast(self, u, str(cst.get("skill", "")), cst.get("aim", u.hex))
 	if o.has("paint") and sandbox:
@@ -236,9 +257,24 @@ func _orders(u: Dictionary, o: Dictionary) -> void:
 		paint([p.hex], str(p.element), u.id, int(p.get("steps", 1)))
 
 
-func _set_path(u: Dictionary, p: Array[Vector2i]) -> void:
-	# keep the glide continuous: if mid-step, finish the current step first
-	if int(u.progress * 1000.0) > 0 and not (u.path as Array).is_empty():
+func _stop(u: Dictionary) -> void:
+	u.goal_pos = NO_POS
+	if u.kind == "player":
+		u.path = [] as Array[Vector2i]
+	elif not (u.path as Array).is_empty() and int(float(u.progress) * 1000.0) > 0:
+		var first: Vector2i = u.path[0]
+		var np: Array[Vector2i] = [first]
+		u.path = np                                  # a monster lands on the hex it glides to
+	else:
+		u.path = [] as Array[Vector2i]
+
+
+func _set_route(u: Dictionary, p: Array[Vector2i], exact: Vector3 = NO_POS) -> void:
+	if u.kind == "player":
+		u.path = p
+		u.goal_pos = exact
+		return
+	if int(float(u.progress) * 1000.0) > 0 and not (u.path as Array).is_empty():
 		var first: Vector2i = u.path[0]
 		var np: Array[Vector2i] = [first]
 		np.append_array(arena.path(first, p[-1] if not p.is_empty() else first, blocked_for(u)))
@@ -253,7 +289,6 @@ func _paralysed(u: Dictionary) -> bool:
 
 
 ## CONTRACT for brains: walk a monster toward `goal` over its allowed kinds.
-## Returns false when no path exists.
 func monster_move(u: Dictionary, goal: Vector2i) -> bool:
 	var blocked := blocked_for(u)
 	var dest := arena.nearest_walkable(u.hex, goal, blocked)
@@ -261,43 +296,112 @@ func monster_move(u: Dictionary, goal: Vector2i) -> bool:
 	if p.is_empty():
 		u.path = [] as Array[Vector2i]
 		return false
-	_set_path(u, p)
+	_set_route(u, p)
 	return true
 
 
-func _walk(u: Dictionary) -> void:
+# ------------------------------------------------------------------ movement
+
+## Can a unit run straight from hex a to hex b? Every hex on the line is
+## walkable, not blocked, and no cliff step.
+func clear_line(a: Vector2i, b: Vector2i, blocked: Dictionary) -> bool:
+	var line := HHHex.line(a, b)
+	var max_step := HHTune.value("max_step_m")
+	for i in line.size():
+		var h: Vector2i = line[i]
+		if not arena.walkable(h) or blocked.has(h):
+			return false
+		if i > 0 and absf(arena.hex_height(h) - arena.hex_height(line[i - 1])) > max_step:
+			return false
+	return true
+
+
+func _walk_free(u: Dictionary) -> void:
 	if not (u.leap as Dictionary).is_empty():
 		_leap(u)
 		return
 	if int(u.stagger) > 0:
 		u.stagger = int(u.stagger) - 1
 		return
-	if _paralysed(u):
+	if _paralysed(u) or not (u.windup as Dictionary).is_empty():
 		return
-	# walk into range of the target (OSRS style)
-	if u.target != "" and (u.path as Array).is_empty():
+	var blocked := blocked_for(u)
+	# walk into range of the target
+	if u.target != "" and (u.path as Array).is_empty() and (u.goal_pos as Vector3) == NO_POS:
 		var t := unit(u.target)
-		if t.is_empty() or not targetable(t):
-			if t.is_empty() or not alive(t):
-				u.target = ""
-				u.attacking = false
-		elif HHHex.distance(u.hex, t.hex) > int(u.reach) + int(t.size):
-			var p := arena.path_to_reach(u.hex, t.hex, int(u.reach) + int(t.size), blocked_for(u))
-			if not p.is_empty():
-				u.path = p
-				u.progress = 0.0
+		if t.is_empty() or not alive(t):
+			u.target = ""
+			u.attacking = false
+		elif targetable(t) and HHHex.distance(u.hex, t.hex) > int(u.reach) + int(t.size):
+			u.path = arena.path_to_reach(u.hex, t.hex, int(u.reach) + int(t.size), blocked)
+	var path: Array = u.path
+	var goal: Vector3 = u.goal_pos
+	if path.is_empty() and goal == NO_POS:
+		if u.target != "" and units.has(u.target):
+			_face_pos(u, unit(u.target).pos)
+		return
+	# string-pull: skip waypoints while the straight run to a later one is clear
+	while path.size() >= 2 and clear_line(u.hex, path[1], blocked):
+		path.pop_front()
+	if path.size() == 1 and goal != NO_POS and clear_line(u.hex, arena.from_world(goal), blocked):
+		path.pop_front()
+	var target: Vector3
+	if path.is_empty():
+		target = goal
+	else:
+		target = arena.stand(path[0])
+		if path.size() == 1 and goal != NO_POS and arena.from_world(goal) == path[0]:
+			target = goal
+	var mps := HHTune.value("run_mps") if u.run else HHTune.value("walk_mps")
+	var step := mps * charge.move_mult(u.hex, u.id) * TICK
+	var from: Vector3 = u.pos
+	var flat := Vector3(target.x - from.x, 0.0, target.z - from.z)
+	var dist := flat.length()
+	var next: Vector3
+	if dist <= step:
+		next = target
+	else:
+		next = from + flat / dist * step
+	var nh := arena.from_world(next)
+	if nh != u.hex and (not arena.walkable(nh) or blocked.has(nh) or absf(arena.hex_height(nh) - arena.hex_height(u.hex)) > HHTune.value("max_step_m")):
+		_stop(u)                                      # the edge, a cliff, the monster's body
+		_emit({ "type": "blocked", "id": u.id, "hex": nh })
+		return
+	next.y = arena.stand(nh).y
+	if dist > 1e-4:
+		u.facing = atan2(flat.x, flat.z)
+	u.pos = next
+	if nh != u.hex:
+		u.prev = u.hex
+		u.hex = nh
+		_enter(u, nh)
+	if dist <= step:
+		if not path.is_empty():
+			path.pop_front()
+		if path.is_empty():
+			u.goal_pos = NO_POS
+			_emit({ "type": "arrive", "id": u.id, "hex": u.hex })
+
+
+func _walk_hex(u: Dictionary) -> void:
+	if not (u.leap as Dictionary).is_empty():
+		_leap(u)
+		return
+	if int(u.stagger) > 0:
+		u.stagger = int(u.stagger) - 1
+		return
+	if _paralysed(u) or not (u.windup as Dictionary).is_empty():
+		return
 	if (u.path as Array).is_empty():
 		u.pos = arena.stand(u.hex)
 		u.progress = 0.0
 		if u.target != "" and units.has(u.target):
-			_face(u, unit(u.target).hex)
+			_face_pos(u, unit(u.target).pos)
 		return
 	var next: Vector2i = u.path[0]
-	var ticks := HHTune.value("run_ticks") if u.run else HHTune.value("walk_ticks")
-	if u.kind == "monster":
-		ticks = float(u.get("walk_ticks", HHTune.value("monster_walk_ticks")))   # a brain may set its own pace
-	u.progress = float(u.progress) + charge.move_mult(u.hex) / ticks
-	if float(u.progress) >= 1.0 - 1e-6:          # float accumulation must not cost a tick
+	var ticks := float(u.get("walk_ticks", HHTune.value("monster_walk_ticks")))
+	u.progress = float(u.progress) + charge.move_mult(u.hex, u.id) / ticks
+	if float(u.progress) >= 1.0 - 1e-6:
 		u.progress = 0.0
 		u.prev = u.hex
 		u.hex = next
@@ -315,19 +419,20 @@ func _walk(u: Dictionary) -> void:
 
 
 func _face(u: Dictionary, toward: Vector2i) -> void:
-	var a := arena.stand(u.hex)
-	var b := arena.stand(toward)
-	var d := b - a
-	if d.length_squared() > 1e-6:
+	_face_pos(u, arena.stand(toward))
+
+
+func _face_pos(u: Dictionary, p: Vector3) -> void:
+	var d := p - (u.pos as Vector3)
+	if Vector2(d.x, d.z).length_squared() > 1e-6:
 		u.facing = atan2(d.x, d.z)
 
 
-## A vault (lance R): the unit flies to `to` over `total` ticks, untargetable,
-## then `on_land` (a Callable taking the sim and the unit) fires.
+## A vault (lance R): the unit flies to `to` over `total` ticks, untargetable.
 func begin_leap(u: Dictionary, to: Vector2i, total: int, on_land: Callable) -> void:
-	u.path = [] as Array[Vector2i]
+	_stop(u)
 	u.progress = 0.0
-	u.leap = { "from": u.hex, "to": to, "ticks": 0, "total": maxi(1, total), "on_land": on_land }
+	u.leap = { "from": u.pos, "to": to, "ticks": 0, "total": maxi(1, total), "on_land": on_land }
 	u.untargetable = true
 	_face(u, to)
 	_emit({ "type": "leap", "id": u.id, "to": to, "ticks": total })
@@ -337,12 +442,12 @@ func _leap(u: Dictionary) -> void:
 	var L: Dictionary = u.leap
 	L.ticks = int(L.ticks) + 1
 	var t := float(L.ticks) / float(L.total)
-	var a := arena.stand(L.from)
+	var a: Vector3 = L.from
 	var b := arena.stand(L.to)
 	u.pos = a.lerp(b, t) + Vector3(0, HHTune.value("leap_height_m") * 4.0 * t * (1.0 - t), 0)
 	if int(L.ticks) >= int(L.total):
+		u.prev = u.hex
 		u.hex = L.to
-		u.prev = L.from
 		u.pos = b
 		u.leap = {}
 		u.untargetable = false
@@ -352,19 +457,41 @@ func _leap(u: Dictionary) -> void:
 			(L.on_land as Callable).call(self, u)
 
 
-## Entering a hex: crossing fire burns once.
+## A committed action: `ticks` of wind-up, then `on_done.call(sim, u, data)`.
+## The unit cannot move or start another action meanwhile (H34).
+func begin_windup(u: Dictionary, kind: String, ticks: int, data: Dictionary, on_done: Callable) -> void:
+	u.windup = { "left": maxi(1, ticks), "total": maxi(1, ticks), "kind": kind, "data": data, "on_done": on_done }
+	_emit({ "type": "windup", "id": u.id, "kind": kind, "ticks": ticks })
+
+
+func _windup(u: Dictionary) -> void:
+	var w: Dictionary = u.windup
+	if w.is_empty():
+		return
+	if int(u.stagger) > 0:
+		u.windup = {}                                 # a hit breaks the wind-up
+		_emit({ "type": "windup_broken", "id": u.id, "kind": str(w.kind) })
+		return
+	w.left = int(w.left) - 1
+	if int(w.left) > 0:
+		return
+	u.windup = {}
+	(w.on_done as Callable).call(self, u, w.data)
+
+
 func _enter(u: Dictionary, hex: Vector2i) -> void:
 	var pct := charge.crossing_pct(hex)
-	if pct > 0.0 and u.crossed != hex:
+	if pct > 0.0 and u.crossed != hex and not charge.owned_by(hex, u.id):
 		hurt(u, HHFormulas.tile_damage(u.max_hp, pct, resist_of(u, "fire")).value, "fire_cross")
 	u.crossed = hex
 
 
 func _ground(u: Dictionary) -> void:
 	var s := charge.standing(u.hex)
-	if float(s.fire) > 0.0:
+	var mine: bool = str(s.source) == u.id                 # H33: your own element never hurts you
+	if float(s.fire) > 0.0 and not mine:
 		hurt(u, HHFormulas.tile_damage(u.max_hp, float(s.fire), resist_of(u, "fire")).value, "fire")
-	if float(s.drain) > 0.0:
+	if float(s.drain) > 0.0 and not mine:
 		hurt(u, HHFormulas.tile_damage(u.max_hp, float(s.drain), resist_of(u, "dark")).value, "dark")
 	if float(s.heal) > 0.0:
 		heal(u, HHFormulas.tile_damage(u.max_hp, float(s.heal)).value, "light")
@@ -388,11 +515,11 @@ func resist_of(u: Dictionary, element: String) -> float:
 
 # ------------------------------------------------------------------ attacks
 
-## H25: the auto-attack. In reach of a targetable target with the basic
-## cooldown down: a weapon blow that also lays one step of the active element
-## on the hex it lands on (H27).
+## The auto-attack (H25, H32): in reach of a targetable target with the basic
+## cooldown down, wind up (lance_basic_windup), then strike: a blow that
+## also lays one step of the active element on the hex it lands on (H27).
 func _auto_attack(u: Dictionary) -> void:
-	if not bool(u.attacking) or u.target == "" or int(u.stagger) > 0 or _paralysed(u) or not (u.leap as Dictionary).is_empty():
+	if not bool(u.attacking) or u.target == "" or held(u):
 		return
 	var t := unit(u.target)
 	if t.is_empty() or not targetable(t):
@@ -402,9 +529,19 @@ func _auto_attack(u: Dictionary) -> void:
 	if int(u.cooldowns.basic) > 0:
 		return
 	u.cooldowns.basic = int(HHWeapons.basic_ticks(u.weapon))
+	_face_pos(u, t.pos)
+	begin_windup(u, "basic", int(HHWeapons.basic_windup(u.weapon)), { "target": t.id }, Callable(self, "_basic_land"))
+
+
+func _basic_land(_sim: HHSim, u: Dictionary, data: Dictionary) -> void:
+	var t := unit(str(data.target))
+	if t.is_empty() or not targetable(t):
+		return
+	if HHHex.distance(u.hex, t.hex) > int(u.reach) + int(t.size) + 1:
+		_emit({ "type": "miss", "id": u.id, "target": t.id })
+		return
 	var hex := nearest_hex_of(t, u.hex)
-	_face(u, hex)
-	strike(u, t, HHWeapons.basic_damage(u.weapon), hex, "basic")
+	strike(u, t, HHWeapons.basic_damage(u.weapon), hex, "basic", HHTune.value("basic_stagger"))
 	paint([hex], u.element, u.id, 1)
 
 
@@ -421,26 +558,8 @@ func strike(u: Dictionary, t: Dictionary, base: float, hex: Vector2i, cause: Str
 	return dmg
 
 
-## Every targetable unit standing in `hexes` (footprints count), except `skip`.
-func units_in(hexes: Array, skip: String = "") -> Array:
-	var seen := {}
-	var out: Array = []
-	for h in hexes:
-		for u in unit_at(h):
-			if u.id == skip or seen.has(u.id) or not targetable(u):
-				continue
-			seen[u.id] = true
-			out.append(u)
-	return out
-
-
 # ------------------------------------------------------------------ telegraphs
 
-## CONTRACT for brains: a danger shape. The view draws `hexes` for `ticks`;
-## then the payload lands on every unit in them (not the owner):
-##   { dmg_pct, element, paint_steps, status, status_ticks, stagger 0..1,
-##     clip, name, self_hit }
-## Returns the telegraph id.
 func telegraph(owner: String, hexes: Array, ticks: int, payload: Dictionary = {}) -> int:
 	var id := _next_tg
 	_next_tg += 1
@@ -465,6 +584,7 @@ func _resolve_telegraph(tg: Dictionary) -> void:
 	var p: Dictionary = tg.payload
 	var owner := unit(str(tg.owner))
 	var hit: Array = []
+	var cause := str(p.get("name", p.get("clip", "telegraph")))
 	for u in units_in(tg.hexes, "" if bool(p.get("self_hit", false)) else str(tg.owner)):
 		var pct := float(p.get("dmg_pct", 0.0))
 		var el := str(p.get("element", ""))
@@ -473,18 +593,17 @@ func _resolve_telegraph(tg: Dictionary) -> void:
 			if int(u.guard) > 0:
 				dmg *= 1.0 - HHTune.value("guard_reduce")
 				_guard_counter(u, owner)
-				hurt(u, dmg, str(p.get("name", p.get("clip", "telegraph"))), 0.0)
+				hurt(u, dmg, cause, 0.0)
 			else:
-				hurt(u, dmg, str(p.get("name", p.get("clip", "telegraph"))), float(p.get("stagger", 0.0)))
+				hurt(u, dmg, cause, float(p.get("stagger", 0.0)))
 		if str(p.get("status", "")) != "" and int(u.guard) <= 0:
 			apply_status(u, str(p.status), int(p.get("status_ticks", 90)))
 		hit.append(u.id)
 	if str(p.get("element", "")) != "" and int(p.get("paint_steps", 0)) > 0:
 		paint(tg.hexes, str(p.element), str(tg.owner), int(p.paint_steps))
-	_emit({ "type": "telegraph_end", "id": tg.id, "owner": tg.owner, "hexes": tg.hexes, "hit": hit, "name": str(p.get("name", "")) })
+	_emit({ "type": "telegraph_end", "id": tg.id, "owner": tg.owner, "hexes": tg.hexes, "hit": hit, "name": cause })
 
 
-## Lance E: a blocked hit answers with a stronger Pierce toward the attacker.
 func _guard_counter(u: Dictionary, attacker: Dictionary) -> void:
 	if attacker.is_empty() or not alive(attacker):
 		return
@@ -495,19 +614,20 @@ func _guard_counter(u: Dictionary, attacker: Dictionary) -> void:
 
 # ------------------------------------------------------------------ ground
 
-## Lay `element` on `hexes` as `caster` and resolve what the ground did.
+## Lay `element` on `hexes` as `caster` and resolve what the ground did. The
+## caster is immune to its own blasts and bursts (H33).
 func paint(hexes: Array, element: String, caster: String, steps: int = 1, fresh: bool = true) -> Dictionary:
 	var r := charge.apply(hexes, element, caster, steps, fresh)
 	_emit({ "type": "paint", "id": caster, "element": element, "hexes": hexes.duplicate(), "changed": r.changed.duplicate() })
 	for d in r.detonations:
-		_blast(d.hex, float(d.pct), HHFormulas.detonation_ring_pct(float(d.pct)).value, "detonate", d.mix)
+		_blast(d.hex, float(d.pct), HHFormulas.detonation_ring_pct(float(d.pct)).value, "detonate", d.mix, str(d.source))
 	for o in r.overheat:
 		_emit({ "type": "overheat", "hex": o.hex, "ring": o.ring })
-		for u in units_in(o.ring):
+		for u in units_in(o.ring, str(o.source)):
 			hurt(u, HHFormulas.tile_damage(u.max_hp, float(o.pct), resist_of(u, "fire")).value, "overheat")
 	for o in r.overfreeze:
 		_emit({ "type": "overfreeze", "hex": o.hex, "ring": o.ring })
-		for u in units_in([o.hex] + o.ring):
+		for u in units_in([o.hex] + o.ring, str(o.source)):
 			hurt(u, HHFormulas.tile_damage(u.max_hp, float(o.pct), resist_of(u, "ice")).value, "overfreeze")
 			apply_status(u, "slow", int(HHTune.value("overfreeze_slow_ticks")))
 	for g in r.gales:
@@ -517,17 +637,17 @@ func paint(hexes: Array, element: String, caster: String, steps: int = 1, fresh:
 	return r
 
 
-func _blast(hex: Vector2i, pct: float, ring_pct: float, cause: String, mix: Dictionary) -> void:
+func _blast(hex: Vector2i, pct: float, ring_pct: float, cause: String, mix: Dictionary, source: String) -> void:
 	_emit({ "type": "detonate", "hex": hex, "pct": pct, "mix": mix })
 	var hit := {}
 	for u in unit_at(hex):
-		if not targetable(u):
+		if not targetable(u) or u.id == source:
 			continue
 		hit[u.id] = true
 		hurt(u, HHFormulas.tile_damage(u.max_hp, pct, resist_of(u, "thunder")).value, cause, HHTune.value("detonate_stagger"))
 	for n in arena.ring(hex, 1):
 		for u in unit_at(n):
-			if not hit.has(u.id) and targetable(u):
+			if not hit.has(u.id) and targetable(u) and u.id != source:
 				hit[u.id] = true
 				hurt(u, HHFormulas.tile_damage(u.max_hp, ring_pct, resist_of(u, "thunder")).value, cause)
 
@@ -542,12 +662,13 @@ func hurt(u: Dictionary, amount: float, cause: String, stagger: float = 0.0) -> 
 			st = int(float(st) * HHTune.value("monster_stagger_mult"))
 		if st > int(u.stagger):
 			u.stagger = st
-			u.path = [] as Array[Vector2i]
+			_stop(u)
 			_emit({ "type": "stagger", "id": u.id, "ticks": st })
 	_emit({ "type": "hurt", "id": u.id, "amount": amount, "cause": cause, "hp": u.hp })
 	if float(u.hp) <= 0.0:
-		u.path = [] as Array[Vector2i]
+		_stop(u)
 		u.leap = {}
+		u.windup = {}
 		u.untargetable = false
 		_emit({ "type": "death", "id": u.id, "cause": cause })
 
@@ -580,13 +701,13 @@ func _check_over() -> void:
 
 # ------------------------------------------------------------------ replay checks
 
-## A hash of everything that matters: equal for equal seeds and orders.
 func state_hash() -> int:
 	var parts := PackedStringArray()
 	parts.append(str(tick))
 	for id in order:
 		var u: Dictionary = units[id]
-		parts.append("%s:%s:%d:%.3f:%s:%d:%d" % [id, u.hex, int(u.hp), float(u.progress), u.element, int(u.stagger), int(u.guard)])
+		var p: Vector3 = u.pos
+		parts.append("%s:%s:%d:%.2f,%.2f:%s:%d:%d" % [id, u.hex, int(u.hp), p.x, p.z, u.element, int(u.stagger), int(u.guard)])
 	var keys := charge.entries.keys()
 	keys.sort()
 	for h in keys:

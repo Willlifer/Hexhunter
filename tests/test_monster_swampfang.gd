@@ -152,7 +152,7 @@ func test_attacks_and_fallback_telegraph(c: HHSelfTest.HHCheck) -> void:
 		c.ok(not (a.hexes as Array).is_empty(), "%s has a danger shape" % a.clip)
 		for h in a.hexes:
 			c.ok(HHHex.distance(m.hex, h) > int(m.size) or a.clip == "surface_lunge", "%s never targets its own footprint" % a.clip)
-		c.ok(a.ticks >= 24 and a.ticks <= 48, "%s telegraph window 24-48 ticks (%d)" % [a.clip, a.ticks])
+		c.ok(a.ticks >= int(HHSwampfang.TUNE.telegraph_min_ticks) and a.ticks <= int(HHSwampfang.TUNE.telegraph_max_ticks), "%s telegraph window inside TUNE (%d)" % [a.clip, a.ticks])
 
 
 func test_cadence(c: HHSelfTest.HHCheck) -> void:

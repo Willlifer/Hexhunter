@@ -5,7 +5,7 @@ class_name HHWeapons
 ## `counter(sim, u, attacker)`. Numbers live in HHTune under `<weapon>_*`.
 ## Lane A/B add daggers and bow here in Phase 2.
 
-const WEAPONS := { "lance": "res://src/weapons/lance.gd" }
+const WEAPONS := { "lance": "res://src/weapons/lance.gd", "daggers": "res://src/weapons/daggers.gd", "bow": "res://src/weapons/bow.gd" }
 
 static var _cache := {}
 
@@ -14,7 +14,7 @@ static func script(weapon: String) -> GDScript:
 	if _cache.has(weapon):
 		return _cache[weapon]
 	var path: String = WEAPONS.get(weapon, "")
-	var s: GDScript = load(path) if path != "" else null
+	var s: GDScript = load(path) if path != "" and ResourceLoader.exists(path) else null
 	_cache[weapon] = s
 	return s
 
@@ -27,6 +27,11 @@ static func reach(weapon: String) -> int:
 static func basic_damage(weapon: String) -> float:
 	var s := script(weapon)
 	return float(s.basic().damage) if s != null else 10.0
+
+
+static func basic_windup(weapon: String) -> int:
+	var s := script(weapon)
+	return int(s.basic().get("windup", 0)) if s != null else 0
 
 
 static func basic_ticks(weapon: String) -> int:

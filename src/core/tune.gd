@@ -8,14 +8,16 @@ class_name HHTune
 
 const DEFAULTS := {
 	# movement
-	"walk_ticks": 10.0,          # ticks per hex when walking (3 hexes/s; author 2026-10-19: faster, H22)
-	"run_ticks": 7.0,            # ticks per hex when running
+	"walk_mps": 5.5,             # players move freely (H31): metres per second walking
+	"run_mps": 8.0,              # ... and running
+	"walk_ticks": 10.0,          # legacy hex pace (tests, tools); players no longer use it
+	"run_ticks": 7.0,
 	"max_step_m": 1.0,           # a neighbour more than this much higher or lower is a cliff
 	# charge grid (Black | White's cycles mapped onto ticks)
-	"charge_step_ticks": 270.0,  # one step of axis decay every 9 s (author 2026-10-19: 3x longer, H24)
-	"charge_mark_ticks": 450.0,  # an unfired marker lasts 15 s
-	"charge_glaze_ticks": 360.0, # a glaze holds 12 s, decay paused under it
-	"charge_gale_ticks": 135.0,  # a gale's copies last 4.5 s
+	"charge_step_ticks": 810.0,  # one step of axis decay every 27 s (author: 3x longer again, H35)
+	"charge_mark_ticks": 1350.0, # an unfired marker lasts 45 s
+	"charge_glaze_ticks": 1080.0,# a glaze holds 36 s, decay paused under it
+	"charge_gale_ticks": 405.0,  # a gale's copies last 13.5 s
 	# ground effects (per second while standing)
 	"fire_stand_pct": 3.0,       # per fire tier
 	"fire_cross_pct": 1.5,       # per fire tier, once per hex entered
@@ -39,25 +41,28 @@ const DEFAULTS := {
 	"leap_height_m": 3.0,        # a vault's arc apex
 	# lance (H5): numbers for the first weapon
 	"lance_reach": 2.0,
-	"lance_basic_dmg": 60.0,
-	"lance_basic_ticks": 24.0,   # 0.8 s between basics
+	"lance_basic_dmg": 90.0,
+	"lance_basic_ticks": 36.0,   # 1.2 s between basics (H34: heavier)
+	"lance_basic_windup": 12.0,  # 0.4 s of wind-up before a basic lands
+	"basic_stagger": 0.12,       # a landed basic rocks the monster
 	"lance_q_cd": 90.0,          # Pierce 3 s
 	"lance_q_len": 4.0,
-	"lance_q_dmg": 140.0,
-	"lance_q_stagger": 0.15,
+	"lance_q_dmg": 160.0,
+	"lance_q_windup": 10.0,      # Pierce plants, then stabs
+	"lance_q_stagger": 0.3,
 	"exchange_cd": 30.0,         # W 1 s
 	"lance_e_cd": 240.0,         # Guard 8 s
 	"lance_e_ticks": 60.0,       # Guard lasts 2 s
 	"lance_counter_mult": 2.0,
 	"lance_r_cd": 450.0,         # Eruption 15 s
 	"lance_r_range": 6.0,
-	"lance_r_air_ticks": 18.0,
+	"lance_r_air_ticks": 26.0,
 	"lance_r_radius": 2.0,
 	"lance_r_dmg": 260.0,
 	"lance_r_steps": 2.0,
 	"lance_r_stagger": 0.6,
 	# hp
-	"player_hp": 1000.0,
+	"player_hp": 3000.0,         # H36: 3x
 	"ground_tick_every": 30.0,   # standing effects apply once a second
 }
 

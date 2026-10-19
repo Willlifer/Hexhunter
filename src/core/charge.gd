@@ -97,16 +97,22 @@ func carries(hex: Vector2i, element: String) -> bool:
 
 ## Speed multiplier for whoever walks here (water slows; glazed water is ice,
 ## walkable at full speed).
-func move_mult(hex: Vector2i) -> float:
-	if is_glazed(hex):
+func move_mult(hex: Vector2i, who: String = "") -> float:
+	if is_glazed(hex) or (who != "" and owned_by(hex, who)):
 		return 1.0
 	var slow: Array = HHTune.list("water_slow")
 	return float(slow[clampi(intensity(hex, "water"), 0, slow.size() - 1)])
 
 
 ## Per-second standing effects, in pct of max HP.
+## Whose element this is (H33: your own never slows or hurts you).
+func owned_by(hex: Vector2i, who: String) -> bool:
+	return str(at(hex).get("source", "")) == who
+
+
 func standing(hex: Vector2i) -> Dictionary:
 	return {
+		"source": str(at(hex).get("source", "")),
 		"fire": HHTune.value("fire_stand_pct") * intensity(hex, "fire"),
 		"heal": HHTune.value("light_heal_pct") * intensity(hex, "light"),
 		"drain": HHTune.value("dark_drain_pct") if intensity(hex, "dark") >= 3 else 0.0,

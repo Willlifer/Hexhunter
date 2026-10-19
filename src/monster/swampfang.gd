@@ -33,10 +33,14 @@ extends RefCounted
 ## Every feel number, in one place (ticks are 30 Hz; pct = percent of max HP).
 const TUNE := {
 	"aggro_hexes": 6,                 # calm -> aggravated when a player is this close (edge to edge)
-	"attack_gap_ticks": 36,           # 1.2 s from the end of one attack clip to the next telegraph
-	"telegraph_min_ticks": 24,        # telegraph windows 0.8-1.6 s; a clip's contact tick is clamped into this
-	"telegraph_max_ticks": 48,
-	"walk_ticks": 14.0,               # ticks per hex (u.walk_ticks; the sim's global walk is 10): slow, heavy
+	"attack_gap_ticks": 30,           # 1.0 s from the end of one attack clip to the next telegraph
+	"windup_mult": 1.8,               # H38: every telegraph window is the clip's contact tick x this (the clip slows to match)
+	"telegraph_min_ticks": 40,        # telegraph windows 1.3-3.0 s
+	"telegraph_max_ticks": 90,
+	"reposition_chance": 0.7,         # H39: between attacks, move to a new spot around the player this often
+	"reposition_min": 2,              # ... this many hexes beyond the footprint ...
+	"reposition_max": 4,              # ... up to this many
+	"walk_ticks": 10.0,               # ticks per hex (u.walk_ticks): heavy but it keeps moving
 	"turn_deg_per_tick": 3.5,         # how fast it turns to face a player while standing
 	"close_range": 1,                 # hexes beyond the footprint: "in its jaws"
 	"thrash_range": 2,                # hexes beyond the footprint the thrash reaches
@@ -91,6 +95,7 @@ var pending: Array = []               ## fallback telegraphs: [{ at, hexes, payl
 var goals: Array = []                 ## every goal hex chosen (tests)
 var attacks: Array = []               ## every telegraph issued: [{ tick, clip, ticks, hexes }] (tests)
 var anim := ""                        ## the clip last asked for
+var repositioned := false             ## already picked a new spot since the last attack
 var rolls := 0                        ## rng draws (tests)
 
 
@@ -186,8 +191,14 @@ func tick(sim: HHSim, u: Dictionary) -> void:
 	if sim.tick < next_attack_at:
 		if d > int(TUNE.close_range):
 			_approach(sim, u, p)
-		else:
-			_stop(u)
+		elif not repositioned:
+			repositioned = true
+			if _rng(sim) < float(TUNE.reposition_chance):
+				_reposition(sim, u, p)
+			else:
+				_stop(u)
+				_anim(sim, u, "aggravated_idle")
+		elif (u.path as Array).is_empty():
 			_anim(sim, u, "aggravated_idle")
 		return
 	# choose an attack
@@ -295,7 +306,9 @@ func _death_roll(sim: HHSim, u: Dictionary) -> void:
 func _attack(sim: HHSim, u: Dictionary, clip: String, hexes: Array, payload: Dictionary) -> void:
 	mode = "attack"
 	_stop(u)
-	var ticks := clampi(int(HHSwampfangClips.CLIPS[clip].contact_tick), int(TUNE.telegraph_min_ticks), int(TUNE.telegraph_max_ticks))
+	var contact := int(HHSwampfangClips.CLIPS[clip].contact_tick)
+	var ticks := clampi(int(round(float(contact) * float(TUNE.windup_mult))), int(TUNE.telegraph_min_ticks), int(TUNE.telegraph_max_ticks))
+	var speed := float(contact) / float(ticks) if contact > 0 else 1.0     # the clip slows so its contact lands with the telegraph
 	payload["clip"] = clip
 	payload["flagged"] = flagged
 	if flagged:
@@ -307,9 +320,10 @@ func _attack(sim: HHSim, u: Dictionary, clip: String, hexes: Array, payload: Dic
 		pending.append({ "at": sim.tick + ticks, "owner": u.id, "hexes": hexes, "payload": payload })
 		sim._emit({ "type": "telegraph", "id": u.id, "hexes": hexes.duplicate(), "ticks": ticks, "payload": payload })
 	attacks.append({ "tick": sim.tick, "clip": clip, "ticks": ticks, "hexes": hexes.duplicate() })
-	_anim(sim, u, clip)
-	busy_until = sim.tick + _clip_ticks(clip)
+	_anim(sim, u, clip, speed)
+	busy_until = sim.tick + int(ceil(float(_clip_ticks(clip)) / speed))
 	next_attack_at = busy_until + _gap()
+	repositioned = false
 
 
 func _gap() -> int:
@@ -467,6 +481,31 @@ func _approach(sim: HHSim, u: Dictionary, p: Dictionary) -> void:
 	_anim(sim, u, "walk" if not (u.path as Array).is_empty() else "aggravated_idle")
 
 
+## H39: between attacks it does not stand still: a new spot around the
+## player, 2-4 hexes beyond the footprint, preferring a change of bearing.
+func _reposition(sim: HHSim, u: Dictionary, p: Dictionary) -> void:
+	var blocked := sim.blocked_for(u)
+	var kinds: Array = u.get("allowed_kinds", ALLOWED_KINDS)
+	var cur_bearing := HHHex.direction_index(p.hex, u.hex)
+	var cands: Array = []
+	for r in range(int(TUNE.reposition_min), int(TUNE.reposition_max) + 1):
+		for h in HHHex.ring(p.hex, int(u.size) + r):
+			if _fits(sim, u, h, kinds, blocked) and HHHex.distance(u.hex, h) <= 8:
+				var bearing := HHHex.direction_index(p.hex, h)
+				cands.append([h, 1 if bearing != cur_bearing else 0])
+	if cands.is_empty():
+		_stop(u)
+		_anim(sim, u, "aggravated_idle")
+		return
+	cands.sort_custom(func(a, b): return a[0] < b[0])
+	var flank: Array = cands.filter(func(c): return int(c[1]) == 1)
+	var pool: Array = flank if not flank.is_empty() else cands
+	var pick: Vector2i = pool[int(floor(_rng(sim) * pool.size())) % pool.size()][0]
+	mode = "approach"
+	_move(sim, u, pick)
+	_anim(sim, u, "walk" if not (u.path as Array).is_empty() else "aggravated_idle")
+
+
 func _move(sim: HHSim, u: Dictionary, to: Vector2i) -> void:
 	if to == u.hex:
 		_stop(u)
@@ -599,8 +638,8 @@ func _rng(sim: HHSim) -> float:
 	return sim.rng.randf()
 
 
-func _anim(sim: HHSim, u: Dictionary, clip: String) -> void:
+func _anim(sim: HHSim, u: Dictionary, clip: String, speed: float = 1.0) -> void:
 	if clip == anim and bool(HHSwampfangClips.CLIPS[clip].loop):
 		return
 	anim = clip
-	sim._emit({ "type": "monster_anim", "id": u.id, "clip": clip })
+	sim._emit({ "type": "monster_anim", "id": u.id, "clip": clip, "speed": speed })

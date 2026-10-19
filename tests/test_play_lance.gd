@@ -16,13 +16,17 @@ func test_auto_attack(c: HHSelfTest.HHCheck) -> void:
 	s.step({ "p1": { "target": "m", "attack": true } })
 	var strikes := 0
 	var painted := false
+	var windups := 0
 	for i in 300:
 		for e in s.step():
 			if e.type == "strike":
 				strikes += 1
+			if e.type == "windup" and e.kind == "basic":
+				windups += 1
 			if e.type == "paint" and e.id == "p1" and e.element == "fire":
 				painted = true
-	c.ok(strikes >= 3, "walked in and struck repeatedly (%d)" % strikes)
+	c.ok(strikes >= 3, "ran in and struck repeatedly (%d)" % strikes)
+	c.ok(windups >= strikes, "every basic winds up first (H34)")
 	c.ok(float(m.hp) < 5000.0, "the monster took damage")
 	c.ok(painted, "a basic lays the active element (H27)")
 	var p := s.unit("p1")
@@ -39,13 +43,21 @@ func test_pierce(c: HHSelfTest.HHCheck) -> void:
 	for i in 120:
 		s.step()
 	var hit := false
-	for e in s.step({ "p1": { "cast": { "skill": "q", "aim": m.hex } } }):
-		if e.type == "pierce":
-			hit = true
-			c.eq((e.hexes as Array).size(), int(HHTune.value("lance_q_len")), "pierce line length")
-	c.ok(hit, "pierce fired")
+	var wound := false
+	var ev := s.step({ "p1": { "cast": { "skill": "q", "aim": m.hex } } })
+	for e in ev:
+		if e.type == "windup" and e.kind == "pierce":
+			wound = true
+	c.ok(wound, "pierce winds up first (H34)")
+	c.ok(float(m.hp) == hp, "no damage during the wind-up")
+	for i in int(HHTune.value("lance_q_windup")) + 1:
+		for e in s.step():
+			if e.type == "pierce":
+				hit = true
+				c.eq((e.hexes as Array).size(), int(HHTune.value("lance_q_len")), "pierce line length")
+	c.ok(hit, "pierce landed after the wind-up")
 	c.ok(float(m.hp) < hp, "pierce damaged the monster")
-	c.eq(int(p.cooldowns.q), int(HHTune.value("lance_q_cd")) - 1, "cooldown set")
+	c.ok(int(p.cooldowns.q) > 0, "cooldown set")
 	var refused := false
 	for e in s.step({ "p1": { "cast": { "skill": "q", "aim": m.hex } } }):
 		if e.type == "cast_refused":
@@ -74,7 +86,7 @@ func test_guard_and_counter(c: HHSelfTest.HHCheck) -> void:
 				blocked = true
 	c.ok(blocked, "the hit was blocked")
 	var taken := hp - float(p.hp)
-	c.near(taken, 200.0 * (1.0 - HHTune.value("guard_reduce")), 1.0, "guard cuts the hit")
+	c.near(taken, float(p.max_hp) * 0.2 * (1.0 - HHTune.value("guard_reduce")), 1.0, "guard cuts the hit")
 	c.eq(int(p.stagger), 0, "no stagger through a guard")
 	c.ok(float(m.hp) < mhp, "the counter pierce hit back")
 	c.eq(int(p.guard), 0, "guard spent by the block")

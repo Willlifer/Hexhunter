@@ -24,7 +24,7 @@ func test_telegraph_lands_on_time(c: HHSelfTest.HHCheck) -> void:
 				ended_at = e.tick
 				c.ok("p1" in e.hit, "the player was in it")
 	c.eq(ended_at, 10, "resolved on tick 10")
-	c.near(float(p.hp), hp - 100.0, 0.5, "10% landed")
+	c.near(float(p.hp), hp - float(p.max_hp) * 0.1, 0.5, "10% landed")
 	c.ok(int(p.stagger) > 0, "staggered")
 	c.ok(p.statuses.has("poison"), "poisoned")
 	c.ok(s.charge.intensity(p.hex, "water") >= 1, "the shape was painted")
@@ -36,7 +36,7 @@ func test_telegraph_misses_when_you_leave(c: HHSelfTest.HHCheck) -> void:
 	var p := s.unit("p1")
 	var hp := float(p.hp)
 	s.telegraph("m", [p.hex], 40, { "dmg_pct": 10.0, "name": "slam" })
-	s.step({ "p1": { "move": Vector2i(3, 6), "run": true } })
+	s.step({ "p1": { "move": Vector2i(3, 6), "move_pos": s.arena.stand(Vector2i(3, 6)), "run": true } })
 	for i in 45:
 		s.step()
 	c.near(float(p.hp), hp, 0.5, "walked out: no damage")
@@ -81,10 +81,10 @@ func test_monster_move_and_kinds(c: HHSelfTest.HHCheck) -> void:
 	var t := _sim()
 	var mm := t.unit("m")
 	t.monster_move(mm, Vector2i(0, 4))
-	t.step({ "p1": { "move": Vector2i(0, -1) } })
+	t.step({ "p1": { "move": Vector2i(0, 0), "move_pos": t.arena.stand(Vector2i(0, 0)) } })
 	for i in 30:
 		t.step()
-	c.ok(HHHex.distance(mm.hex, Vector2i(0, -2)) < HHHex.distance(t.unit("p1").hex, Vector2i(0, 6)), "monster is slower")
+	c.ok((mm.pos as Vector3).distance_to(t.arena.stand(Vector2i(0, -2))) < (t.unit("p1").pos as Vector3).distance_to(t.arena.stand(Vector2i(0, 6))), "monster is slower")
 
 
 func test_detonation_staggers(c: HHSelfTest.HHCheck) -> void:

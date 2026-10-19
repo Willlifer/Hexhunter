@@ -2,12 +2,13 @@ class_name HHFight
 extends Node3D
 ## The fight scene: owns an HHSim, steps it at 30 Hz, draws it (HHArenaView,
 ## bodies, HUD), and turns input into orders.
-##   right-click    walk to the hex under the cursor (true-hex snapped)
-##   left-click     on the monster: target it and auto-attack (H25);
-##                  with --sandbox, on ground: paint the selected element (H20)
+##   right-click    on the monster: target it and auto-attack (H32); on the
+##                  ground: run to that exact point (free movement, H31)
+##   left-drag      orbit the camera; a left click (sandbox) paints (H20)
 ##   Q / E / R      cast at the hex under the cursor; W swaps elements
 ##   1-7            (sandbox) pick the element to paint
-##   Shift          hold to run;  Space  stop;  F1  tune panel;  Esc  quit
+##   Shift          hold to walk (you run by default, H37);  Space  stop
+##   F1             tune panel;  Esc  quit
 ## `autoplay` runs a scripted walk, paint, attack and cast sequence for the
 ## smoke run and the capture tool, then quits.
 
@@ -26,6 +27,7 @@ var player_id := "p1"
 var monster_id := ""
 var bodies := {}             # unit id -> Node3D
 var monster_bodies := {}     # unit id -> Lane E body (duck-typed)
+var player_body: Node3D = null   # Lane B body (duck-typed: build(weapon), play(clip, loop), update(delta))
 var autoplay := false
 var sandbox := false
 var autoplay_seconds := 14.0
@@ -108,6 +110,13 @@ func _build_bodies() -> void:
 
 func _placeholder(u: Dictionary) -> Node3D:
 	var mi := MeshInstance3D.new()
+	if u.kind == "player" and ResourceLoader.exists("res://src/game/anim/player_body.gd"):
+		var s: GDScript = load("res://src/game/anim/player_body.gd")      # Lane B: the rigged player
+		var body: Node3D = s.new()
+		if body.has_method("build"):
+			body.build(str(u.weapon))
+		player_body = body
+		return body
 	if u.kind == "player":
 		var cm := CapsuleMesh.new()
 		cm.radius = 0.35
@@ -186,6 +195,8 @@ func _draw(delta: float) -> void:
 		node.visible = sim.alive(u) or u.kind == "monster"
 		if monster_bodies.has(id) and (monster_bodies[id] as Node).has_method("update"):
 			monster_bodies[id].update(delta)
+	if player_body != null and player_body.has_method("update"):
+		player_body.update(delta)
 	var p := sim.unit(player_id)
 	camera.follow(p.pos)
 	view.sync(sim, player_id, delta)
@@ -199,42 +210,112 @@ func _draw(delta: float) -> void:
 
 
 func _note(e: Dictionary) -> void:
+	if player_body != null and player_body.has_method("on_event") and str(e.get("id", "")) == player_id:
+		player_body.on_event(e, sim)
 	match str(e.type):
 		"detonate": _log.append("t%d detonate %s %.0f%%" % [e.tick, e.hex, e.pct])
 		"overheat": _log.append("t%d OVERHEAT %s" % [e.tick, e.hex])
 		"overfreeze": _log.append("t%d OVERFREEZE %s" % [e.tick, e.hex])
 		"douse": _log.append("t%d douse %s" % [e.tick, e.hex])
 		"gale": _log.append("t%d gale %s" % [e.tick, e.hex])
-		"strike": _log.append("t%d %s hits %s %d%s" % [e.tick, e.id, e.target, int(e.amount), " REAR" if bool(e.rear) else ""])
-		"hurt": if e.id == player_id: _log.append("t%d you -%d (%s)" % [e.tick, int(e.amount), e.cause])
+		"strike":
+			_log.append("t%d %s hits %s %d%s" % [e.tick, e.id, e.target, int(e.amount), " REAR" if bool(e.rear) else ""])
+			camera.shake(0.08 + 0.12 * clampf(float(e.amount) / 200.0, 0.0, 1.0))   # impact (H34)
+			_body_react(str(e.target), "hit_react")
+		"hurt":
+			if e.id == player_id:
+				_log.append("t%d you -%d (%s)" % [e.tick, int(e.amount), e.cause])
+				if not str(e.cause) in ["fire", "burn", "poison", "dark", "fire_cross"]:
+					camera.shake(0.25)
+		"stagger":
+			if e.id == player_id:
+				_log.append("t%d staggered %d" % [e.tick, e.ticks])
+			else:
+				_body_react(str(e.id), "stagger")
+		"death":
+			if e.id != player_id:
+				_body_react(str(e.id), "death", true)
 		"cast": _log.append("t%d %s (%s)" % [e.tick, e.name, e.element])
 		"cast_refused": _log.append("t%d %s on cooldown" % [e.tick, str(e.skill).to_upper()])
 		"guard_block": _log.append("t%d GUARD blocked, counter!" % e.tick)
 		"telegraph": _log.append("t%d %s telegraphs %s (%d hexes)" % [e.tick, str(e.get("owner", e.get("id", ""))), str(e.get("name", (e.get("payload", {}) as Dictionary).get("clip", ""))), (e.hexes as Array).size()])
 		"monster_state": _log.append("t%d %s is %s" % [e.tick, e.id, e.state])
-		"stagger": if e.id == player_id: _log.append("t%d staggered %d" % [e.tick, e.ticks])
 		"monster_anim":
 			if monster_bodies.has(e.id) and (monster_bodies[e.id] as Node).has_method("play"):
 				var clips: Dictionary = monster_bodies[e.id].clips(str(e.id)) if (monster_bodies[e.id] as Node).has_method("clips") else {}
-				monster_bodies[e.id].play(str(e.clip), bool((clips.get(str(e.clip), {}) as Dictionary).get("loop", false)))
+				monster_bodies[e.id].play(str(e.clip), bool((clips.get(str(e.clip), {}) as Dictionary).get("loop", false)), float(e.get("speed", 1.0)))
 		"over": _log.append("t%d OVER: %s" % [e.tick, e.result])
+
+
+## L-9: a reaction clip on a monster body, only when it is not mid-attack
+## (a telegraphed wind-up must stay readable). `force` for death.
+func _body_react(id: String, clip: String, force: bool = false) -> void:
+	if not monster_bodies.has(id):
+		return
+	var body: Node = monster_bodies[id]
+	if not body.has_method("play"):
+		return
+	var cur := str(body.get("clip"))
+	var looping := bool(body.get("loop"))
+	if force or looping or cur == "":
+		body.play(clip, false)
 
 
 # ------------------------------------------------------------------ input
 
 func _on_click(button: int, screen_pos: Vector2) -> void:
-	var hex := _hex_under(screen_pos)
-	if hex == NO_HEX:
-		return
 	match button:
 		MOUSE_BUTTON_RIGHT:
-			_order({ "move": hex })
-		MOUSE_BUTTON_LEFT:
-			var m := _monster_at(hex)
+			var m := _monster_hit(screen_pos)
 			if m != "":
 				_order({ "target": m, "attack": true })
-			elif sandbox:
-				_order({ "paint": { "element": paint_element, "hex": hex, "steps": 1 } })
+				return
+			var p := _ground_under(screen_pos)
+			var hex := arena.from_world(p) if p != HHSim.NO_POS else NO_HEX
+			if hex != NO_HEX and arena.exists(hex):
+				_order({ "move": hex, "move_pos": p })
+		MOUSE_BUTTON_LEFT:
+			if sandbox:
+				var hex := _hex_under(screen_pos)
+				if hex != NO_HEX:
+					_order({ "paint": { "element": paint_element, "hex": hex, "steps": 1 } })
+
+
+## The monster under the cursor: a ray against each living monster's body
+## (a sphere over its footprint), then the hex fallback.
+func _monster_hit(screen_pos: Vector2) -> String:
+	var r := camera.ray(screen_pos)
+	var o: Vector3 = r[0]
+	var d: Vector3 = r[1]
+	for m in sim.monsters():
+		if not sim.targetable(m):
+			continue
+		var radius := (float(m.size) + 0.5) * HHArena.HEX * 1.8
+		var centre: Vector3 = (m.pos as Vector3) + Vector3(0, radius * 0.5, 0)
+		var oc := o - centre
+		var b := oc.dot(d)
+		var cc := oc.dot(oc) - radius * radius
+		if b * b - cc >= 0.0 and -b > 0.0:
+			return m.id
+	var hex := _hex_under(screen_pos)
+	return _monster_at(hex) if hex != NO_HEX else ""
+
+
+## The exact ground point under the cursor (NO_POS when off the arena).
+func _ground_under(screen_pos: Vector2) -> Vector3:
+	var r := camera.ray(screen_pos)
+	var o: Vector3 = r[0]
+	var d: Vector3 = r[1]
+	if absf(d.y) < 1e-4:
+		return HHSim.NO_POS
+	var p := o + d * (-o.y / d.y)
+	for i in 6:
+		var h := arena.height_at(p.x, p.z)
+		var t := (h - o.y) / d.y
+		if t <= 0.0:
+			break
+		p = o + d * t
+	return p if arena.exists(arena.from_world(p)) else HHSim.NO_POS
 
 
 func _monster_at(hex: Vector2i) -> String:
@@ -267,7 +348,7 @@ func _unhandled_input(ev: InputEvent) -> void:
 				_order({ "cast": { "skill": OS.get_keycode_string(ev.keycode).to_lower(), "aim": aim if aim != NO_HEX else sim.unit(player_id).hex } })
 			KEY_ESCAPE: get_tree().quit(0)
 	if ev is InputEventKey and ev.keycode == KEY_SHIFT:
-		_order({ "run": ev.pressed })
+		_order({ "run": not ev.pressed })              # H37: run by default, Shift walks
 
 
 ## The hex under a screen point: the camera ray marched onto the heightfield.
@@ -299,7 +380,7 @@ func _autoplay_script() -> Array:
 	var c := start + Vector2i(0, -3)
 	var m: Vector2i = arena.spawns.monster
 	var s: Array = [
-		{ "at": 0.2, "order": { "move": a } },
+		{ "at": 0.2, "order": { "move": a, "move_pos": arena.stand(a) } },
 		{ "at": 1.0, "order": { "paint": { "element": "fire", "hex": b, "steps": 3 } } },
 		{ "at": 1.5, "order": { "paint": { "element": "fire", "hex": b, "steps": 1 } } },
 		{ "at": 2.5, "order": { "paint": { "element": "water", "hex": b, "steps": 2 } } },
@@ -320,7 +401,7 @@ func _autoplay_script() -> Array:
 			{ "at": 12.5, "order": { "cast": { "skill": "r", "aim": m + Vector2i(3, 2) } } },
 		])
 	else:
-		s.append({ "at": 8.5, "order": { "move": start + Vector2i(4, 2), "run": true } })
+		s.append({ "at": 8.5, "order": { "move": start + Vector2i(4, 2), "move_pos": arena.stand(start + Vector2i(4, 2)) } })
 	return s
 
 

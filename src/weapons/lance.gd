@@ -8,7 +8,7 @@ class_name HHLance
 
 
 static func basic() -> Dictionary:
-	return { "damage": HHTune.value("lance_basic_dmg"), "ticks": int(HHTune.value("lance_basic_ticks")), "reach": int(HHTune.value("lance_reach")) }
+	return { "damage": HHTune.value("lance_basic_dmg"), "ticks": int(HHTune.value("lance_basic_ticks")), "reach": int(HHTune.value("lance_reach")), "windup": int(HHTune.value("lance_basic_windup")) }
 
 
 static func skills() -> Dictionary:
@@ -43,7 +43,7 @@ static func cast(sim: HHSim, u: Dictionary, key: String, aim: Vector2i) -> bool:
 			if line.is_empty():
 				return false
 			sim._face(u, line[0])
-			_pierce(sim, u, line, HHTune.value("lance_q_dmg"), 1, "pierce")
+			sim.begin_windup(u, "pierce", int(HHTune.value("lance_q_windup")), { "line": line }, Callable(HHLance, "_pierce_land"))
 			return true
 		"w":
 			var a: String = u.element
@@ -71,6 +71,10 @@ static func cast(sim: HHSim, u: Dictionary, key: String, aim: Vector2i) -> bool:
 			sim.begin_leap(u, to, int(HHTune.value("lance_r_air_ticks")), Callable(HHLance, "_erupt"))
 			return true
 	return false
+
+
+static func _pierce_land(sim: HHSim, u: Dictionary, data: Dictionary) -> void:
+	_pierce(sim, u, data.line, HHTune.value("lance_q_dmg"), 1, "pierce")
 
 
 static func _pierce(sim: HHSim, u: Dictionary, line: Array, dmg: float, steps: int, cause: String) -> void:
