@@ -71,6 +71,12 @@ func _build_floor() -> void:
 
 
 func _build_lights() -> void:
+	if asset != null and not asset.lights.is_empty() and ResourceLoader.exists("res://src/arena/stage.gd"):
+		var stage: GDScript = load("res://src/arena/stage.gd")       # Lane C: the biome's own sun and sky
+		sun = stage.sun(asset.lights)
+		add_child(sun)
+		add_child(stage.sky(asset.lights))
+		return
 	sun = DirectionalLight3D.new()
 	sun.name = "Sun"
 	sun.rotation_degrees = Vector3(-52, 35, 0)
@@ -111,9 +117,12 @@ func _draw_outline(mi: MeshInstance3D, hex: Vector2i) -> void:
 	im.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
 	var c := HHHex.corners(Vector3.ZERO, HHArena.HEX * 0.92)
 	var w := HHHex.to_world(hex, HHArena.HEX)
+	var flat := arena.kind(hex) in ["water", "deep", "pad"]
+	var sy := arena.surface(hex).y
 	for i in 7:
 		var p := c[i % 6]
-		im.surface_add_vertex(Vector3(p.x, arena.height_at(w.x + p.x, w.y + p.z) + OUTLINE_LIFT, p.z))
+		var y := sy if flat else arena.height_at(w.x + p.x, w.y + p.z)
+		im.surface_add_vertex(Vector3(p.x, y + OUTLINE_LIFT, p.z))
 	im.surface_end()
 	mi.position = Vector3(w.x, 0.0, w.y)
 	mi.visible = true
@@ -150,7 +159,7 @@ func _sync_telegraphs(sim: HHSim) -> void:
 				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				add_child(mi)
 				tg_pool.append(mi)
-			mi.position = arena.world(h) + Vector3(0, TG_LIFT, 0)
+			mi.position = arena.surface(h) + Vector3(0, TG_LIFT, 0)
 			mi.set_instance_shader_parameter("progress", prog)
 			mi.set_instance_shader_parameter("tier", 1.0)
 			mi.visible = true
@@ -189,7 +198,7 @@ func _sync_fx(charge: HHCharge, delta: float) -> void:
 
 
 func _make_fx(hex: Vector2i) -> Dictionary:
-	var w := arena.world(hex)
+	var w := arena.surface(hex)
 	var node := { "tier_h": 0.0, "tier_v": 0.0, "tier_m": 0.0, "el_h": "", "el_v": "", "kind_m": "" }
 	for k in ["face_h", "face_v", "mark"]:
 		var mi := MeshInstance3D.new()

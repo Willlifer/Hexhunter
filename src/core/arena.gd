@@ -122,10 +122,28 @@ func hex_height(h: Vector2i) -> float:
 	return height_at(w.x, w.y)
 
 
-## Hex centre in world space, on the ground.
+func cover(h: Vector2i) -> bool:
+	return bool(cells.get(h, {}).get("cover", false))
+
+
+## Hex centre in world space, on the ground (the bed, under water).
 func world(h: Vector2i) -> Vector3:
 	var w := HHHex.to_world(h, HEX)
 	return Vector3(w.x, height_at(w.x, w.y), w.y)
+
+
+## Where paint, outlines and telegraphs sit: the water surface (y = 0, H201)
+## over water, deep and pad cells, the ground elsewhere.
+func surface(h: Vector2i) -> Vector3:
+	var p := world(h)
+	if kind(h) in ["water", "deep", "pad"]:
+		p.y = maxf(p.y, 0.0)
+	return p
+
+
+## Where a unit stands: on a pad at the surface, in water on the bed (wading).
+func stand(h: Vector2i) -> Vector3:
+	return surface(h) if kind(h) == "pad" else world(h)
 
 
 func from_world(p: Vector3) -> Vector2i:
@@ -270,7 +288,10 @@ func to_dict() -> Dictionary:
 	keys.sort()
 	for h in keys:
 		var c: Dictionary = cells[h]
-		cl.append({ "q": h.x, "r": h.y, "walkable": c.walkable, "kind": c.kind, "depth": c.depth })
+		var row := { "q": h.x, "r": h.y, "walkable": c.walkable, "kind": c.kind, "depth": c.depth }
+		if bool(c.get("cover", false)):
+			row["cover"] = true
+		cl.append(row)
 	return { "id": id, "seed": seed, "radius_m": radius_m, "skirt_m": skirt_m,
 		"hf": { "cols": hf.cols, "rows": hf.rows, "step": hf.step, "origin": hf.origin, "data": Array(hf.data) },
 		"cells": cl, "spawns": { "player": spawns.player.map(func(h): return [h.x, h.y]), "monster": [spawns.monster.x, spawns.monster.y] } }
@@ -286,7 +307,7 @@ static func from_dict(d: Dictionary) -> HHArena:
 	if not h.is_empty():
 		a.hf = { "cols": int(h.cols), "rows": int(h.rows), "step": float(h.step), "origin": h.origin, "data": PackedFloat32Array(h.data) }
 	for c in d.get("cells", []):
-		a.cells[Vector2i(int(c.q), int(c.r))] = { "walkable": bool(c.walkable), "kind": str(c.kind), "depth": float(c.get("depth", 0.0)) }
+		a.cells[Vector2i(int(c.q), int(c.r))] = { "walkable": bool(c.walkable), "kind": str(c.kind), "depth": float(c.get("depth", 0.0)), "cover": bool(c.get("cover", false)) }
 	var sp: Dictionary = d.get("spawns", {})
 	if sp.has("player"):
 		a.spawns.player = sp.player.map(func(v): return Vector2i(int(v[0]), int(v[1])))

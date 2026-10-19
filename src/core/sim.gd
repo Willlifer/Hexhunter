@@ -74,7 +74,7 @@ func add_monster(id: String, hex: Vector2i, hp: float = 20000.0, size: int = 2, 
 func _unit(id: String, kind: String, hex: Vector2i) -> Dictionary:
 	var u := {
 		"id": id, "kind": kind, "hex": hex, "prev": hex, "progress": 0.0, "path": [] as Array[Vector2i],
-		"pos": arena.world(hex), "facing": 0.0, "hp": 1.0, "max_hp": 1.0, "element": "", "backup": "",
+		"pos": arena.stand(hex), "facing": 0.0, "hp": 1.0, "max_hp": 1.0, "element": "", "backup": "",
 		"reach": 1, "size": 0, "run": false, "target": "", "stagger": 0, "statuses": {},
 		"cooldowns": { "q": 0, "w": 0, "e": 0, "r": 0, "basic": 0 }, "crossed": hex,
 		"weapon": "", "attacking": false, "guard": 0, "leap": {}, "allowed_kinds": [],
@@ -287,7 +287,7 @@ func _walk(u: Dictionary) -> void:
 				u.path = p
 				u.progress = 0.0
 	if (u.path as Array).is_empty():
-		u.pos = arena.world(u.hex)
+		u.pos = arena.stand(u.hex)
 		u.progress = 0.0
 		if u.target != "" and units.has(u.target):
 			_face(u, unit(u.target).hex)
@@ -304,19 +304,19 @@ func _walk(u: Dictionary) -> void:
 		(u.path as Array).pop_front()
 		_enter(u, next)
 		if (u.path as Array).is_empty():
-			u.pos = arena.world(u.hex)
+			u.pos = arena.stand(u.hex)
 			_emit({ "type": "arrive", "id": u.id, "hex": u.hex })
 			return
 		next = u.path[0]
-	var a := arena.world(u.hex)
-	var b := arena.world(next)
+	var a := arena.stand(u.hex)
+	var b := arena.stand(next)
 	u.pos = a.lerp(b, float(u.progress))
 	_face(u, next)
 
 
 func _face(u: Dictionary, toward: Vector2i) -> void:
-	var a := arena.world(u.hex)
-	var b := arena.world(toward)
+	var a := arena.stand(u.hex)
+	var b := arena.stand(toward)
 	var d := b - a
 	if d.length_squared() > 1e-6:
 		u.facing = atan2(d.x, d.z)
@@ -337,8 +337,8 @@ func _leap(u: Dictionary) -> void:
 	var L: Dictionary = u.leap
 	L.ticks = int(L.ticks) + 1
 	var t := float(L.ticks) / float(L.total)
-	var a := arena.world(L.from)
-	var b := arena.world(L.to)
+	var a := arena.stand(L.from)
+	var b := arena.stand(L.to)
 	u.pos = a.lerp(b, t) + Vector3(0, HHTune.value("leap_height_m") * 4.0 * t * (1.0 - t), 0)
 	if int(L.ticks) >= int(L.total):
 		u.hex = L.to

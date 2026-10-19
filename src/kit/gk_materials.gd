@@ -97,6 +97,15 @@ const ROLES := {
 	"brick_hall": { "a": "#8e4b3a", "b": "#7a3e30", "c": "#9a5a46", "rough": 0.95, "pat": "plaster", "scale": 0.7, "amt": 0.25, "world": true },
 	"brick_ruin": { "a": "#84503f", "b": "#6c3e31", "c": "#8a7a68", "rough": 0.95, "pat": "blocks", "scale": 0.12, "amt": 0.45, "world": true },
 	"bark_birch": { "a": "#e2ddd2", "b": "#8a857c", "c": "#2e2b27", "rough": 0.9, "pat": "plaster", "scale": 2.4, "amt": 0.55, "world": true },
+	# Hexhunt pond (Lane C, H205): merged from HHPondGen.ROLES
+	"pond_bed": { "a": "#9c8a62", "b": "#7e6d4a", "c": "#6a5a3c", "rough": 0.95, "pat": "stipple", "scale": 1.5, "amt": 0.4, "world": true },
+	"water_shallow": { "a": "#2f6f8e", "b": "#285f7a", "rough": 0.08, "spec": 1.0, "pat": "plain", "scale": 2.0, "amt": 0.1, "world": true, "alpha": 0.45 },
+	"lilypad": { "a": "#4f8a2e", "b": "#3a6a22", "c": "#7aa43a", "rough": 0.7, "spec": 0.5, "pat": "grass", "scale": 1.6, "amt": 0.3, "world": true },
+	"lilypad_tall": { "a": "#3f7a2a", "b": "#2c5a1e", "c": "#6a9a3a", "rough": 0.75, "pat": "grass", "scale": 1.6, "amt": 0.3, "world": true },
+	"reed": { "a": "#6f8a3a", "b": "#55702a", "c": "#8aa44a", "rough": 0.9, "pat": "plain", "scale": 2.0, "amt": 0.2, "world": true },
+	"cattail": { "a": "#5a3e26", "b": "#3e2a18", "rough": 0.95, "pat": "stipple", "scale": 40.0, "amt": 0.3, "world": true },
+	"pond_flower": { "a": "#e8c020", "b": "#c89a10", "c": "#f2d84a", "rough": 0.8, "pat": "plain", "scale": 4.0, "amt": 0.2, "world": true },
+	"meadow_grass": { "a": "#7a9a3e", "b": "#5e7e30", "c": "#9ab050", "rough": 1.0, "pat": "grass", "scale": 0.35, "amt": 0.45, "world": true },
 	"barrier": { "a": "#ff00ff", "b": "#ff00ff", "rough": 1.0, "pat": "plain", "scale": 1.0, "amt": 0.0, "world": true },
 }
 
