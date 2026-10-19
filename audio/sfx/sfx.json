@@ -1,0 +1,704 @@
+{
+ "format": "44.1 kHz 16-bit PCM; <name>_<n>.wav, n from 1",
+ "target_loudness": -16.0,
+ "peak_ceiling_db": -1.0,
+ "source": "Gamers Gauntlet game/audio/sfx, copied unchanged; use = Hexhunt event",
+ "sounds": {
+  "elem_fire": {
+   "variants": 3,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -1.81,
+     "loudness": -16.0,
+     "rms_db": -20.19,
+     "seconds": 0.75,
+     "peak_s": 0.092
+    },
+    {
+     "peak_db": -1.04,
+     "loudness": -16.16,
+     "rms_db": -20.59,
+     "seconds": 0.75,
+     "peak_s": 0.049
+    },
+    {
+     "peak_db": -2.24,
+     "loudness": -16.0,
+     "rms_db": -20.35,
+     "seconds": 0.75,
+     "peak_s": 0.096
+    }
+   ],
+   "use": "paint:fire"
+  },
+  "elem_water": {
+   "variants": 3,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -1.04,
+     "loudness": -16.39,
+     "rms_db": -20.85,
+     "seconds": 0.65,
+     "peak_s": 0.006
+    },
+    {
+     "peak_db": -1.04,
+     "loudness": -16.21,
+     "rms_db": -20.9,
+     "seconds": 0.65,
+     "peak_s": 0.005
+    },
+    {
+     "peak_db": -1.04,
+     "loudness": -16.38,
+     "rms_db": -21.07,
+     "seconds": 0.65,
+     "peak_s": 0.006
+    }
+   ],
+   "use": "paint:water"
+  },
+  "elem_ice": {
+   "variants": 3,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -4.56,
+     "loudness": -16.0,
+     "rms_db": -22.84,
+     "seconds": 0.85,
+     "peak_s": 0.005
+    },
+    {
+     "peak_db": -1.04,
+     "loudness": -16.2,
+     "rms_db": -22.87,
+     "seconds": 0.85,
+     "peak_s": 0.005
+    },
+    {
+     "peak_db": -1.78,
+     "loudness": -16.0,
+     "rms_db": -22.8,
+     "seconds": 0.85,
+     "peak_s": 0.005
+    }
+   ],
+   "use": "paint:ice"
+  },
+  "elem_thunder": {
+   "variants": 3,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -1.04,
+     "loudness": -16.29,
+     "rms_db": -20.93,
+     "seconds": 0.6,
+     "peak_s": 0.005
+    },
+    {
+     "peak_db": -1.04,
+     "loudness": -16.16,
+     "rms_db": -20.74,
+     "seconds": 0.6,
+     "peak_s": 0.005
+    },
+    {
+     "peak_db": -1.04,
+     "loudness": -16.85,
+     "rms_db": -21.41,
+     "seconds": 0.6,
+     "peak_s": 0.005
+    }
+   ],
+   "use": "paint:thunder"
+  },
+  "elem_wind": {
+   "variants": 3,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -4.81,
+     "loudness": -16.0,
+     "rms_db": -20.6,
+     "seconds": 0.841,
+     "peak_s": 0.205
+    },
+    {
+     "peak_db": -3.62,
+     "loudness": -16.0,
+     "rms_db": -21.05,
+     "seconds": 0.886,
+     "peak_s": 0.167
+    },
+    {
+     "peak_db": -4.61,
+     "loudness": -16.0,
+     "rms_db": -20.99,
+     "seconds": 0.882,
+     "peak_s": 0.201
+    }
+   ],
+   "use": "paint:wind"
+  },
+  "elem_dark": {
+   "variants": 3,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -3.11,
+     "loudness": -16.0,
+     "rms_db": -18.52,
+     "seconds": 0.95,
+     "peak_s": 0.103
+    },
+    {
+     "peak_db": -4.5,
+     "loudness": -16.0,
+     "rms_db": -18.49,
+     "seconds": 0.95,
+     "peak_s": 0.107
+    },
+    {
+     "peak_db": -1.23,
+     "loudness": -16.0,
+     "rms_db": -18.52,
+     "seconds": 0.95,
+     "peak_s": 0.17
+    }
+   ],
+   "use": "paint:dark"
+  },
+  "elem_light": {
+   "variants": 3,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -7.67,
+     "loudness": -16.0,
+     "rms_db": -21.34,
+     "seconds": 1.4,
+     "peak_s": 0.089
+    },
+    {
+     "peak_db": -6.85,
+     "loudness": -16.0,
+     "rms_db": -21.5,
+     "seconds": 1.4,
+     "peak_s": 0.09
+    },
+    {
+     "peak_db": -8.22,
+     "loudness": -16.0,
+     "rms_db": -21.31,
+     "seconds": 1.4,
+     "peak_s": 0.098
+    }
+   ],
+   "use": "paint:light"
+  },
+  "tile_detonate": {
+   "variants": 3,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -5.82,
+     "loudness": -16.0,
+     "rms_db": -23.69,
+     "seconds": 2.0,
+     "peak_s": 0.009
+    },
+    {
+     "peak_db": -6.52,
+     "loudness": -16.0,
+     "rms_db": -23.43,
+     "seconds": 2.0,
+     "peak_s": 0.007
+    },
+    {
+     "peak_db": -5.82,
+     "loudness": -16.0,
+     "rms_db": -24.03,
+     "seconds": 2.0,
+     "peak_s": 0.01
+    }
+   ],
+   "use": "detonate"
+  },
+  "tile_gale": {
+   "variants": 2,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -4.56,
+     "loudness": -16.0,
+     "rms_db": -20.74,
+     "seconds": 1.5,
+     "peak_s": 0.553
+    },
+    {
+     "peak_db": -5.9,
+     "loudness": -16.0,
+     "rms_db": -20.95,
+     "seconds": 1.5,
+     "peak_s": 0.543
+    }
+   ],
+   "use": "gale"
+  },
+  "tile_glaze": {
+   "variants": 2,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -1.53,
+     "loudness": -16.0,
+     "rms_db": -22.66,
+     "seconds": 1.0,
+     "peak_s": 0.606
+    },
+    {
+     "peak_db": -4.66,
+     "loudness": -16.0,
+     "rms_db": -22.76,
+     "seconds": 1.0,
+     "peak_s": 0.606
+    }
+   ],
+   "use": "overfreeze"
+  },
+  "hit_crit": {
+   "variants": 3,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -3.3,
+     "loudness": -16.0,
+     "rms_db": -19.38,
+     "seconds": 1.1,
+     "peak_s": 0.005
+    },
+    {
+     "peak_db": -3.65,
+     "loudness": -16.0,
+     "rms_db": -19.29,
+     "seconds": 1.1,
+     "peak_s": 0.009
+    },
+    {
+     "peak_db": -2.73,
+     "loudness": -16.0,
+     "rms_db": -19.38,
+     "seconds": 1.1,
+     "peak_s": 0.008
+    }
+   ],
+   "use": "overheat"
+  },
+  "cast_whoom": {
+   "variants": 3,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -3.96,
+     "loudness": -16.0,
+     "rms_db": -19.07,
+     "seconds": 0.75,
+     "peak_s": 0.154
+    },
+    {
+     "peak_db": -2.17,
+     "loudness": -16.0,
+     "rms_db": -19.11,
+     "seconds": 0.75,
+     "peak_s": 0.129
+    },
+    {
+     "peak_db": -2.8,
+     "loudness": -16.0,
+     "rms_db": -18.99,
+     "seconds": 0.75,
+     "peak_s": 0.127
+    }
+   ],
+   "use": "douse"
+  },
+  "hit_flesh": {
+   "variants": 4,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -2.11,
+     "loudness": -16.0,
+     "rms_db": -15.32,
+     "seconds": 0.35,
+     "peak_s": 0.006
+    },
+    {
+     "peak_db": -1.51,
+     "loudness": -16.0,
+     "rms_db": -15.0,
+     "seconds": 0.35,
+     "peak_s": 0.007
+    },
+    {
+     "peak_db": -2.03,
+     "loudness": -16.0,
+     "rms_db": -15.31,
+     "seconds": 0.35,
+     "peak_s": 0.007
+    },
+    {
+     "peak_db": -1.44,
+     "loudness": -16.0,
+     "rms_db": -15.12,
+     "seconds": 0.35,
+     "peak_s": 0.009
+    }
+   ],
+   "use": "hurt"
+  },
+  "hit_glance": {
+   "variants": 3,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -1.04,
+     "loudness": -16.25,
+     "rms_db": -19.56,
+     "seconds": 0.38,
+     "peak_s": 0.018
+    },
+    {
+     "peak_db": -1.04,
+     "loudness": -16.23,
+     "rms_db": -19.58,
+     "seconds": 0.38,
+     "peak_s": 0.04
+    },
+    {
+     "peak_db": -1.04,
+     "loudness": -16.27,
+     "rms_db": -19.65,
+     "seconds": 0.38,
+     "peak_s": 0.011
+    }
+   ],
+   "use": "hurt"
+  },
+  "hit_block": {
+   "variants": 3,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -5.03,
+     "loudness": -16.0,
+     "rms_db": -20.06,
+     "seconds": 0.85,
+     "peak_s": 0.006
+    },
+    {
+     "peak_db": -2.87,
+     "loudness": -16.0,
+     "rms_db": -20.06,
+     "seconds": 0.85,
+     "peak_s": 0.006
+    },
+    {
+     "peak_db": -2.16,
+     "loudness": -16.0,
+     "rms_db": -20.08,
+     "seconds": 0.85,
+     "peak_s": 0.005
+    }
+   ],
+   "use": "stagger"
+  },
+  "ko_thud": {
+   "variants": 2,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -3.76,
+     "loudness": -16.0,
+     "rms_db": -17.88,
+     "seconds": 1.0,
+     "peak_s": 0.01
+    },
+    {
+     "peak_db": -5.18,
+     "loudness": -16.0,
+     "rms_db": -18.09,
+     "seconds": 1.0,
+     "peak_s": 0.033
+    }
+   ],
+   "use": "death"
+  },
+  "step_stone": {
+   "variants": 6,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -1.04,
+     "loudness": -16.41,
+     "rms_db": -18.52,
+     "seconds": 0.2,
+     "peak_s": 0.005
+    },
+    {
+     "peak_db": -1.04,
+     "loudness": -16.94,
+     "rms_db": -18.66,
+     "seconds": 0.2,
+     "peak_s": 0.006
+    },
+    {
+     "peak_db": -1.04,
+     "loudness": -16.48,
+     "rms_db": -18.32,
+     "seconds": 0.2,
+     "peak_s": 0.006
+    },
+    {
+     "peak_db": -1.04,
+     "loudness": -16.37,
+     "rms_db": -18.41,
+     "seconds": 0.2,
+     "peak_s": 0.005
+    },
+    {
+     "peak_db": -1.04,
+     "loudness": -16.63,
+     "rms_db": -18.79,
+     "seconds": 0.2,
+     "peak_s": 0.005
+    },
+    {
+     "peak_db": -1.04,
+     "loudness": -16.41,
+     "rms_db": -18.41,
+     "seconds": 0.2,
+     "peak_s": 0.006
+    }
+   ],
+   "use": "step"
+  },
+  "swing_light": {
+   "variants": 4,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -1.04,
+     "loudness": -16.19,
+     "rms_db": -19.06,
+     "seconds": 0.299,
+     "peak_s": 0.083
+    },
+    {
+     "peak_db": -1.06,
+     "loudness": -16.0,
+     "rms_db": -18.86,
+     "seconds": 0.31,
+     "peak_s": 0.091
+    },
+    {
+     "peak_db": -1.46,
+     "loudness": -16.0,
+     "rms_db": -18.99,
+     "seconds": 0.267,
+     "peak_s": 0.092
+    },
+    {
+     "peak_db": -2.4,
+     "loudness": -16.0,
+     "rms_db": -19.1,
+     "seconds": 0.324,
+     "peak_s": 0.099
+    }
+   ],
+   "use": "swing"
+  },
+  "swing_heavy": {
+   "variants": 3,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -1.04,
+     "loudness": -16.13,
+     "rms_db": -17.79,
+     "seconds": 0.502,
+     "peak_s": 0.149
+    },
+    {
+     "peak_db": -1.04,
+     "loudness": -16.28,
+     "rms_db": -18.19,
+     "seconds": 0.497,
+     "peak_s": 0.163
+    },
+    {
+     "peak_db": -2.11,
+     "loudness": -16.0,
+     "rms_db": -17.74,
+     "seconds": 0.471,
+     "peak_s": 0.151
+    }
+   ],
+   "use": "swing"
+  },
+  "hit_miss": {
+   "variants": 3,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -1.94,
+     "loudness": -16.0,
+     "rms_db": -19.59,
+     "seconds": 0.221,
+     "peak_s": 0.08
+    },
+    {
+     "peak_db": -2.01,
+     "loudness": -16.0,
+     "rms_db": -19.51,
+     "seconds": 0.222,
+     "peak_s": 0.086
+    },
+    {
+     "peak_db": -3.26,
+     "loudness": -16.0,
+     "rms_db": -19.62,
+     "seconds": 0.203,
+     "peak_s": 0.067
+    }
+   ],
+   "use": "swing"
+  },
+  "bow_draw": {
+   "variants": 2,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -2.25,
+     "loudness": -16.0,
+     "rms_db": -18.42,
+     "seconds": 0.62,
+     "peak_s": 0.312
+    },
+    {
+     "peak_db": -3.18,
+     "loudness": -16.0,
+     "rms_db": -18.47,
+     "seconds": 0.62,
+     "peak_s": 0.308
+    }
+   ],
+   "use": "bow"
+  },
+  "bow_release": {
+   "variants": 3,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -1.04,
+     "loudness": -16.78,
+     "rms_db": -20.84,
+     "seconds": 0.55,
+     "peak_s": 0.005
+    },
+    {
+     "peak_db": -1.04,
+     "loudness": -16.85,
+     "rms_db": -20.61,
+     "seconds": 0.55,
+     "peak_s": 0.006
+    },
+    {
+     "peak_db": -1.04,
+     "loudness": -16.91,
+     "rms_db": -20.75,
+     "seconds": 0.55,
+     "peak_s": 0.006
+    }
+   ],
+   "use": "bow"
+  },
+  "arrow_thunk": {
+   "variants": 3,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -1.04,
+     "loudness": -16.53,
+     "rms_db": -18.03,
+     "seconds": 0.5,
+     "peak_s": 0.006
+    },
+    {
+     "peak_db": -1.04,
+     "loudness": -16.41,
+     "rms_db": -17.92,
+     "seconds": 0.5,
+     "peak_s": 0.02
+    },
+    {
+     "peak_db": -1.04,
+     "loudness": -16.45,
+     "rms_db": -17.95,
+     "seconds": 0.5,
+     "peak_s": 0.008
+    }
+   ],
+   "use": "bow"
+  },
+  "heal": {
+   "variants": 2,
+   "bus": "SFX",
+   "loop": false,
+   "levels": [
+    {
+     "peak_db": -7.26,
+     "loudness": -16.0,
+     "rms_db": -21.88,
+     "seconds": 1.3,
+     "peak_s": 0.49
+    },
+    {
+     "peak_db": -4.67,
+     "loudness": -16.0,
+     "rms_db": -20.99,
+     "seconds": 1.3,
+     "peak_s": 0.447
+    }
+   ],
+   "use": "heal"
+  }
+ }
+}
