@@ -20,6 +20,7 @@ var asset: GKAsset
 var view: HHArenaView
 var camera: HHCameraRig
 var hud: HHHud
+var sfx: HHSfx
 var debug: Label
 var player_id := "p1"
 var monster_id := ""
@@ -57,6 +58,9 @@ func setup(p_arena: HHArena, seed: int, monster: String = "", p_asset: GKAsset =
 	camera.follow(sim.unit(player_id).pos, true)
 	_build_bodies()
 	_build_hud()
+	sfx = HHSfx.new()
+	sfx.name = "Sfx"
+	add_child(sfx)
 	if autoplay:
 		_script = _autoplay_script()
 
@@ -165,6 +169,8 @@ func _process(delta: float) -> void:
 		_pending = {}
 		for e in ev:
 			_note(e)
+			if sfx != null:
+				sfx.on_event(e, sim)
 		steps += 1
 	_draw(delta)
 	if autoplay and _elapsed >= autoplay_seconds:
