@@ -1,0 +1,24 @@
+# DECISIONS
+
+Append-only. Superseded rows are marked in place, never deleted.
+Number blocks: H1-H99 foundation and plan (session 0). Lane blocks are reserved in PLAN.md section 6.
+"By": Author / Claude / both. Claude-only calls on minor ambiguities are logged as "Claude, decided".
+
+| # | Date | Decision | By | Why | Status |
+|---|------|----------|----|-----|--------|
+| H1 | 2026-10-19 | Hexhunt is a real-time co-op hunting game, party 1-4, four monsters in the first playable. Godot 4.7 standard, GDScript only, no plugins. | Author | Kickoff §1, §5 | current |
+| H2 | 2026-10-19 | Seven elements, Black \| White's set as-is: fire, water, ice, thunder, wind, dark, light. Poison is a dark status. "Lightning" in the kickoff means thunder. | Author | Interview Q1. The charge/operator reaction math (Douse, Fuse, Glaze, Gale, Overheat, Overfreeze) drops in unchanged. | current |
+| H3 | 2026-10-19 | Arenas come from a seeded procedural generator per biome with a kit-bench-style slider/preset/preview tool. No hand-painted hex editor. | Author | Interview Q2. Gamers Gauntlet never had a map editor; its forest and kit bench are the real precedent. | current |
+| H4 | 2026-10-19 | Mesh pipeline: Blender Python (Black \| White's build_*.py pattern, glb + JSON manifest) for weapons, player rig and monster rigs. GKMesh (GDScript) for environment props and arena pieces. | Author | Interview Q3. Blender 5.2 is installed. Reuses the existing glaive, karambit, dagger and bow builders. | current |
+| H5 | 2026-10-19 | Phase 1 fight is Swampfang in the lilypad pond with the lance only. Daggers and bow follow in Phase 2. | Author | Interview Q4. Kickoff §3h describes the pond ambush; lance exercises line, guard and area skills plus the heaviest clips. | current |
+| H6 | 2026-10-19 | Repo is <repo>, git, branch dev for integration, main moves only at gates. Lanes are worktrees merging to dev. No GitHub remote until asked. | Author | Interview Q5 | current |
+| H7 | 2026-10-19 | The sim is order-driven and host-authoritative from day one (every player action is an order into a seeded, node-free step()). Networking itself is Phase 4. | Author | Interview Q6. Same shape as Gauntlet's MmoSim; co-op becomes wiring, not a rewrite. | current |
+| H8 | 2026-10-19 | Sim tick is 30 Hz (Gauntlet MmoSim pattern), not OSRS's 0.6 s. Logical position is a hex; walking advances one hex per N ticks while the model glides. | Claude, decided | Kickoff asks for ~30 Hz response and OSRS-style true-tile snapping; both are satisfied by a fast tick with hex-quantised position. | current |
+| H9 | 2026-10-19 | Hex circumradius 1.0 m, pointy-top, odd-r (BWHex). Arena floor is 35 x 35 m, so about 20 hexes across, with a visual skirt beyond the boundary. | Claude, decided | Player rig height 2.2 m. One hex per stride reads well and telegraph shapes stay legible from the orbit camera. | current |
+| H10 | 2026-10-19 | Monster-to-biome: Swampfang = lilypad pond, Colambros = volcanic caldera, Rimeslithe = cave, Spirewalker = grassy glade. | Claude, decided | Kickoff pairs heat vents with the caldera monster, sunlit patches with the glade monster, cold vents/shade with Rimeslithe. | current |
+| H11 | 2026-10-19 | Kickoff nicknames resolve as: Gator = Swampfang, Ampharos/amparos = Colambros, Reshiram = Rimeslithe, Spire = Spirewalker. | Claude, decided | The names appear interchangeably in §6 Lane E. | current |
+| H12 | 2026-10-19 | The caldera is a snow-rimmed volcanic bowl: ash and snow on the rim, heat vents and lava pools on the floor. | Claude, decided | The reference image is a snowy caldera; the kickoff asks for heat vents/lava. Both kept; the contrast reads well. | current |
+| H13 | 2026-10-19 | Monster pacing: all four monsters move and attack slow, weighty and telegraphed, with ground-hex danger shapes. Colambros is the single fast exception (charges), still telegraphed by the dirt-scrape. | Author | Kickoff Lane E closing notes | current |
+| H14 | 2026-10-19 | Lane E builds one modular Monster Rig Builder (spine/tail chain, jaw, quadruped/biped leg IK, wing/back sockets) and gates Phase 1 on Swampfang alone. Other three monsters wait for the Phase 1 gate. | Author | Kickoff Lane E | current |
+| H15 | 2026-10-19 | Audio lane (F) has no Godot dependency: 4-5 four-bar drum loops at 120 BPM plus MIDI chord progressions, written with the groovekit scripts in D:\Music Studio\Claude Playground. Sound effects are borrowed from Gauntlet's game\audio\sfx. | Author | Kickoff §6 audio notes | current |
+| H16 | 2026-10-19 | Phase 1 runs with at most three parallel lanes (P play loop, C pond generator, E Swampfang). The six-lane fan-out in kickoff §6 starts only after the Phase 1 gate. | Claude, decided | Kickoff: "Once 1 monster + 1 arena feels 10/10, unleash the parallel lanes afterwards." | current |
