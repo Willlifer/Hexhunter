@@ -13,7 +13,7 @@ extends Node
 ##   --cam dist,pitch           start the camera at this distance (m) and pitch (deg)
 ##   --tune key=value           override one HHTune number this run (repeatable)
 ##   --bench                    Lane C's arena bench (src/arena/bench/bench.gd)
-## With no args (a double-clicked exe) it opens the fight with Swampfang, wide view.
+## With no args (a double-clicked exe) it opens the pond fight with Swampfang, wide view.
 
 const REPORT_PATH := "user://self_test_report.json"
 
@@ -37,7 +37,7 @@ func _ready() -> void:
 			get_tree().quit(2)
 		return
 	if args.is_empty():                                             # double-clicked: the fight, wide view
-		args = PackedStringArray(["--fight", "swampfang", "--cam", "34,44"])
+		args = PackedStringArray(["--arena", "pond", "--fight", "swampfang", "--cam", "30,44"])
 	var seed := int(_arg(args, "--seed", "1"))
 	var loaded := _load_arena(_arg(args, "--arena", "round"), seed)
 	var fight := HHFight.new()
