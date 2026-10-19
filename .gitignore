@@ -4,3 +4,4 @@
 *.tmp
 design/art/shots/
 dist/
+.claude/
