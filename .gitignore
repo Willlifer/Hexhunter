@@ -3,3 +3,4 @@
 .import/
 *.tmp
 design/art/shots/
+dist/

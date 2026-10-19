@@ -9,7 +9,7 @@ extends Node
 ##   --shot <dir> [--count n] [--every s]   save n rendered frames to <dir>, then quit
 ##   --tune key=value           override one HHTune number this run (repeatable)
 ##   --cam dist,pitch           start the camera at this distance (m) and pitch (deg)
-## With no args the sandbox opens windowed.
+## With no args (a double-clicked exe) it opens the sandbox with the Swampfang stub, wide view.
 
 const REPORT_PATH := "user://self_test_report.json"
 
@@ -24,6 +24,8 @@ func _ready() -> void:
 	if "--self-test" in args:
 		_self_test.call_deferred()
 		return
+	if args.is_empty():                                             # double-clicked: the fight sandbox, wide view
+		args = PackedStringArray(["--fight", "swampfang", "--cam", "30,42"])
 	var seed := int(_arg(args, "--seed", "1"))
 	var arena := _load_arena(_arg(args, "--arena", "round"), seed)
 	var fight := HHFight.new()
