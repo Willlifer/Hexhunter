@@ -13,6 +13,12 @@ const KIND_COLOR := {
 	"cover": Color(1.0, 0.5, 0.1, 1.0),
 	"edge": Color(1.0, 0.25, 0.25, 0.9),
 	"rock": Color(0.7, 0.7, 0.7, 0.9),
+	"pillar": Color(0.55, 0.55, 0.6, 0.95),
+	"vent": Color(1.0, 0.55, 0.1, 0.95),
+	"lava": Color(1.0, 0.15, 0.1, 1.0),
+	"sun": Color(1.0, 0.98, 0.7, 1.0),
+	"shade": Color(0.2, 0.85, 0.8, 0.95),
+	"tree": Color(0.1, 0.4, 0.15, 0.95),
 }
 
 
@@ -44,10 +50,47 @@ static func sky(lights: Dictionary) -> WorldEnvironment:
 	env.ambient_light_energy = float(lights.get("ambient", 0.8))
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.glow_enabled = false
+	if lights.has("fog"):
+		var fog: Dictionary = lights.fog
+		env.fog_enabled = true
+		env.fog_light_color = Color(str(fog.get("color", "#c0c0c0")))
+		env.fog_density = float(fog.get("density", 0.01))
+		env.fog_sky_affect = float(fog.get("sky_affect", 0.4))
 	var we := WorldEnvironment.new()
 	we.name = "Sky"
 	we.environment = env
 	return we
+
+
+## Point lights from an asset's markers: a marker "torch_3" takes its colour,
+## energy and range from `lights.points.torch` (the prefix before the last
+## "_N"); markers without a `points` entry make no light.
+static func point_lights(asset: GKAsset) -> Array[OmniLight3D]:
+	var out: Array[OmniLight3D] = []
+	var points: Dictionary = asset.lights.get("points", {})
+	if points.is_empty():
+		return out
+	var names := asset.markers.keys()
+	names.sort()
+	for n in names:
+		var name := str(n)
+		var cut := name.rfind("_")
+		if cut <= 0:
+			continue
+		var prefix := name.substr(0, cut)
+		if not points.has(prefix):
+			continue
+		var spec: Dictionary = points[prefix]
+		var l := OmniLight3D.new()
+		l.name = name
+		l.transform = asset.markers[n]
+		l.light_color = Color(str(spec.get("color", "#ffffff")))
+		l.light_energy = float(spec.get("energy", 2.0))
+		l.omni_range = float(spec.get("range", 10.0))
+		l.omni_attenuation = float(spec.get("attenuation", 1.4))
+		l.shadow_enabled = bool(spec.get("shadow", false))
+		out.append(l)
+	return out
 
 
 ## The kind an overlay colours a cell by: deep water and cover pads get their own.
