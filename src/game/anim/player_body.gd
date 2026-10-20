@@ -1,4 +1,4 @@
-class_name HHPlayerBody
+﻿class_name HHPlayerBody
 extends Node3D
 ## The player's body at run time (Lane B): instances art/characters/base_rig.glb
 ## (tools/blender/build_base_rig.py, never hand-edited), hangs the weapon glbs
@@ -59,6 +59,7 @@ const CLIP_SETS := {
 	"bow": "res://src/game/anim/clips_bow.gd",
 }
 const FADE := 0.12                  ## cross-fade between clips (s)
+const FADE_READY := 0.3             ## H60: a string that lapses eases out of its ready loop this slowly
 const AIM_LAG := 0.12               ## upper-body turn toward the target (s)
 const AIM_MAX_DEG := 55.0
 const LOCO_SMOOTH := 0.08           ## speed smoothing (s)
@@ -112,6 +113,11 @@ var _last_pos := Vector3(INF, INF, INF)
 var _wield_timer := 0.0
 var _dead := false
 var _land_clip := ""                # what the next `land` plays (set by `leap`)
+var _fade_len := FADE               # this cross-fade's length (H60: longer out of a string's ready loop)
+var charge_frac := 0.0              ## H60: the held charge, 0 (tap) .. 1 (full), for the brace's tremor
+var _pending_clip := ""             # H60: a release that starts after a beat (the brace holds first)
+var _pending_in := 0.0
+var _pending_from := 0.0
 
 
 # ------------------------------------------------------------------ manifests
@@ -365,6 +371,106 @@ func _draw_ward(delta: float) -> void:
 		_ward.scale = Vector3.ONE * (1.0 + 0.04 * sin(_ward_t * 9.0))
 
 
+## H60 (Lane X): the swing trail. A string hit's CLIPS row may carry
+## "trail": [from s, to s, strength, "main" | "off" | "both"]; between those
+## clip times the blade's edge (manifest trail_base .. tip) is sampled every
+## frame into a ribbon in the hunter's element glow that fades in
+## TRAIL_LIFE x strength (the finisher's is the longest and brightest).
+## World space (top_level), one ImmediateMesh per body, rebuilt only while
+## it has points; it freezes with the body in a hit-stop (delta 0).
+const TRAIL_LIFE := 0.1
+const TRAIL_MAX := 24
+var trail_points := 0               ## live ribbon samples (tests, fx-perf)
+var _trail: MeshInstance3D = null
+var _trail_pts: Array = []          # [age, base, tip, strength] per blade, oldest first
+var _trail_life := TRAIL_LIFE
+
+
+func _draw_trail(delta: float) -> void:
+	var row: Dictionary = clips(weapon_id).get(clip, {})
+	var tr: Variant = row.get("trail")
+	for blade in _trail_pts:
+		for p in blade:
+			p[0] = float(p[0]) + delta
+	for blade in _trail_pts:
+		while not (blade as Array).is_empty() and float(blade[0][0]) > _trail_life:
+			(blade as Array).pop_front()
+	if tr is Array and (tr as Array).size() >= 3 and time >= float(tr[0]) and time <= float(tr[1]) and delta > 0.0:
+		var which := str(tr[3]) if (tr as Array).size() > 3 else "main"
+		var nodes: Array = []
+		if which != "off":
+			nodes.append(weapon_main)
+		if which != "main":
+			nodes.append(weapon_off)
+		var strength := float(tr[2])
+		_trail_life = TRAIL_LIFE * (0.6 + 0.6 * strength)
+		while _trail_pts.size() < nodes.size():
+			_trail_pts.append([])
+		for i in nodes.size():
+			var n: Node3D = nodes[i]
+			if n == null or n.get_parent() == null:
+				continue
+			var xf := socket_xform(str(n.get_parent().name)) * n.transform
+			var tip := _row_point("tip", Vector3(0, 1, 0))
+			var base := _row_point("trail_base", Vector3.ZERO)
+			base = tip.lerp(base, clampf(0.35 + 0.2 * strength, 0.0, 0.7))
+			var world := global_transform if is_inside_tree() else transform
+			var blade: Array = _trail_pts[i]
+			blade.append([0.0, world * (xf * base), world * (xf * tip), strength])
+			while blade.size() > TRAIL_MAX:
+				blade.pop_front()
+	trail_points = 0
+	for blade in _trail_pts:
+		trail_points += (blade as Array).size()
+	if trail_points == 0:
+		if _trail != null:
+			_trail.visible = false
+		return
+	if _trail == null:
+		_trail = MeshInstance3D.new()
+		_trail.name = "swing_trail"
+		_trail.top_level = true
+		_trail.mesh = ImmediateMesh.new()
+		_trail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.vertex_color_use_as_albedo = true
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED        # mixed, not additive: an additive ribbon washes out to cream on a lit floor (review round 2)
+		_trail.material_override = m
+		add_child(_trail)
+	_trail.visible = true
+	if _trail.is_inside_tree():
+		_trail.global_transform = Transform3D.IDENTITY
+	var col := Color(1.0, 0.95, 0.85)
+	if sim != null and unit_id != "":
+		col = HHLook.glow_color(str(sim.unit(unit_id).get("element", "")))
+	var im: ImmediateMesh = _trail.mesh
+	im.clear_surfaces()
+	for blade in _trail_pts:
+		var pts: Array = blade
+		if pts.size() < 2:
+			continue
+		im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
+		for p in pts:
+			var k := clampf(1.0 - float(p[0]) / _trail_life, 0.0, 1.0)
+			var a := k * clampf(0.35 + 0.2 * float(p[3]), 0.0, 0.75)
+			var c := col.lerp(Color.WHITE, 0.35 * k * k)
+			im.surface_set_color(Color(c.r, c.g, c.b, a))
+			im.surface_add_vertex(p[1])
+			im.surface_set_color(Color(c.r, c.g, c.b, minf(1.0, a * 1.3)))
+			im.surface_add_vertex(p[2])
+		im.surface_end()
+
+
+## A point from the weapon's manifest row (weapon local), or `fallback`.
+func _row_point(key: String, fallback: Vector3) -> Vector3:
+	var a: Variant = row.get(key)
+	if a is Array and (a as Array).size() >= 3:
+		return Vector3(float(a[0]), float(a[1]), float(a[2]))
+	return fallback
+
+
 static func _ward_material(c: Color) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -508,11 +614,13 @@ func play(clip_name: String, p_loop: bool = true, p_speed: float = 1.0) -> bool:
 		return false
 	if clip_name == clip and p_loop and loop:
 		return true
+	_pending_clip = ""
 	if clip != "":
 		_prev_clip = clip
 		_prev_time = time
 		_prev_loop = loop
-		_fade = FADE
+		_fade_len = FADE_READY if _is_ready_clip(clip) else FADE
+		_fade = _fade_len
 		if loop:
 			_resume = clip
 	clip = clip_name
@@ -537,6 +645,7 @@ func play_held(clip_name: String, p_speed: float = 1.0) -> bool:
 func release() -> void:
 	_hold_at = -1.0
 	_held = false
+	_pending_clip = ""
 
 
 ## Co-op downed state (H53, H905): the death clip held at its kneel (knees
@@ -608,15 +717,20 @@ func update(delta: float) -> void:
 		return
 	_read_intent(delta)
 	_read_motion(delta)
+	if _pending_clip != "":
+		_pending_in -= delta
+		if _pending_in <= 0.0:
+			_start_pending(false)
 	# locomotion follows the ground speed; a loop with a stride plays at the
 	# rate that keeps the stance foot planted
 	var d := duration(clip)
 	var rate := speed
-	var stride := float(clips(weapon_id)[clip].get("stride", 0.0))
+	var row: Dictionary = clips(weapon_id)[clip]
+	var stride := float(row.get("stride", 0.0))
 	if loop and stride > 0.0 and d > 0.0:
 		rate = (speed_mps / stride) * d
-	elif not loop and recovering():
-		rate *= RECOVERY_RATE                       # H57: the follow-through holds while the sim's recovery roots the hunter
+	elif not loop and recovering() and not bool(row.get("timed", false)):
+		rate *= RECOVERY_RATE                       # H57: the follow-through holds while the sim's recovery roots the hunter (H60: a timed string hit keys its own)
 	if _hold_at >= 0.0 and time + delta * rate >= _hold_at:
 		time = _hold_at
 		_held = true
@@ -640,12 +754,13 @@ func update(delta: float) -> void:
 			_prev_time = fmod(_prev_time, pd)
 		elif pd > 0.0:
 			_prev_time = minf(_prev_time, pd)
-		var w := smoothstep(0.0, 1.0, clampf(1.0 - _fade / FADE, 0.0, 1.0))
+		var w := smoothstep(0.0, 1.0, clampf(1.0 - _fade / maxf(_fade_len, 1e-4), 0.0, 1.0))
 		cur = _mix(_sample_clip(_prev_clip, _prev_time), cur, w)
 		if _fade <= 0.0:
 			_prev_clip = ""
 	_apply(cur)
 	_draw_ward(delta)
+	_draw_trail(delta)
 
 
 ## Ground speed from the body's own position delta (HHFight moves the node).
@@ -671,14 +786,55 @@ func _read_motion(delta: float) -> void:
 	if _wield_timer > 0.0:
 		_wield_timer -= delta
 	# a loop follows the locomotion; one-shots run their course first
-	if loop and not _dead and clip != _loco_clip() and clip != "guard" and clip != "draw":
+	if loop and not _dead and clip != _loco_clip() and clip != "guard" and clip != "draw" and not _bracing():
 		play(_loco_clip())
+
+
+## H60: a looping charge clip (the lance's brace) holds while the sim's
+## charge does, and through the beat before its release clip starts.
+func _bracing() -> bool:
+	if clip == "" or clip != charge_clip():
+		return false
+	if _pending_clip != "":
+		return true
+	if sim == null or unit_id == "":
+		return true
+	var ch: Variant = sim.unit(unit_id).get("charging", {})
+	return ch is Dictionary and not (ch as Dictionary).is_empty()
 
 
 func _loco_clip() -> String:
 	if loco == "idle":
+		var r := ready_clip()
+		if r != "":
+			return r
 		return "wield_idle" if (wielded or _wield_timer > 0.0) and clips(weapon_id).has("wield_idle") else "idle"
 	return loco
+
+
+## H60: the loop a live string holds between hits (the set's READY_CLIPS by
+## the bound unit's combo step), "" when no string is open: the window
+## lapsed, the string ended or reset, or the body is unbound.
+func ready_clip() -> String:
+	if sim == null or unit_id == "" or _set == null:
+		return ""
+	var u := sim.unit(unit_id)
+	var cb: Variant = u.get("combo", {})
+	if not (cb is Dictionary) or (cb as Dictionary).is_empty():
+		return ""
+	var until := int((cb as Dictionary).get("until", -1))
+	if until < 0 or sim.tick > until:
+		return ""
+	var m: Variant = _set.get("READY_CLIPS")
+	if not (m is Dictionary):
+		return ""
+	var c := str((m as Dictionary).get(int((cb as Dictionary).get("step", 0)), ""))
+	return c if clips(weapon_id).has(c) else ""
+
+
+func _is_ready_clip(c: String) -> bool:
+	var m: Variant = _set.get("READY_CLIPS") if _set != null else null
+	return m is Dictionary and c in (m as Dictionary).values()
 
 
 ## Intent from the sim: a target turns the upper body; guard holds; the dead stay down.
@@ -688,6 +844,9 @@ func _read_intent(delta: float) -> void:
 		var u := sim.unit(unit_id)
 		if not u.is_empty():
 			wielded = u.target != "" or not (u.windup as Dictionary).is_empty()
+			var ch: Variant = u.get("charging", {})
+			var full := maxf(HHTune.value("charge_l3_s") / HHSim.TICK, 1.0)
+			charge_frac = clampf(float((ch as Dictionary).get("ticks", 0)) / full, 0.0, 1.0) if ch is Dictionary else 0.0
 			if u.target != "" and sim.units.has(u.target):
 				var t: Dictionary = sim.units[u.target]
 				var d: Vector3 = (t.pos as Vector3) - (u.pos as Vector3)
@@ -736,6 +895,14 @@ func on_event(e: Dictionary, p_sim: HHSim) -> void:
 					return                              # H56: the charge pose flows straight into the release
 				var ct := contact_time(c)
 				var ticks := int(e.get("ticks", 0))
+				var from := charge_from(c) if clip == charge_clip() else -1.0
+				if from > 0.0 and from < ct:
+					# H60: out of the brace: hold it, then run the clip from its
+					# coil so the contact lands on the sim's (no slow-motion lunge)
+					_pending_clip = c
+					_pending_from = from
+					_pending_in = maxf(float(ticks) * HHSim.TICK - (ct - from), 0.0)
+					return
 				# the anticipation spans the sim's wind-up exactly, then holds at contact
 				var sp := (ct / (float(ticks) * HHSim.TICK)) if ct > 0.0 and ticks > 0 else 1.0
 				play_held(c, clampf(sp, 0.5, 2.0))
@@ -761,6 +928,8 @@ func on_event(e: Dictionary, p_sim: HHSim) -> void:
 				release()
 				play("dash", false, clampf(0.2 / dt, 0.6, 2.0))
 		"strike", "pierce", "miss", "energized_shot", "flourish":
+			if _pending_clip != "":
+				_start_pending(true)                    # H60: the release beat the brace's count: straight to contact
 			if _held or (_hold_at >= 0.0):
 				release()
 				speed = 1.0
@@ -836,6 +1005,23 @@ func combo_clip(step: int) -> String:
 func charge_clip() -> String:
 	var c: Variant = _set.get("CHARGE_CLIP") if _set != null else null
 	return str(c) if c != null else ""
+
+
+## H60: where a release clip starts when it follows the charge clip (the
+## set's CHARGE_FROM, seconds: its coil), -1 = from the top.
+func charge_from(c: String) -> float:
+	var m: Variant = _set.get("CHARGE_FROM") if _set != null else null
+	return float((m as Dictionary).get(c, -1.0)) if m is Dictionary else -1.0
+
+
+func _start_pending(at_contact: bool) -> void:
+	var c := _pending_clip
+	var from := _pending_from
+	_pending_clip = ""
+	if c == "" or not clips(weapon_id).has(c):
+		return
+	play_held(c)
+	time = contact_time(c) if at_contact else from
 
 
 func skill_clip_for_windup(kind: String) -> String:

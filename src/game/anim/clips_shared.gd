@@ -452,3 +452,118 @@ static func dash(t: float, b: HHPlayerBody, carry: Dictionary) -> void:
 			"foot_l": [Vector3(0.14, ANKLE_Y, 0.06), 0.0], "foot_r": [Vector3(-0.14, ANKLE_Y, -0.06), 0.0] })),
 	]
 	keyed(t, keys, b)
+
+
+# ------------------------------------------------------------------ combo strings (H60, Lane X)
+# The melee-string machinery, ported from Black | White's strike rig
+# (game/src/game/character/anim_action.gd + anim_clips.gd _strike_sword):
+#   * beats: the approved flamberge strike's twelve beats (REF_BEATS),
+#     retimed onto each hit's SIM timing (contact = the wind-up ticks, the
+#     follow-through over the recovery ticks) like _melee()/_warp() retime
+#     the reference per style;
+#   * root-frame hands: hands are authored relative to the travelling root
+#     (B|W meta hand_frame "root"), so a lunge carries the weapon with it
+#     and the cut still lands on the target line;
+#   * plants: feet only move between plants, on an arc (B|W's foot plant
+#     schedule), so the lunge and the hop home never skate;
+#   * impact: the hit-stop's two near-still frames plus a decaying shudder.
+# Root travel is view-only (move:root) and every hit returns it to zero.
+
+## Black | White's reference strike beats (frames of the flamberge strike, anim_action.gd).
+const REF_BEATS := [0.0, 4.0, 8.0, 10.0, 13.0, 14.0, 18.0, 22.0, 27.0, 30.0, 36.0, 40.0]
+const BEAT_NAMES := ["start", "wind", "coil", "launch", "land", "hit", "over", "settle", "hop_start", "hop_end", "recovered", "end"]
+
+
+## The beats of one string hit, in clip seconds: the reference's wind-up
+## (f0-f14) stretched onto `windup` ticks so "hit" is the contact tick, and
+## its follow-through (f14-f36) onto the `recovery` ticks plus `settle`
+## more (the hop home may run past the sim's root). "end" closes the clip.
+## Extra: "stop" = hit + 2 ticks (B|W's two hit-stop frames).
+static func beats(windup: int, recovery: int, settle: int = 0) -> Dictionary:
+	var out := {}
+	var hit := float(windup) * T
+	var tail := float(recovery + settle) * T
+	for i in REF_BEATS.size():
+		var f := float(REF_BEATS[i])
+		if f <= 14.0:
+			out[BEAT_NAMES[i]] = hit * f / 14.0
+		else:
+			out[BEAT_NAMES[i]] = hit + tail * (f - 14.0) / 22.0
+	out["end"] = minf(float(out.end), hit + tail)
+	out["stop"] = hit + 2.0 * T
+	return out
+
+
+## A pose with its hands moved into the root frame (B|W hand_frame "root"):
+## an unanchored hand's position is authored relative to the root, so it
+## travels with "move:root" (the lunge carries the weapon).
+static func rooted(pose: Dictionary) -> Dictionary:
+	var r: Vector3 = pose.get("move:root", Vector3.ZERO)
+	if r == Vector3.ZERO:
+		return pose
+	var out := pose.duplicate()
+	for k in ["hand_l", "hand_r"]:
+		if out.has(k) and str((out[k] as Dictionary).anchor) == "":
+			var h: Dictionary = (out[k] as Dictionary).duplicate()
+			h.pos = (h.pos as Vector3) + r
+			out[k] = h
+	return out
+
+
+## `key` with the pose in the root frame.
+static func rkey(t: float, pose: Dictionary, ease_kind: String = "ss") -> Dictionary:
+	return key(t, rooted(pose), ease_kind)
+
+
+## A foot that moves only between plants (B|W's plant schedule): `track`
+## is [[t_lift, t_land, ankle pos (model), lift (m, optional)], ...] in time
+## order; entry 0 is where the foot starts (its times are ignored). Between
+## a lift and its land the ankle swings on a quintic ease with an arc
+## (min(lift, 0.05 + 0.22 x distance), B|W's swing), the toes peel down at
+## the lift and the heel strikes at the land. Returns [pos, pitch].
+static func plant(t: float, track: Array) -> Array:
+	var cur: Vector3 = track[0][2]
+	for i in range(1, track.size()):
+		var e: Array = track[i]
+		var t0 := float(e[0])
+		var t1 := float(e[1])
+		var nxt: Vector3 = e[2]
+		if t < t0:
+			return [cur, 0.0]
+		if t < t1:
+			var q := clampf((t - t0) / maxf(t1 - t0, 1e-4), 0.0, 1.0)
+			var ez := 10.0 * pow(q, 3) - 15.0 * pow(q, 4) + 6.0 * pow(q, 5)
+			var pos := cur.lerp(nxt, ez)
+			var d := Vector2(nxt.x - cur.x, nxt.z - cur.z).length()
+			var lift := float(e[3]) if e.size() > 3 else 0.14
+			if e.size() <= 3:
+				lift = minf(lift, 0.05 + d * 0.22)
+			pos.y += lift * pow(sin(PI * pow(q, 0.8)), 1.2)
+			var pitch := 22.0 * sin(PI * q) * (1.0 - q) - 10.0 * q * q * (1.0 - q) * 4.0
+			return [pos, pitch]
+		cur = nxt
+	return [cur, 0.0]
+
+
+## Both feet from their plant tracks (after the keys: these win).
+static func feet(t: float, b: HHPlayerBody, track_l: Array, track_r: Array) -> void:
+	var fl := plant(t, track_l)
+	var fr := plant(t, track_r)
+	b.ik_foot("l", fl[0], float(fl[1]))
+	b.ik_foot("r", fr[0], float(fr[1]))
+
+
+## The contact: B|W's hit-stop (two near-still frames: the keys hold) and a
+## shudder through the body that dies over `life` (amp in degrees).
+static func impact(b: HHPlayerBody, t: float, t_hit: float, life: float, amp: float, hz: float = 16.0) -> void:
+	var sh := shake(t, t_hit, life, hz)
+	b.rot("chest", Vector3(amp * sh, 0.0, 0.4 * amp * sh))
+	b.rot("head", Vector3(1.3 * amp * sh, 0.0, 0.0))
+	b.move("root", Vector3(0.0, -0.004 * amp * absf(sh), 0.0))
+
+
+## A ready loop between string hits: the hit's last pose, breathing hard.
+static func ready_loop(t: float, b: HHPlayerBody, pose: Dictionary) -> void:
+	apply(b, rooted(pose))
+	breath(b, t, 1.1, 1.0)
+	b.move("root", Vector3(0.0, -0.008 * (0.5 - 0.5 * cos(TAU * t / 1.1)), 0.0))

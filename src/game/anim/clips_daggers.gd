@@ -25,11 +25,22 @@ const CLIPS := {
 	"hit_react":   { "duration": 0.45, "contact_tick": -1, "loop": false, "key": 0.08, "note": "flinch" },
 	"death":       { "duration": 1.5, "contact_tick": -1, "loop": false, "key": 1.3, "note": "falls onto the back" },
 	"dash":        { "duration": 0.36, "contact_tick": -1, "loop": false, "key": 0.12, "note": "H56: the dash, a low forward burst, the blades trailing" },
+	# H60 (Lane X): the string, one dedicated clip per hit timed to the sim (see HHClipsLance for the row fields)
+	"combo_slash":  { "duration": 0.467, "contact_tick": 5, "recovery": 5, "timed": true, "loop": false, "key": 0.167, "trail": [0.12, 0.27, 0.5, "main"],
+		"note": "string hit 1: low coil, the right blade cuts high-right to low-left on a stepping lunge, the left flung back" },
+	"combo_spin":   { "duration": 0.6, "contact_tick": 7, "recovery": 11, "timed": true, "loop": false, "key": 0.233, "trail": [0.08, 0.31, 0.9, "off"],
+		"note": "string hit 2: a reverse hop-spin, the left blade leads the turn and cuts left to right as she lands facing front" },
+	"combo_pounce": { "duration": 0.77, "contact_tick": 10, "recovery": 16, "timed": true, "loop": false, "key": 0.333, "trail": [0.29, 0.46, 1.5, "both"],
+		"note": "string finisher: crouch, pounce, both blades over the top and crossed down in an X on the landing, ripped open, hop home" },
+	"combo_ready1": { "duration": 1.1, "contact_tick": -1, "loop": true, "key": 0.2, "note": "between hits 1 and 2: wound to the left, the left blade cocked" },
+	"combo_ready2": { "duration": 1.1, "contact_tick": -1, "loop": true, "key": 0.2, "note": "between hits 2 and 3: crouched to pounce, blades low and back" },
 }
 const SKILL_CLIPS := { "q": "flourish", "w": "swap", "e": "dive", "r": "jump" }   # H56: Q is the Flourish, E the Daggerleap (they were crossed)
 const WINDUP_CLIPS := { "basic": "strike", "dive": "dive", "flourish": "flourish", "exchange": "swap" }
-## H57: the basic string (cross slash, reverse spin, leaping double stab); H56: the held charge pose.
-const COMBO_CLIPS := { 1: "strike", 2: "spin", 3: "jump_attack" }
+## H57: the basic string; H60: one dedicated clip per hit (cross slash, reverse spin, pounce X-cut), and the loops between hits.
+const COMBO_CLIPS := { 1: "combo_slash", 2: "combo_spin", 3: "combo_pounce" }
+const READY_CLIPS := { 1: "combo_ready1", 2: "combo_ready2" }
+## H56: the held charge pose.
 const CHARGE_CLIP := "flourish"
 const LANDING_CLIPS := { "jump": "jump_attack" }
 
@@ -52,6 +63,11 @@ static func pose(clip: String, t: float, b: HHPlayerBody) -> void:
 		"hit_react": HHClipsShared.hit_react(t, b, wield())
 		"death": HHClipsShared.death(t, b, wield())
 		"dash": HHClipsShared.dash(t, b, carry_run())
+		"combo_slash": _combo_slash(t, b)
+		"combo_spin": _combo_spin(t, b)
+		"combo_pounce": _combo_pounce(t, b)
+		"combo_ready1": HHClipsShared.ready_loop(t, b, ready1())
+		"combo_ready2": HHClipsShared.ready_loop(t, b, ready2())
 
 
 # ------------------------------------------------------------------ poses
@@ -264,3 +280,190 @@ static func _swap(t: float, b: HHPlayerBody) -> void:
 		HHClipsShared.key(0.9, w),
 	]
 	HHClipsShared.keyed(t, keys, b)
+
+
+# ------------------------------------------------------------------ the string (H60, Lane X)
+# Three dedicated hits on Black | White's strike rig (HHClipsShared.beats /
+# rooted / plant / impact). The hands alternate: the right blade cuts hit
+# 1, the left leads the spin of hit 2, both cross on the finisher.
+
+const PLANT_L := Vector3(0.28, A, 0.26)        ## the crouch's plants (wield())
+const PLANT_R := Vector3(-0.28, A, -0.22)
+
+
+## The crouch in the root frame: rooted(_wr()) is exactly wield().
+static func _wr() -> Dictionary:
+	var w := wield()
+	var r: Vector3 = w["move:root"]
+	for k in ["hand_l", "hand_r"]:
+		var h: Dictionary = (w[k] as Dictionary).duplicate()
+		h.pos = (h.pos as Vector3) - r
+		w[k] = h
+	return w
+
+
+static func _h(pos: Vector3, pitch: float, yaw: float, pole: Variant = null) -> Dictionary:
+	return HHClipsShared.hand(pos, "", HHClipsShared.aim(pitch, yaw), pole)
+
+
+## Between hits 1 and 2: wound to the left (where the slash ended), the
+## right arm across the body, the left blade cocked back for the spin.
+static func ready1() -> Dictionary:
+	return HHClipsShared.merge(_wr(), { "move:root": Vector3(0, -0.16, 0),
+		"hips": Vector3(12, 14, 0), "spine": Vector3(4, 6, 0), "chest": Vector3(6, 22, 0), "neck": Vector3(-8, -6, 0), "head": Vector3(-12, -14, 0),
+		"hand_r": _h(Vector3(0.16, 1.14, 0.36), -60.0, 40.0), "hand_l": _h(Vector3(0.5, 1.26, -0.08), -40.0, 70.0) })
+
+
+## Between hits 2 and 3: crouched to pounce, both blades low and back.
+static func ready2() -> Dictionary:
+	return HHClipsShared.merge(_wr(), { "move:root": Vector3(0, -0.26, -0.04),
+		"hips": Vector3(22, 0, 0), "spine": Vector3(8, 0, 0), "chest": Vector3(10, 0, 0), "neck": Vector3(-10, 0, 0), "head": Vector3(-14, 0, 0),
+		"hand_r": _h(Vector3(-0.36, 0.98, -0.12), -80.0, -30.0), "hand_l": _h(Vector3(0.36, 0.98, -0.12), -80.0, 30.0) })
+
+
+## HIT 1, the cross slash (wind-up 5, recovery 5). From B|W _strike_pair
+## (a low crouching coil, the right blade back, a right cross-cut on the
+## hit) with _strike_one's free arm (reaches for the target in the coil,
+## flung back on the cut), on the reference body's stepping lunge.
+static func _combo_slash(t: float, b: HHPlayerBody) -> void:
+	var bt := HHClipsShared.beats(5, 5, 4)
+	var w := _wr()
+	var stop: float = bt.hit + HHClipsShared.T
+	var over: float = bt.hit + 2.6 * HHClipsShared.T
+	var keys := [
+		HHClipsShared.rkey(0.0, w),
+		HHClipsShared.rkey(bt.coil, HHClipsShared.merge(w, { "move:root": Vector3(0.03, -0.2, -0.05), "hips": Vector3(14, -18, 0), "spine": Vector3(4, -8, 0), "chest": Vector3(6, -26, 0),
+			"neck": Vector3(-6, 10, 0), "head": Vector3(-12, 20, 0),
+			"hand_r": HHClipsShared.hand(Vector3(-0.56, 1.55, -0.12), "", HHClipsShared.aim(30.0, -120.0, 180.0)), "hand_l": _h(Vector3(0.3, 1.22, 0.42), -55.0, 20.0) }), "coil"),
+		HHClipsShared.rkey(bt.launch, HHClipsShared.merge(w, { "move:root": Vector3(0.02, -0.23, -0.03), "hips": Vector3(14, -16, 0), "spine": Vector3(4, -8, 0), "chest": Vector3(6, -24, 0),
+			"neck": Vector3(-6, 10, 0), "head": Vector3(-12, 20, 0),
+			"hand_r": HHClipsShared.hand(Vector3(-0.54, 1.55, -0.08), "", HHClipsShared.aim(26.0, -110.0, 180.0)), "hand_l": _h(Vector3(0.3, 1.22, 0.42), -55.0, 20.0) })),
+		HHClipsShared.rkey(bt.land, HHClipsShared.merge(w, { "move:root": Vector3(0.0, -0.18, 0.18), "hips": Vector3(12, 0, 0), "spine": Vector3(4, 0, 0), "chest": Vector3(6, -4, 0),
+			"neck": Vector3(-6, 2, 0), "head": Vector3(-10, 4, 0),
+			"hand_r": HHClipsShared.hand(Vector3(-0.3, 1.42, 0.4), "", HHClipsShared.aim(0.0, -30.0, 180.0)), "hand_l": _h(Vector3(0.38, 1.16, 0.2), -62.0, 24.0) }), "lin"),
+		HHClipsShared.rkey(bt.hit, HHClipsShared.merge(w, { "move:root": Vector3(-0.02, -0.18, 0.28), "hips": Vector3(10, 26, 0), "spine": Vector3(4, 12, 0), "chest": Vector3(4, 40, 0),
+			"neck": Vector3(-2, -10, 0), "head": Vector3(-8, -16, 0),
+			"hand_r": HHClipsShared.hand(Vector3(0.14, 1.3, 0.6), "", HHClipsShared.aim(-20.0, 55.0, 180.0), Vector3(-0.9, -0.2, 0.2)), "hand_l": _h(Vector3(0.44, 1.14, -0.08), -70.0, 30.0) }), "lin"),
+		HHClipsShared.rkey(stop, HHClipsShared.merge(w, { "move:root": Vector3(-0.025, -0.185, 0.285), "hips": Vector3(10, 27, 0), "spine": Vector3(4, 12, 0), "chest": Vector3(4, 42, 0),
+			"neck": Vector3(-2, -10, 0), "head": Vector3(-8, -16, 0),
+			"hand_r": HHClipsShared.hand(Vector3(0.18, 1.29, 0.59), "", HHClipsShared.aim(-21.0, 62.0, 180.0), Vector3(-0.9, -0.2, 0.2)), "hand_l": _h(Vector3(0.45, 1.14, -0.1), -70.0, 30.0) })),
+		HHClipsShared.rkey(over, HHClipsShared.merge(w, { "move:root": Vector3(-0.04, -0.19, 0.27), "hips": Vector3(10, 32, 0), "spine": Vector3(4, 14, 0), "chest": Vector3(4, 48, 0),
+			"neck": Vector3(-2, -14, 0), "head": Vector3(-8, -22, 0),
+			"hand_r": HHClipsShared.hand(Vector3(0.46, 1.18, 0.38), "", HHClipsShared.aim(-28.0, 100.0, 180.0), Vector3(-0.9, -0.2, 0.2)), "hand_l": _h(Vector3(0.48, 1.18, -0.12), -60.0, 50.0) }), "over"),
+		HHClipsShared.rkey(bt.hop_start, HHClipsShared.merge(w, { "move:root": Vector3(-0.02, -0.22, 0.18), "hips": Vector3(12, 22, 0), "spine": Vector3(4, 8, 0), "chest": Vector3(6, 30, 0),
+			"neck": Vector3(-6, -10, 0), "head": Vector3(-10, -16, 0),
+			"hand_r": _h(Vector3(0.3, 1.12, 0.38), -40.0, 70.0), "hand_l": _h(Vector3(0.5, 1.22, -0.1), -48.0, 64.0) })),
+		HHClipsShared.rkey(bt.hop_end, HHClipsShared.merge(ready1(), { "move:root": Vector3(0, -0.13, 0.02) })),
+		HHClipsShared.rkey(bt.end, ready1()),
+	]
+	HHClipsShared.keyed(t, keys, b)
+	HHClipsShared.feet(t, b,
+		[[0, 0, PLANT_L], [bt.coil, bt.hit, Vector3(0.26, A, 0.5)], [bt.hop_start + 0.02, bt.hop_end + 0.03, PLANT_L]],
+		[[0, 0, PLANT_R], [bt.launch, stop, Vector3(-0.28, A, -0.04)], [bt.hop_start, bt.hop_end, PLANT_R]])
+	HHClipsShared.impact(b, t, bt.hit, 0.2, 2.0, 18.0)
+
+
+## HIT 2, the reverse spin (wind-up 7, recovery 11). From B|W
+## _strike_spin (pair): the whole body turns a full circle off both feet,
+## the head spotting, applied as a root yaw only while airborne so the
+## planted feet never twist; the left blade rides out on the turn and
+## whips across the front on the landing; hit-stop, the chest overshoots,
+## and the hop home sinks straight into the pounce's crouch.
+static func _combo_spin(t: float, b: HHPlayerBody) -> void:
+	var bt := HHClipsShared.beats(7, 11, 0)
+	var r1 := ready1()
+	var lift := 0.06
+	var down: float = bt.hit - 0.4 * HHClipsShared.T
+	var stop: float = bt.hit + 1.5 * HHClipsShared.T
+	var keys := [
+		HHClipsShared.rkey(0.0, r1),
+		HHClipsShared.rkey(lift, HHClipsShared.merge(r1, { "move:root": Vector3(0, -0.22, 0.0), "hips": Vector3(14, 26, 0), "spine": Vector3(4, 10, 0), "chest": Vector3(8, 34, 0),
+			"neck": Vector3(-8, -14, 0), "head": Vector3(-12, -24, 0),
+			"hand_r": _h(Vector3(0.12, 1.2, 0.3), -60.0, 50.0), "hand_l": _h(Vector3(0.56, 1.24, -0.18), -30.0, 80.0) }), "coil"),
+		HHClipsShared.rkey(lerpf(lift, down, 0.5), HHClipsShared.merge(r1, { "move:root": Vector3(0, 0.12, 0.1), "hips": Vector3(4, 0, 0), "spine": Vector3(2, 0, 0), "chest": Vector3(2, 0, 0),
+			"neck": Vector3(-6, 10, 0), "head": Vector3(-8, 20, 0),
+			"hand_r": _h(Vector3(-0.3, 1.44, 0.16), -40.0, -20.0), "hand_l": _h(Vector3(0.66, 1.22, 0.06), -10.0, 95.0) })),
+		HHClipsShared.rkey(down, HHClipsShared.merge(r1, { "move:root": Vector3(0, -0.14, 0.2), "hips": Vector3(12, 8, 0), "spine": Vector3(4, 4, 0), "chest": Vector3(6, 10, 0),
+			"neck": Vector3(-6, -4, 0), "head": Vector3(-10, -6, 0),
+			"hand_r": _h(Vector3(-0.32, 1.42, 0.2), -50.0, -30.0), "hand_l": _h(Vector3(0.4, 1.2, 0.46), -10.0, 50.0) }), "lin"),
+		HHClipsShared.rkey(bt.hit, HHClipsShared.merge(r1, { "move:root": Vector3(0, -0.2, 0.22), "hips": Vector3(14, -10, 0), "spine": Vector3(4, -6, 0), "chest": Vector3(6, -18, 0),
+			"neck": Vector3(-6, 6, 0), "head": Vector3(-10, 10, 0),
+			"hand_r": _h(Vector3(-0.34, 1.42, 0.16), -50.0, -30.0), "hand_l": _h(Vector3(-0.04, 1.16, 0.6), -12.0, -50.0, Vector3(0.9, -0.2, 0.2)) }), "lin"),
+		HHClipsShared.rkey(stop, HHClipsShared.merge(r1, { "move:root": Vector3(0, -0.205, 0.22), "hips": Vector3(14, -12, 0), "spine": Vector3(4, -7, 0), "chest": Vector3(6, -21, 0),
+			"neck": Vector3(-6, 7, 0), "head": Vector3(-10, 11, 0),
+			"hand_r": _h(Vector3(-0.34, 1.42, 0.16), -50.0, -30.0), "hand_l": _h(Vector3(-0.1, 1.15, 0.58), -13.0, -58.0, Vector3(0.9, -0.2, 0.2)) })),
+		HHClipsShared.rkey(bt.over, HHClipsShared.merge(r1, { "move:root": Vector3(0, -0.21, 0.21), "hips": Vector3(14, -22, 0), "spine": Vector3(4, -10, 0), "chest": Vector3(6, -34, 0),
+			"neck": Vector3(-6, 12, 0), "head": Vector3(-10, 20, 0),
+			"hand_r": _h(Vector3(-0.4, 1.3, 0.06), -60.0, -40.0), "hand_l": _h(Vector3(-0.38, 1.08, 0.36), -22.0, -100.0, Vector3(0.9, -0.2, 0.2)) }), "over"),
+		HHClipsShared.rkey(bt.settle, HHClipsShared.merge(r1, { "move:root": Vector3(0, -0.22, 0.21), "hips": Vector3(14, -20, 0), "spine": Vector3(4, -9, 0), "chest": Vector3(6, -30, 0),
+			"neck": Vector3(-6, 10, 0), "head": Vector3(-10, 18, 0),
+			"hand_r": _h(Vector3(-0.4, 1.28, 0.06), -60.0, -40.0), "hand_l": _h(Vector3(-0.36, 1.06, 0.34), -26.0, -96.0, Vector3(0.9, -0.2, 0.2)) })),
+		HHClipsShared.rkey(bt.hop_start, HHClipsShared.merge(ready2(), { "move:root": Vector3(0, -0.24, 0.18), "hips": Vector3(16, -6, 0), "chest": Vector3(8, -8, 0),
+			"hand_l": _h(Vector3(0.0, 1.06, 0.28), -60.0, -20.0) })),
+		HHClipsShared.rkey(bt.hop_end, HHClipsShared.merge(ready2(), { "move:root": Vector3(0, -0.2, 0.0) })),
+		HHClipsShared.rkey(bt.end, ready2()),
+	]
+	var p := HHClipsShared.sample(t, keys)
+	var fl := HHClipsShared.plant(t, [[0, 0, PLANT_L], [lift, down, PLANT_L + Vector3(0, 0, 0.2), 0.32], [bt.hop_start + 0.02, bt.hop_end, PLANT_L]])
+	var fr := HHClipsShared.plant(t, [[0, 0, PLANT_R], [lift + 0.01, down + 0.01, PLANT_R + Vector3(0, 0, 0.2), 0.36], [bt.hop_start, bt.hop_end, PLANT_R]])
+	p["foot_l"] = fl
+	p["foot_r"] = fr
+	# the turn: the whole figure, clockwise seen from above, only off the ground
+	# (the turn starts and ends a frame inside the air time: a foot on the floor never twists)
+	var t0 := lift + 0.025
+	var t1 := down - 0.015
+	var yaw := -360.0 * HHClipsShared.ease_u(clampf((t - t0) / maxf(t1 - t0, 1e-4), 0.0, 1.0), "lin")
+	HHClipsShared.apply(b, HHClipsShared.rotate_pose(p, yaw))
+	HHClipsShared.impact(b, t, bt.hit, 0.25, 2.5, 18.0)
+
+
+## HIT 3, the pounce (wind-up 10, recovery 16: the finisher). From B|W
+## anim_skill leap (crouch and load, spring, tucked, a deep squashed
+## landing held a beat, rise) with strike_axe's over-the-top line, both
+## blades: they come down crossed in an X on the landing and are ripped
+## open (the follow-through), then the hop home to the crouch.
+static func _combo_pounce(t: float, b: HHPlayerBody) -> void:
+	var bt := HHClipsShared.beats(10, 13, 0)
+	bt.settle = 0.55                             # the X holds longer than the reference (review round 2)
+	bt.hop_start = 0.63
+	bt.hop_end = 0.69
+	var r2 := ready2()
+	var w := _wr()
+	var apex := lerpf(bt.launch, bt.land, 0.5)
+	var bounce := lerpf(bt.hop_end, bt.end, 0.5)
+	var keys := [
+		HHClipsShared.rkey(0.0, r2),
+		HHClipsShared.rkey(bt.coil, HHClipsShared.merge(r2, { "move:root": Vector3(0, -0.4, -0.08), "hips": Vector3(36, 0, 0), "spine": Vector3(12, 0, 0), "chest": Vector3(14, 0, 0),
+			"neck": Vector3(-10, 0, 0), "head": Vector3(-16, 0, 0),
+			"hand_r": _h(Vector3(-0.4, 0.92, -0.2), -70.0, -40.0), "hand_l": _h(Vector3(0.4, 0.92, -0.2), -70.0, 40.0) }), "coil"),
+		HHClipsShared.rkey(bt.launch, HHClipsShared.merge(r2, { "move:root": Vector3(0, 0.08, 0.14), "hips": Vector3(6, 0, 0), "spine": Vector3(-2, 0, 0), "chest": Vector3(-10, 0, 0),
+			"neck": Vector3(-6, 0, 0), "head": Vector3(-8, 0, 0),
+			"hand_r": _h(Vector3(-0.26, 1.9, 0.0), 70.0, -20.0), "hand_l": _h(Vector3(0.26, 1.9, 0.0), 70.0, 20.0) }), "snap"),
+		HHClipsShared.rkey(apex, HHClipsShared.merge(r2, { "move:root": Vector3(0, 0.26, 0.32), "hips": Vector3(14, 0, 0), "spine": Vector3(0, 0, 0), "chest": Vector3(-16, 0, 0),
+			"neck": Vector3(-6, 0, 0), "head": Vector3(-8, 0, 0),
+			"hand_r": _h(Vector3(-0.24, 2.05, -0.04), 80.0, -10.0), "hand_l": _h(Vector3(0.24, 2.05, -0.04), 80.0, 10.0) })),
+		HHClipsShared.rkey(bt.land, HHClipsShared.merge(r2, { "move:root": Vector3(0, -0.16, 0.48), "hips": Vector3(20, 0, 0), "spine": Vector3(6, 0, 0), "chest": Vector3(2, 0, 0),
+			"neck": Vector3(-6, 0, 0), "head": Vector3(-10, 0, 0),
+			"hand_r": _h(Vector3(-0.12, 1.6, 0.38), 10.0, 20.0), "hand_l": _h(Vector3(0.12, 1.6, 0.38), 10.0, -20.0) }), "lin"),
+		HHClipsShared.rkey(bt.hit, HHClipsShared.merge(r2, { "move:root": Vector3(0, -0.38, 0.5), "hips": Vector3(32, 0, 0), "spine": Vector3(12, 0, 0), "chest": Vector3(10, 0, 0),
+			"neck": Vector3(-6, 0, 0), "head": Vector3(-14, 0, 0),
+			"hand_r": HHClipsShared.hand(Vector3(0.16, 1.32, 0.6), "", HHClipsShared.aim(-45.0, 40.0, 180.0)), "hand_l": HHClipsShared.hand(Vector3(-0.16, 1.28, 0.64), "", HHClipsShared.aim(-45.0, -40.0, 180.0)) }), "snap"),
+		HHClipsShared.rkey(bt.stop, HHClipsShared.merge(r2, { "move:root": Vector3(0, -0.39, 0.5), "hips": Vector3(32, 0, 0), "spine": Vector3(12, 0, 0), "chest": Vector3(10, 0, 0),
+			"neck": Vector3(-6, 0, 0), "head": Vector3(-14, 0, 0),
+			"hand_r": HHClipsShared.hand(Vector3(0.17, 1.31, 0.6), "", HHClipsShared.aim(-46.0, 42.0, 180.0)), "hand_l": HHClipsShared.hand(Vector3(-0.17, 1.27, 0.64), "", HHClipsShared.aim(-46.0, -42.0, 180.0)) })),
+		HHClipsShared.rkey(bt.over, HHClipsShared.merge(r2, { "move:root": Vector3(0, -0.38, 0.48), "hips": Vector3(28, 0, 0), "spine": Vector3(10, 0, 0), "chest": Vector3(6, 0, 0),
+			"neck": Vector3(-8, 0, 0), "head": Vector3(-12, 0, 0),
+			"hand_r": _h(Vector3(-0.56, 1.1, 0.32), -40.0, -90.0), "hand_l": _h(Vector3(0.56, 1.1, 0.32), -40.0, 90.0) }), "over"),
+		HHClipsShared.rkey(bt.settle, HHClipsShared.merge(r2, { "move:root": Vector3(0, -0.39, 0.48), "hips": Vector3(28, 0, 0), "spine": Vector3(10, 0, 0), "chest": Vector3(7, 0, 0),
+			"neck": Vector3(-8, 0, 0), "head": Vector3(-12, 0, 0),
+			"hand_r": _h(Vector3(-0.54, 1.08, 0.3), -44.0, -84.0), "hand_l": _h(Vector3(0.54, 1.08, 0.3), -44.0, 84.0) })),
+		HHClipsShared.rkey(bt.hop_start, HHClipsShared.merge(w, { "move:root": Vector3(0, -0.3, 0.4), "hips": Vector3(20, 0, 0), "chest": Vector3(4, 0, 0) })),
+		HHClipsShared.rkey(bt.hop_end, HHClipsShared.merge(w, { "move:root": Vector3(0, -0.12, 0.04) })),
+		HHClipsShared.rkey(bounce, HHClipsShared.merge(w, { "move:root": Vector3(0, -0.17, 0.0) })),
+		HHClipsShared.rkey(bt.end, w),
+	]
+	HHClipsShared.keyed(t, keys, b)
+	HHClipsShared.feet(t, b,
+		[[0, 0, PLANT_L], [bt.launch - 0.015, bt.land, Vector3(0.32, A, 0.76), 0.4], [bt.hop_start, bt.hop_end, PLANT_L]],
+		[[0, 0, PLANT_R], [bt.launch, bt.land + 0.01, Vector3(-0.3, A, 0.26), 0.45], [bt.hop_start + 0.01, bt.hop_end + 0.01, PLANT_R]])
+	HHClipsShared.impact(b, t, bt.hit, 0.4, 4.0, 14.0)

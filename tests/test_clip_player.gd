@@ -1,4 +1,4 @@
-extends RefCounted
+﻿extends RefCounted
 ## Lane B: the player rig, the weapon clip sets and HHPlayerBody's event map.
 
 const WEAPONS := ["lance", "daggers", "bow"]
@@ -157,16 +157,17 @@ func test_event_map(c: HHSelfTest.HHCheck) -> void:
 		b.update(0.016)
 		c.eq(b.clip, "wield_idle", "%s target -> wield_idle" % w)
 		u.target = ""
-		# windup basic -> strike held at contact, strike releases it
+		# windup basic -> the string's first hit (H60: its own clip; the bow's strike) held at contact, strike releases it
+		var sc := b.combo_clip(1)
 		b.on_event({ "type": "windup", "id": "p1", "kind": "basic", "ticks": int(CONTACTS[w]) }, sim)
-		c.eq(b.clip, "strike", "%s windup -> strike" % w)
+		c.eq(b.clip, sc, "%s windup -> %s" % [w, sc])
 		for i in 40:
 			b.update(HHSim.TICK)
-		c.near(b.time, b.contact_time("strike"), 0.02, "%s strike holds at contact" % w)
+		c.near(b.time, b.contact_time(sc), 0.02, "%s %s holds at contact" % [w, sc])
 		b.on_event({ "type": "strike", "id": "p1", "target": "m", "amount": 90.0 }, sim)
 		for i in 3:
 			b.update(HHSim.TICK)
-		c.ok(b.time > b.contact_time("strike") + 0.03, "%s strike event releases the hold" % w)
+		c.ok(b.time > b.contact_time(sc) + 0.03, "%s strike event releases the hold" % w)
 		for i in 60:
 			b.update(HHSim.TICK)
 		c.eq(b.clip, "idle", "%s strike returns to the loop" % w)
