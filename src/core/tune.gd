@@ -19,15 +19,15 @@ const DEFAULTS := {
 	"charge_glaze_ticks": 1080.0,# a glaze holds 36 s, decay paused under it
 	"charge_gale_ticks": 405.0,  # a gale's copies last 13.5 s
 	# ground effects (per second while standing)
-	"fire_stand_pct": 3.0,       # per fire tier
-	"fire_cross_pct": 1.5,       # per fire tier, once per hex entered
+	"fire_stand_pct": 1.2,       # per fire tier (gate L-10: 3.0 "way too strong")
+	"fire_cross_pct": 0.6,       # per fire tier, once per hex entered
 	"light_heal_pct": 2.0,       # per light tier
 	"dark_drain_pct": 2.0,       # dark 3 only
 	"water_slow": [1.0, 1.0, 0.85, 0.7],   # speed multiplier by water tier
 	# detonations and bursts
 	"detonate_ring_frac": 0.5,   # neighbours take this fraction of the centre blast
 	# statuses
-	"burn_pct_per_s": 2.0,
+	"burn_pct_per_s": 1.0,
 	"poison_pct_per_s": 1.5,
 	"stagger_max_ticks": 45.0,   # a full-strength hit holds you 1.5 s
 	"slow_mult": 0.6,            # the `slow` status (overfreeze, pollen, spores) cuts speed to this
