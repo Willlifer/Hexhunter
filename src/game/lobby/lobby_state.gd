@@ -6,10 +6,16 @@ extends RefCounted
 ## unless the arena was picked after the monster; the element strip's first
 ## click sets the active element, the second the backup (never the same
 ## one); a locked key refuses every pick. Saves to user://hexhunt_last.json
-## and prefills from it next boot.
+## and prefills from it next boot. Keeps the run history (L-19) in
+## user://hexhunt_runs.json: newest first, RUNS_KEEP rows; the card shows
+## the last RUNS_SHOWN.
 
 const LAST_PATH := "user://hexhunt_last.json"
 static var last_path := LAST_PATH   ## the self-test points this at a scratch file (H613)
+const RUNS_PATH := "user://hexhunt_runs.json"
+static var runs_path := RUNS_PATH   ## the self-test points this at a scratch file too (H810)
+const RUNS_KEEP := 20
+const RUNS_SHOWN := 5
 const SAVED_KEYS := ["arena", "monster", "weapon", "element", "backup", "seed", "cam"]
 const ROWS := ["arena", "monster", "weapon"]     # keys 1-3 jump these rows, 4 the elements
 
@@ -193,3 +199,61 @@ func _sane() -> void:
 				cfg.backup = el
 				break
 	cfg.seed = int(cfg.get("seed", 1))
+
+
+# ------------------------------------------------------------------ run history
+
+## One history row from a fight's finished payload { result, ticks, cfg }
+## and the launch cfg (the payload's own cfg wins when it has one).
+static func run_entry(result: Dictionary, cfg: Dictionary = {}) -> Dictionary:
+	var c: Dictionary = cfg
+	if result.get("cfg", null) is Dictionary and not (result.cfg as Dictionary).is_empty():
+		c = result.cfg
+	var verdict := str(result.get("result", "abort"))
+	if verdict == "dead":
+		verdict = "fallen"
+	return {
+		"monster": str(c.get("monster", "")), "arena": str(c.get("arena", "")), "weapon": str(c.get("weapon", "")),
+		"element": str(c.get("element", "")), "backup": str(c.get("backup", "")), "seed": int(c.get("seed", 1)),
+		"result": verdict, "seconds": snappedf(float(result.get("ticks", 0)) * HHSim.TICK, 0.1),
+		"hunt": not (c.get("locked", []) as Array).is_empty(),
+	}
+
+
+## Prepend a row and save (keeps RUNS_KEEP). Returns the new list.
+static func record_run(entry: Dictionary) -> Array:
+	var runs := load_runs()
+	runs.push_front(entry)
+	while runs.size() > RUNS_KEEP:
+		runs.pop_back()
+	var f := FileAccess.open(runs_path, FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify(runs, "  "))
+		f.close()
+	return runs
+
+
+## The saved rows, newest first; [] when there are none or the file is bad.
+static func load_runs() -> Array:
+	if not FileAccess.file_exists(runs_path):
+		return []
+	var json := JSON.new()                     # an instance: a bad file reads as [] without an engine error
+	var out: Array = []
+	if json.parse(FileAccess.get_file_as_string(runs_path)) != OK:
+		return out
+	var parsed: Variant = json.data
+	if parsed is Array:
+		for r in parsed:
+			if r is Dictionary:
+				out.append(r)
+	return out
+
+
+const VERDICT_WORD := { "win": "VICTORY", "fallen": "FALLEN", "abort": "ABORTED" }
+
+
+## "VICTORY 1:24" / "FALLEN 2:10" / "ABORTED 0:31" for a row.
+static func run_verdict(entry: Dictionary) -> String:
+	var secs := int(float(entry.get("seconds", 0.0)))
+	var r := str(entry.get("result", ""))
+	return "%s %d:%02d" % [str(VERDICT_WORD.get(r, r.to_upper())), secs / 60, secs % 60]
