@@ -147,6 +147,8 @@ func _build_bodies() -> void:
 					body.call(m, id)
 					break
 			monster_bodies[id] = body
+			if body.has_method("bind"):
+				body.bind(sim, id)              # H611: the body reads its unit each frame (state visuals)
 			node = body
 		if node == null:
 			node = _placeholder(u)
@@ -203,6 +205,7 @@ func _build_hud() -> void:
 	hud.sim = sim
 	hud.player_id = player_id
 	hud.monster_id = monster_id
+	hud.monster_body = monster_bodies.get(monster_id)
 	layer.add_child(hud)
 	debug = Label.new()
 	debug.position = Vector2(16, 60)

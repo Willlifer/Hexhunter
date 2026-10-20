@@ -212,6 +212,40 @@ class MeshBuilder:
                 if ok(f):
                     self.faces.append((f, role))
 
+    def cowl(self, rings, peak, peak_w, role, sides=12, keep=None):
+        """A hood: stacked elliptical rings (z, cy, rx, ry, weights) each
+        centred at (0, cy, z), closed at the top by a `peak` vertex, open at
+        the bottom. `keep(p)` (p in model space) drops faces whose centroid
+        fails it: the face opening."""
+        loops = []
+        for z, cy, rx, ry, w in rings:
+            row = []
+            for k in range(sides):
+                a = 2 * math.pi * k / sides
+                row.append(self.add_vert(V(rx * math.cos(a), cy + ry * math.sin(a), z), w, role))
+            loops.append(row)
+        top = self.add_vert(peak, peak_w, role)
+
+        def ok(idx):
+            if keep is None:
+                return True
+            c = Vector((0, 0, 0))
+            for i in idx:
+                c += self.verts[i]
+            return keep(c / len(idx))
+
+        for i in range(len(loops) - 1):
+            for k in range(sides):
+                k2 = (k + 1) % sides
+                f = (loops[i][k], loops[i][k2], loops[i + 1][k2], loops[i + 1][k])
+                if ok(f):
+                    self.faces.append((f, role))
+        for k in range(sides):
+            k2 = (k + 1) % sides
+            f = (loops[-1][k], loops[-1][k2], top)
+            if ok(f):
+                self.faces.append((f, role))
+
     def tube(self, rings, role, radial=RADIAL, cap_start=True, cap_end=True):
         """rings: list of (center, tangent, radius, weights). Parallel
         transport keeps the ring frames from twisting."""
@@ -401,10 +435,24 @@ def build_body():
     mb.tube([(V(0, 0, 1.70), UP, 0.058, {"chest": 0.3, "neck": 0.7}), (V(0, 0, 1.80), UP, 0.055, {"neck": 1}),
              (V(0, 0, 1.90), UP, 0.055, {"neck": 0.3, "head": 0.7})], "skin", radial=8)
     mb.ellipsoid(HEAD_C, HEAD_R, {"head": 1}, "skin", seg=10, rings=6)
-    # hood: a shell around the head, open at the face; drapes back onto the shoulders
-    hood_c = HEAD_C + V(0, 0.03, 0.01)
-    mb.ellipsoid(hood_c, V(0.205, 0.225, 0.215), {"head": 1}, "cloak", seg=12, rings=7,
-                 keep=lambda p: not (p.y < -0.09 and p.z > -0.14 and abs(p.x) < 0.165))
+    # hood (L-13): a cowl lofted from the shoulders to a peak, each ring
+    # pushed forward as it climbs so the crown overhangs the brow; the face
+    # opening is cut only below the brow and between the cheeks, so from the
+    # front it reads as a hood with a shaded face, not a ring round the head.
+    # Rings: (z, cy forward shift (-y is forward), rx, ry, weights).
+    cowl = [
+        (1.63, 0.01, 0.30, 0.23, {"chest": 0.7, "neck": 0.3}),
+        (1.75, 0.00, 0.255, 0.205, {"neck": 0.8, "chest": 0.2}),
+        (1.87, -0.01, 0.22, 0.21, {"neck": 0.4, "head": 0.6}),
+        (2.00, -0.02, 0.212, 0.222, {"head": 1}),
+        (2.10, -0.03, 0.205, 0.228, {"head": 1}),
+        (2.19, -0.03, 0.155, 0.185, {"head": 1}),
+        (2.255, -0.015, 0.075, 0.095, {"head": 1}),
+    ]
+    # opening: between the cheeks below the brow, then the whole front below the chin
+    mb.cowl(cowl, V(0, 0.05, 2.30), {"head": 1}, "cloak", sides=12,
+            keep=lambda p: not ((p.y < -0.085 and p.z < 2.085 and abs(p.x) < 0.125)
+                                or (p.y < -0.03 and p.z < 1.87)))
     # mantle: a sheet down the back from the collar to the hips, hanging free
     mantle = [(1.72, 0.20, 0.13), (1.66, 0.28, 0.17), (1.58, 0.31, 0.20), (1.46, 0.31, 0.22),
               (1.30, 0.30, 0.235), (1.12, 0.285, 0.25), (0.98, 0.27, 0.255)]
