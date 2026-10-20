@@ -51,6 +51,14 @@ const TUNE := {
 	"r_dmg": 240.0,
 	"r_steps": 2,
 	"r_stagger": 0.5,
+	# upgrades (H550)
+	"up_q_double_steps": 2,     # energized_double: steps of element on every hex of the line (x2)
+	"up_e_echo_dist": 3,        # arcing_twice: the six bomblets land this far from the first burst's centre
+	"up_e_echo_radius": 1,      # arcing_twice: each bomblet's radius (1 = 7 hexes)
+	"up_e_echo_ticks": 15,      # arcing_twice: bomblets land this many ticks after the first burst
+	"up_e_echo_pct": 0.5,       # arcing_twice: each bomblet's damage, pct of max HP
+	"up_e_echo_steps": 1,       # arcing_twice: element per bomblet
+	"up_r_glaze_steps": 1,      # arrowstorm_glaze: ice laid over the downfall (glazes charged hexes in place)
 }
 
 
@@ -77,10 +85,7 @@ static func cast(sim: HHSim, u: Dictionary, key: String, aim: Vector2i) -> bool:
 			sim.begin_windup(u, "energized", int(_t("q_windup")), { "line": path }, Callable(HHBow, "_energized_land"))
 			return true
 		"w":
-			var a: String = u.element
-			u.element = u.backup
-			u.backup = a
-			sim._emit({ "type": "swap", "id": u.id, "element": u.element })
+			HHWeapons.exchange(sim, u)
 			return true
 		"e":
 			var at := clamp_along(sim, u, aim, int(_t("e_range")))
@@ -90,12 +95,38 @@ static func cast(sim: HHSim, u: Dictionary, key: String, aim: Vector2i) -> bool:
 			var burst := sim.arena.area(at, int(_t("e_radius")))
 			sim.telegraph(u.id, burst, int(_t("e_ticks")), { "dmg_pct": float(_t("e_dmg_pct")), "element": u.element,
 				"paint_steps": int(_t("e_steps")), "stagger": float(_t("e_stagger")), "name": "arcing shot" })
+			if HHUpgrades.has(u, "arcing_twice"):
+				_cluster(sim, u, at)
 			return true
 		"r":
 			var to := leap_target(sim, u, aim, int(_t("r_range")))
 			sim.begin_leap(u, to, int(_t("r_air_ticks")), Callable(HHBow, "_arrowstorm_land"), true)   # H42: steer while airborne
 			return true
 	return false
+
+
+## arcing_twice: six bomblets on the six corners at up_e_echo_dist from the
+## burst's centre, each its own small telegraph landing up_e_echo_ticks after
+## the first burst (posted now so the monster sees the whole cluster).
+static func cluster_hexes(sim: HHSim, centre: Vector2i, dist: int) -> Array:
+	var out: Array = []
+	var cc := HHHex.to_cube(centre)
+	for d in HHHex.CUBE_DIRS:
+		var h := HHHex.to_offset(cc + (d as Vector3i) * dist)
+		if sim.arena.exists(h):
+			out.append(h)
+	return out
+
+
+static func _cluster(sim: HHSim, u: Dictionary, centre: Vector2i) -> void:
+	var ticks := int(_t("e_ticks")) + int(_t("up_e_echo_ticks"))
+	var all: Array = []
+	for h in cluster_hexes(sim, centre, int(_t("up_e_echo_dist"))):
+		var small := sim.arena.area(h, int(_t("up_e_echo_radius")))
+		sim.telegraph(u.id, small, ticks, { "dmg_pct": float(_t("up_e_echo_pct")), "element": u.element,
+			"paint_steps": int(_t("up_e_echo_steps")), "name": "bomblet" })
+		all.append_array(small)
+	sim._emit({ "type": "upgrade", "id": u.id, "upgrade": "arcing_twice", "hexes": all, "element": u.element })
 
 
 ## The bow blocks nothing: no counter.
@@ -168,8 +199,9 @@ static func _energized_land(sim: HHSim, u: Dictionary, data: Dictionary) -> void
 			break
 		if found:
 			break
-	sim.paint(passed, u.element, u.id, int(_t("q_steps")))
-	sim._emit({ "type": "energized_shot", "id": u.id, "hexes": passed, "hit": hit, "element": u.element })
+	var steps := int(_t("up_q_double_steps")) if HHUpgrades.has(u, "energized_double") else int(_t("q_steps"))
+	sim.paint(passed, u.element, u.id, steps)
+	sim._emit({ "type": "energized_shot", "id": u.id, "hexes": passed, "hit": hit, "element": u.element, "steps": steps })
 
 
 static func _arrowstorm_land(sim: HHSim, u: Dictionary) -> void:
@@ -178,3 +210,6 @@ static func _arrowstorm_land(sim: HHSim, u: Dictionary) -> void:
 		sim.strike(u, t, float(_t("r_dmg")), sim.nearest_hex_of(t, u.hex), "arrowstorm", float(_t("r_stagger")))
 	sim.paint(area, u.element, u.id, int(_t("r_steps")))
 	sim._emit({ "type": "arrowstorm", "id": u.id, "hex": u.hex, "hexes": area, "element": u.element })
+	if HHUpgrades.has(u, "arrowstorm_glaze"):
+		sim.paint(area, "ice", u.id, int(_t("up_r_glaze_steps")))   # stasis: the charge under it freezes in place
+		sim._emit({ "type": "upgrade", "id": u.id, "upgrade": "arrowstorm_glaze", "hexes": area })
