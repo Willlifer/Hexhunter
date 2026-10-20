@@ -539,6 +539,29 @@ func release() -> void:
 	_held = false
 
 
+## Co-op downed state (H53, H905): the death clip held at its kneel (knees
+## gone, chest still up, before the fall onto the back) while an ally can
+## revive; off brings the hunter back to its locomotion. Events are ignored
+## while down, like after a death.
+const DOWN_KNEEL_S := 0.4
+var downed := false
+
+func set_downed(on: bool) -> void:
+	if on == downed:
+		return
+	downed = on
+	if on:
+		_dead = false                       # play() refuses nothing, but on_event must not override the hold
+		play("death", false)
+		_hold_at = DOWN_KNEEL_S
+		_dead = true
+		return
+	_dead = false
+	release()
+	clip = ""                               # restart cleanly: no fade from the kneel's held frame
+	play(_loco_clip())
+
+
 ## Freeze on one moment of a clip (tools, renders, tests): no fade, IK solved.
 func pose_at(clip_name: String, t: float) -> bool:
 	if _set == null or not clips(weapon_id).has(clip_name):

@@ -50,6 +50,18 @@ var _done := false
 var _setup_done := false
 var _hunter_prev := Vector3.ZERO
 
+## Co-op (Lane C, H915): set by HHHunt before setup on a party hunt.
+signal token_moved(data: Dictionary)   ## this peer's token moved: { x, z, name, weapon } (HHHunt broadcasts it)
+var coop_role := "solo"                ## "solo" | "host" | "client": only the host decides the approach
+var my_peer := 1
+var my_name := "Hunter"
+var approach_on_setup := {}            ## a client: the host's approach arrived while we were elsewhere; spring it once shown
+var peer_ids := {}                     ## peer -> "p1".."p4" (slot colours), from the session's members
+var remotes := {}                      ## peer -> { node, ring, goal: Vector3, data }
+var _token_t := 0.0
+var _token_sent := Vector3(INF, INF, INF)
+const TOKEN_SEND_S := 0.12             ## at most ~8 token updates a second while moving
+
 
 # ------------------------------------------------------------------ pure
 
@@ -217,6 +229,8 @@ func setup(p_cfg: Dictionary) -> void:
 	camera.clicked.connect(_on_click)
 	camera.follow(hunter.position, true)
 	_build_hud()
+	if not approach_on_setup.is_empty():
+		approach_from.call_deferred(approach_on_setup)
 
 
 # ------------------------------------------------------------------ terrain
@@ -720,6 +734,9 @@ func _build_hud() -> void:
 	var s: Dictionary = sites[disturbance]
 	var d := HHHuntKit.disturbance(str(s.biome))
 	_hint.text = "Something %s in %s.   Right-click: run    drag: orbit    Esc: leave" % [d.verb, HHHuntFlow.display_name(str(s.biome))]
+	if coop_role != "solo":
+		_hint.text += "
+Hunting together: whoever reaches the stir first springs the ambush for everyone"
 
 
 # ------------------------------------------------------------------ loop
@@ -737,7 +754,9 @@ func _process(delta: float) -> void:
 		_token_ring.position = hunter.position + Vector3(0, 0.12, 0)
 	if camera != null:
 		camera.follow(hunter.position)
-	if not _done and check_approach():
+	if coop_role != "solo":
+		_coop_tick(delta)
+	if not _done and coop_role != "client" and check_approach():
 		_approach()
 
 
@@ -804,11 +823,101 @@ func _hover() -> void:
 		l.outline_modulate = Color(0, 0, 0, a)
 
 
-## True when the hunter stands within hunt_approach_m of the stirring site.
+## True when the hunter (or, on a party host's map, any hunter's token)
+## stands within hunt_approach_m of the stirring site.
 func check_approach() -> bool:
 	if hunter == null or sites.is_empty():
 		return false
-	return within_approach(hunter.position, sites[disturbance].pos, HHHuntKit.t("approach_m"))
+	var r := HHHuntKit.t("approach_m")
+	if within_approach(hunter.position, sites[disturbance].pos, r):
+		return true
+	for peer in remotes:
+		if within_approach(remotes[peer].goal, sites[disturbance].pos, r):
+			return true
+	return false
+
+
+# ------------------------------------------------------------------ co-op (H915)
+
+## A party member's token: their hunter body under their slot colour's ring,
+## gliding to the last reported spot. `data` = { x, z, name, weapon }.
+func set_remote(peer: int, data: Dictionary) -> void:
+	if not _setup_done:
+		return
+	var x := float(data.get("x", 0.0))
+	var z := float(data.get("z", 0.0))
+	var goal_p := Vector3(x, height_at(x, z), z)
+	if not remotes.has(peer):
+		var ids := peer_ids if peer_ids.has(peer) else HHParty.assign_ids([my_peer] + remotes.keys() + [peer])
+		var col := HHParty.slot_color(str(ids.get(peer, "p2")))
+		var body := HHHuntKit.hunter_body(str(data.get("weapon", "lance")))
+		body.name = "Hunter_%d" % peer
+		body.scale = Vector3.ONE * TOKEN_SCALE
+		body.position = goal_p
+		add_child(body)
+		var ring := HHHuntKit.ring(col, 0.22, 24)
+		ring.name = "TokenRing_%d" % peer
+		ring.scale = Vector3(2.4, 1.0, 2.4)
+		add_child(ring)
+		var tag := Label3D.new()
+		tag.name = "Name_%d" % peer
+		tag.text = str(data.get("name", "Hunter"))
+		tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		tag.no_depth_test = true
+		tag.fixed_size = true
+		tag.pixel_size = 0.0016
+		tag.font_size = 30
+		tag.outline_size = 10
+		tag.modulate = col.lightened(0.2)
+		tag.position = goal_p + Vector3(0, 6.0, 0)
+		add_child(tag)
+		remotes[peer] = { "node": body, "ring": ring, "tag": tag, "goal": goal_p, "data": data }
+	remotes[peer].goal = goal_p
+	remotes[peer].data = data
+
+
+func remove_remote(peer: int) -> void:
+	if not remotes.has(peer):
+		return
+	for k in ["node", "ring", "tag"]:
+		var n: Node = remotes[peer][k]
+		if is_instance_valid(n):
+			n.queue_free()
+	remotes.erase(peer)
+
+
+## A client: the host decided the approach; go with it.
+func approach_from(data: Dictionary) -> void:
+	if _done:
+		return
+	_done = true
+	goal = HHSim.NO_POS
+	finished.emit({ "result": "approach", "monster": str(data.get("monster", sites[disturbance].monster)),
+		"arena": str(data.get("arena", sites[disturbance].biome)), "site": int(data.get("site", disturbance)) })
+
+
+func _coop_tick(delta: float) -> void:
+	for peer in remotes:
+		var r: Dictionary = remotes[peer]
+		var n: Node3D = r.node
+		var to: Vector3 = r.goal - n.position
+		to.y = 0.0
+		var d := to.length()
+		if d > 0.02:
+			var mv := minf(d, HHHuntKit.t("run_mps") * delta * 1.25)
+			var p: Vector3 = n.position + to / d * mv
+			n.position = Vector3(p.x, height_at(p.x, p.z), p.z)
+			n.rotation.y = atan2(to.x, to.z)
+		if n.has_method("update"):
+			n.update(delta)
+		(r.ring as Node3D).position = n.position + Vector3(0, 0.12, 0)
+		(r.tag as Node3D).position = n.position + Vector3(0, 6.0, 0)
+	_token_t -= delta
+	if _token_t <= 0.0 and hunter.position.distance_to(_token_sent) > 0.05:
+		_token_t = TOKEN_SEND_S
+		_token_sent = hunter.position
+		token_moved.emit({ "x": hunter.position.x, "z": hunter.position.z, "name": my_name,
+			"weapon": str(cfg.get("weapon", "lance")) })
 
 
 func _approach() -> void:

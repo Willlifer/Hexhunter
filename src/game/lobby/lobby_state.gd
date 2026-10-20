@@ -37,6 +37,8 @@ func setup(given: Dictionary) -> void:
 			cfg[k] = last[k]
 	for k in given:
 		cfg[k] = given[k]
+	for k in HHParty.SESSION_KEYS:          # H909: a party's players / local_id / net never leak into the next launch
+		cfg.erase(k)
 	locked = Array(cfg.get("locked", []))
 	if locked.has("arena"):
 		arena_picked_after_monster = true     # a locked arena is never dragged by a monster pick
@@ -93,8 +95,10 @@ func is_slotted(id: String) -> bool:
 	return false
 
 
+var coop_locks: Array = []        ## H910: keys a party client follows from the host (arena, monster, seed)
+
 func is_locked(key: String) -> bool:
-	return locked.has(key)
+	return locked.has(key) or coop_locks.has(key)
 
 
 ## Pick an arena / monster / weapon tile. False when locked or unknown.

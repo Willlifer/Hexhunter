@@ -612,6 +612,11 @@ var player_id := ""
 var monster_id := ""
 var monster_body: Node = null       ## optional: the monster's HHMonsterBody (its state_name wins over the unit read)
 var font: Font
+## Co-op (Lane C, H903-H906): set by HHFight only when the party has more than one hunter.
+var party: Array = []               ## [{ id, name }] in slot order: the party frames at the left
+var plates: Array = []              ## [{ id, pos: Vector2 }] where each hunter's nameplate sits this frame
+var revive := {}                    ## hunter id -> revive progress 0..1 (from the sim's revive events)
+var spectating := ""                ## the ally the camera follows while the local hunter is down
 var _t := 0.0
 var _ghost := -1.0                  ## the monster bar's trailing (recent damage) fraction
 var _prev_cd := {}
@@ -704,6 +709,12 @@ func paint(pt: Paint, size: Vector2) -> bool:
 		_status_icon(pt, Rect2(Vector2(ix, (L.status as Vector2).y), Vector2(ICON, ICON)), str(row.name), float(row.seconds))
 		ix += ICON + ICON_GAP
 	_monster_plate(pt, L.monster)
+	if party.size() > 1:
+		for pl in plates:
+			nameplate(pt, pl.pos, sim.unit(str(pl.id)), _party_name(str(pl.id)), str(pl.id), float(revive.get(str(pl.id), 0.0)), str(pl.id) == player_id)
+		party_frames(pt, size)
+		if bool(p.get("downed", false)) and sim.over == "":
+			_down_banner(pt, size)
 	if sim.over != "":
 		_banner(pt, size, "VICTORY" if sim.over == "win" else "FALLEN", sim.over == "win")
 	return true
@@ -869,3 +880,99 @@ static func _banner(pt: Paint, size: Vector2, text: String, won: bool) -> void:
 				PackedColorArray([g0, g1, g1, g0]))
 	var col := Color(1.0, 0.86, 0.45) if won else Color(0.92, 0.3, 0.26)
 	pt.text(Vector2(cx, y + 24.0), text, 68, col, 1, 8, serif(), Color(0.05, 0.02, 0.0, 0.95))
+
+
+# ------------------------------------------------------------------ co-op (Lane C, H903-H906)
+
+const FRAME_SIZE := Vector2(232, 50)
+const FRAME_GAP := 8.0
+const PLATE_W := 96.0
+const DOWN_RED := Color(0.95, 0.32, 0.26)
+
+
+## Where the party frames sit (pure): one Rect2 per member, a column at the
+## left a third of the way down, clear of the F3 read-out's first lines.
+static func party_layout(size: Vector2, n: int) -> Array:
+	var out: Array = []
+	var y0 := maxf(150.0, size.y * 0.3)
+	for i in n:
+		out.append(Rect2(Vector2(16.0, y0 + i * (FRAME_SIZE.y + FRAME_GAP)), FRAME_SIZE))
+	return out
+
+
+func _party_name(id: String) -> String:
+	for m in party:
+		if str(m.id) == id:
+			return str(m.name)
+	return id
+
+
+## The party frames: a plate per hunter with its slot colour on the left
+## edge, the name (YOU tag for this machine's), an HP bar, and when downed
+## a red DOWN with the revive bar filling under it.
+func party_frames(pt: Paint, size: Vector2) -> void:
+	var rects := party_layout(size, party.size())
+	for i in party.size():
+		var id := str(party[i].id)
+		var u := sim.unit(id)
+		var r: Rect2 = rects[i]
+		var col := HHParty.slot_color(id)
+		var down := bool(u.get("downed", false))
+		var gone := not down and not u.is_empty() and float(u.hp) <= 0.0
+		plate(pt, r, false, false, 0.88)
+		pt.rect(Rect2(r.position + Vector2(0, 3), Vector2(4, r.size.y - 6)), col)
+		if id == player_id:
+			pt.frame(r.grow(-1.0), Color(col.r, col.g, col.b, 0.55), 1.0)
+		var name_col := Color(1, 0.95, 0.85) if not (down or gone) else Color(1, 0.95, 0.85, 0.55)
+		pt.text(Vector2(r.position.x + 14, r.position.y + 19), str(party[i].name), 16, name_col, 0, 3, serif())
+		var tag := "YOU" if id == player_id else id.to_upper()
+		pt.text(Vector2(r.end.x - 10, r.position.y + 17), tag, 11, Color(col.r, col.g, col.b, 0.9), 2, 3)
+		var bar := Rect2(r.position.x + 14, r.position.y + 28, r.size.x - 28, 9)
+		var frac := clampf(float(u.get("hp", 0.0)) / maxf(1.0, float(u.get("max_hp", 1.0))), 0.0, 1.0)
+		pt.rect(bar.grow(1.5), Color(0, 0, 0, 0.9))
+		pt.rect(bar, Color(0.1, 0.05, 0.04))
+		if down:
+			var rf := clampf(float(revive.get(id, 0.0)), 0.0, 1.0)
+			pt.rect(Rect2(bar.position, Vector2(bar.size.x * rf, bar.size.y)), col.lightened(0.15))
+			pt.text(Vector2(bar.get_center().x, bar.end.y - 0.5), "DOWN" if rf <= 0.0 else "REVIVING %d%%" % int(rf * 100.0), 11, DOWN_RED.lightened(0.3) if rf <= 0.0 else Color.WHITE, 1, 3)
+		else:
+			pt.vgrad(Rect2(bar.position, Vector2(bar.size.x * frac, bar.size.y)), Color(0.4, 0.88, 0.42), Color(0.12, 0.45, 0.14))
+			pt.text(Vector2(bar.end.x, r.end.y - 3), "%d" % int(u.get("hp", 0.0)), 10, Color(1, 1, 1, 0.7), 2, 2)
+		pt.frame(bar, GOLD_DIM, 1.0)
+
+
+## A hunter's nameplate over its head: the name in its slot colour over a
+## small HP bar; a downed hunter's bar becomes the revive bar with a DOWN
+## tag. The local hunter's plate is smaller and has no name (the HUD's orb says it all).
+static func nameplate(pt: Paint, at: Vector2, u: Dictionary, name: String, id: String, revive_frac: float, mine: bool) -> void:
+	if u.is_empty():
+		return
+	var col := HHParty.slot_color(id)
+	var down := bool(u.get("downed", false))
+	var w := PLATE_W * (0.7 if mine else 1.0)
+	var bar := Rect2(at.x - w * 0.5, at.y, w, 6.0)
+	if not mine:
+		pt.text(Vector2(at.x, at.y - 5.0), name, 15, col.lightened(0.2), 1, 4, serif())
+	pt.rect(bar.grow(1.5), Color(0, 0, 0, 0.85))
+	if down:
+		pt.rect(bar, Color(0.18, 0.04, 0.03))
+		pt.rect(Rect2(bar.position, Vector2(bar.size.x * clampf(revive_frac, 0.0, 1.0), bar.size.y)), col.lightened(0.2))
+		pt.text(Vector2(at.x, bar.end.y + 15.0), "DOWN" if revive_frac <= 0.0 else "REVIVING", 13, DOWN_RED.lightened(0.25) if revive_frac <= 0.0 else Color.WHITE, 1, 4, serif())
+	else:
+		var frac := clampf(float(u.get("hp", 0.0)) / maxf(1.0, float(u.get("max_hp", 1.0))), 0.0, 1.0)
+		pt.rect(bar, Color(0.12, 0.05, 0.04))
+		pt.rect(Rect2(bar.position, Vector2(bar.size.x * frac, bar.size.y)), Color(0.42, 0.9, 0.44))
+	pt.line(Vector2(bar.position.x, bar.position.y - 1.5), Vector2(bar.end.x, bar.position.y - 1.5), Color(col.r, col.g, col.b, 0.9), 1.0)
+
+
+## The local hunter is down: a band over the lower middle of the screen
+## with the line the brief asks for, and who the camera now follows.
+func _down_banner(pt: Paint, size: Vector2) -> void:
+	var y := size.y * 0.62
+	var band := Rect2(size.x * 0.25, y - 30.0, size.x * 0.5, 60.0)
+	plate(pt, band, true, true, 0.85)
+	pt.text(Vector2(size.x * 0.5, y + 4.0), "DOWN, an ally can revive you", 26, DOWN_RED.lightened(0.15), 1, 5, serif())
+	var rf := clampf(float(revive.get(player_id, 0.0)), 0.0, 1.0)
+	var sub := ("being revived: %d%%" % int(rf * 100.0)) if rf > 0.0 else (("watching %s" % _party_name(spectating)) if spectating != "" else "")
+	if sub != "":
+		pt.text(Vector2(size.x * 0.5, y + 24.0), sub, 14, Color(1, 0.95, 0.85, 0.85), 1, 3)
