@@ -150,6 +150,30 @@ func test_rear_mult_hook(c: HHSelfTest.HHCheck) -> void:
 	c.eq(brain.ticked, 1, "brain ticked once per step")
 
 
+## Lane U (H550): a lance without upgrades plays exactly as before: no
+## "upgrade" event from any skill, the plain Pierce width, no aftershock.
+func test_no_upgrades_means_the_plain_kit(c: HHSelfTest.HHCheck) -> void:
+	var s := _sim()
+	var p := s.unit("p1")
+	c.eq((p.upgrades as Dictionary).size(), 0, "add_player without the trailing argument: no upgrades")
+	var ups := 0
+	var evs: Array = []
+	evs.append_array(s.step({ "p1": { "cast": { "skill": "q", "aim": s.unit("m").hex } } }))
+	for i in 15:
+		evs.append_array(s.step())
+	evs.append_array(s.step({ "p1": { "swap": true } }))
+	evs.append_array(s.step({ "p1": { "cast": { "skill": "r", "aim": Vector2i(0, 1) } } }))
+	for i in 30:
+		evs.append_array(s.step())
+	for e in evs:
+		if e.type == "upgrade" or e.type == "telegraph" or e.type == "immune":
+			ups += 1
+		if e.type == "pierce":
+			c.eq((e.hexes as Array).size(), int(HHTune.value("lance_q_len")), "plain Pierce width")
+	c.eq(ups, 0, "no upgrade effects without upgrades")
+	c.eq(int(p.immune), 0, "no immunity")
+
+
 class RearBrain:
 	extends RefCounted
 	var ticked := 0

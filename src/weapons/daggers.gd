@@ -50,6 +50,16 @@ const TUNE := {
 	"r_vuln_pct": 25.0,         # you take 25% more damage (resist -25 on every element)
 	"r_radius": 1,              # own hex + ring
 	"r_steps": 1,
+	# upgrades (H550)
+	"up_q_twin_steps": 1,       # flourish_twin: steps of the BACKUP element on the ring beyond the Flourish
+	"up_e_homing_count": 3,     # daggerleap_homing: knives released on landing (fanned -1 / 0 / +1)
+	"up_e_homing_range": 6,     # daggerleap_homing: a monster within this many hexes is homed on (20 ft)
+	"up_e_homing_every": 2,     # daggerleap_homing: ticks per hex of flight (15 hexes a second)
+	"up_e_homing_max": 10,      # daggerleap_homing: hexes a knife flies before it drops
+	"up_e_homing_dmg": 60.0,    # daggerleap_homing: per knife on contact
+	"up_e_homing_stagger": 0.1,
+	"up_e_homing_steps": 1,     # daggerleap_homing: element laid on every hex a knife crosses
+	"up_r_long_ticks": 270,     # knifedance_long: 9 s of dancing
 }
 
 
@@ -72,16 +82,14 @@ static func cast(sim: HHSim, u: Dictionary, key: String, aim: Vector2i) -> bool:
 			sim.begin_windup(u, "flourish", int(_t("q_windup")), {}, Callable(HHDaggers, "_flourish"))
 			return true
 		"w":
-			var a: String = u.element
-			u.element = u.backup
-			u.backup = a
-			sim._emit({ "type": "swap", "id": u.id, "element": u.element })
+			HHWeapons.exchange(sim, u)
 			return true
 		"e":
 			var to := leap_target(sim, u, aim, int(_t("e_range")))
 			if to == u.hex:
 				return false
 			u["daggerleap_from"] = u.hex
+			u["daggerleap_element"] = u.element              # the knives paint the element you cast with
 			sim.begin_leap(u, to, int(_t("e_air_ticks")), Callable(HHDaggers, "_daggerleap_land"))
 			return true
 		"r":
@@ -116,6 +124,10 @@ static func _flourish(sim: HHSim, u: Dictionary, _data: Dictionary) -> void:
 		sim.strike(u, t, float(_t("q_dmg")), sim.nearest_hex_of(t, u.hex), "flourish", float(_t("q_stagger")))
 	sim.paint(area, u.element, u.id, int(_t("q_steps")))
 	sim._emit({ "type": "flourish", "id": u.id, "hex": u.hex, "hexes": area, "element": u.element })
+	if HHUpgrades.has(u, "flourish_twin"):
+		var rim := sim.arena.ring(u.hex, int(_t("q_radius")) + 1)
+		sim.paint(rim, u.backup, u.id, int(_t("up_q_twin_steps")))
+		sim._emit({ "type": "upgrade", "id": u.id, "upgrade": "flourish_twin", "hexes": rim, "element": u.backup })
 
 
 static func _daggerleap_land(sim: HHSim, u: Dictionary) -> void:
@@ -130,6 +142,41 @@ static func _daggerleap_land(sim: HHSim, u: Dictionary) -> void:
 	for t in sim.units_in(land, u.id):
 		sim.strike(u, t, float(_t("e_land_dmg")), sim.nearest_hex_of(t, u.hex), "daggerleap", float(_t("e_land_stagger")))
 	sim._emit({ "type": "daggerleap", "id": u.id, "from": from, "hex": u.hex, "hexes": trail, "element": u.element })
+	var cast_el := str(u.get("daggerleap_element", u.element))
+	u.erase("daggerleap_element")
+	if HHUpgrades.has(u, "daggerleap_homing"):
+		_hunting_knives(sim, u, from, cast_el)
+
+
+## daggerleap_homing: three knives (sim projectiles, H553) fanned -1 / 0 / +1
+## from the landing hex, homing on the nearest monster within up_e_homing_range;
+## with none in range they fly straight on along the leap's heading.
+static func _hunting_knives(sim: HHSim, u: Dictionary, from: Vector2i, element: String) -> void:
+	var target := ""
+	var best := int(_t("up_e_homing_range")) + 1
+	for m in sim.monsters():
+		if not sim.targetable(m):
+			continue
+		var d := HHHex.distance(u.hex, sim.nearest_hex_of(m, u.hex))
+		if d < best:
+			best = d
+			target = m.id
+	var heading := HHHex.direction_index(from, u.hex)
+	if target != "":
+		heading = HHHex.direction_index(u.hex, sim.nearest_hex_of(sim.unit(target), u.hex))
+	if heading < 0:
+		heading = 0
+	var count := int(_t("up_e_homing_count"))
+	var fans := [0, -1, 1, -2, 2, 3]
+	var ids: Array = []
+	for i in count:
+		var fan: int = fans[i % fans.size()]
+		var p := sim.launch({ "owner": u.id, "from": u.hex, "target": target, "dir": posmod(heading + fan, 6), "spread": fan,
+			"element": element, "steps": int(_t("up_e_homing_steps")), "every": int(_t("up_e_homing_every")),
+			"max_hexes": int(_t("up_e_homing_max")), "dmg": float(_t("up_e_homing_dmg")), "stagger": float(_t("up_e_homing_stagger")),
+			"cause": "hunting knife" })
+		ids.append(p.id)
+	sim._emit({ "type": "upgrade", "id": u.id, "upgrade": "daggerleap_homing", "target": target, "projectiles": ids, "element": element })
 
 
 # ------------------------------------------------------------------ Knifedance
@@ -141,11 +188,12 @@ static func _knifedance_start(sim: HHSim, u: Dictionary) -> void:
 	var vuln := -float(_t("r_vuln_pct"))
 	for el in HHFormulas.ELEMENTS:
 		u.resist[el] = float(saved.get(el, 0.0)) + vuln
-	u["knifedance_until"] = sim.tick + int(_t("r_ticks"))
+	var ticks := int(_t("up_r_long_ticks")) if HHUpgrades.has(u, "knifedance_long") else int(_t("r_ticks"))
+	u["knifedance_until"] = sim.tick + ticks
 	u["knifedance_next"] = sim.tick + 1                       # first pulse on the next tick
 	u["knifedance_pulse"] = 0
 	sim.hooks[u.id] = KnifedanceTicker.new()
-	sim._emit({ "type": "knifedance", "id": u.id, "phase": "start", "ticks": int(_t("r_ticks")) })
+	sim._emit({ "type": "knifedance", "id": u.id, "phase": "start", "ticks": ticks })
 
 
 static func _knifedance_pulse(sim: HHSim, u: Dictionary) -> void:
