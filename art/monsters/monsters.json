@@ -623,6 +623,806 @@
     ]
    },
    "generator": "tools/blender/build_monster_swampfang.py"
+  },
+  "spirewalker": {
+   "id": "spirewalker",
+   "version": 1,
+   "rigkit_version": 1,
+   "footprint_hexes": 2,
+   "length": 7.857,
+   "height": 3.814,
+   "width": 7.618,
+   "aabb": {
+    "min": [
+     -3.8088,
+     0.016,
+     -3.4687
+    ],
+    "max": [
+     3.8088,
+     3.8143,
+     4.3879
+    ]
+   },
+   "tris": 2714,
+   "verts": 1859,
+   "meshes": [
+    "body_hide",
+    "body_belly",
+    "body_reed",
+    "body_bristle",
+    "body_arc",
+    "body_teeth",
+    "body_eye",
+    "body_claw"
+   ],
+   "bones": [
+    {
+     "name": "root",
+     "parent": "",
+     "head": [
+      0.0,
+      0.0,
+      -0.0
+     ],
+     "tail": [
+      0.0,
+      0.5,
+      -0.0
+     ]
+    },
+    {
+     "name": "hips",
+     "parent": "root",
+     "head": [
+      0.0,
+      1.0,
+      -1.5
+     ],
+     "tail": [
+      0.0,
+      1.1,
+      -0.6
+     ]
+    },
+    {
+     "name": "spine_0",
+     "parent": "hips",
+     "head": [
+      0.0,
+      1.1,
+      -0.6
+     ],
+     "tail": [
+      0.0,
+      1.15,
+      0.5
+     ]
+    },
+    {
+     "name": "spine_1",
+     "parent": "spine_0",
+     "head": [
+      0.0,
+      1.15,
+      0.5
+     ],
+     "tail": [
+      0.0,
+      1.08,
+      1.5
+     ]
+    },
+    {
+     "name": "chest",
+     "parent": "spine_1",
+     "head": [
+      0.0,
+      1.08,
+      1.5
+     ],
+     "tail": [
+      0.0,
+      0.98,
+      2.2
+     ]
+    },
+    {
+     "name": "neck",
+     "parent": "chest",
+     "head": [
+      0.0,
+      0.98,
+      2.2
+     ],
+     "tail": [
+      0.0,
+      0.95,
+      2.75
+     ]
+    },
+    {
+     "name": "head",
+     "parent": "neck",
+     "head": [
+      0.0,
+      0.95,
+      2.75
+     ],
+     "tail": [
+      0.0,
+      0.74,
+      4.35
+     ]
+    },
+    {
+     "name": "tail_0",
+     "parent": "hips",
+     "head": [
+      0.0,
+      1.0,
+      -1.5
+     ],
+     "tail": [
+      0.0,
+      0.82,
+      -2.3
+     ]
+    },
+    {
+     "name": "tail_1",
+     "parent": "tail_0",
+     "head": [
+      0.0,
+      0.82,
+      -2.3
+     ],
+     "tail": [
+      0.0,
+      0.66,
+      -2.95
+     ]
+    },
+    {
+     "name": "tail_2",
+     "parent": "tail_1",
+     "head": [
+      0.0,
+      0.66,
+      -2.95
+     ],
+     "tail": [
+      0.0,
+      0.56,
+      -3.45
+     ]
+    },
+    {
+     "name": "jaw",
+     "parent": "head",
+     "head": [
+      0.0,
+      0.62,
+      3.25
+     ],
+     "tail": [
+      0.0,
+      0.52,
+      4.3
+     ]
+    },
+    {
+     "name": "reed_0",
+     "parent": "spine_0",
+     "head": [
+      0.0,
+      1.72,
+      -0.9
+     ],
+     "tail": [
+      0.0,
+      2.82,
+      -0.9
+     ]
+    },
+    {
+     "name": "reed_1",
+     "parent": "spine_1",
+     "head": [
+      0.0,
+      1.8518,
+      -0.1
+     ],
+     "tail": [
+      0.0,
+      2.9518,
+      -0.1
+     ]
+    },
+    {
+     "name": "reed_2",
+     "parent": "chest",
+     "head": [
+      0.0,
+      1.822,
+      0.9
+     ],
+     "tail": [
+      0.0,
+      2.922,
+      0.9
+     ]
+    },
+    {
+     "name": "hip_fl",
+     "parent": "chest",
+     "head": [
+      1.25,
+      1.0,
+      1.7
+     ],
+     "tail": [
+      2.35,
+      1.8,
+      2.2
+     ]
+    },
+    {
+     "name": "knee_fl",
+     "parent": "hip_fl",
+     "head": [
+      2.35,
+      1.8,
+      2.2
+     ],
+     "tail": [
+      2.8,
+      0.46,
+      2.4
+     ]
+    },
+    {
+     "name": "ankle_fl",
+     "parent": "knee_fl",
+     "head": [
+      2.8,
+      0.46,
+      2.4
+     ],
+     "tail": [
+      3.0,
+      0.06,
+      3.0
+     ]
+    },
+    {
+     "name": "toe_fl",
+     "parent": "ankle_fl",
+     "head": [
+      3.0,
+      0.06,
+      3.0
+     ],
+     "tail": [
+      3.0935,
+      0.06,
+      3.2806
+     ]
+    },
+    {
+     "name": "hip_fr",
+     "parent": "chest",
+     "head": [
+      -1.25,
+      1.0,
+      1.7
+     ],
+     "tail": [
+      -2.35,
+      1.8,
+      2.2
+     ]
+    },
+    {
+     "name": "knee_fr",
+     "parent": "hip_fr",
+     "head": [
+      -2.35,
+      1.8,
+      2.2
+     ],
+     "tail": [
+      -2.8,
+      0.46,
+      2.4
+     ]
+    },
+    {
+     "name": "ankle_fr",
+     "parent": "knee_fr",
+     "head": [
+      -2.8,
+      0.46,
+      2.4
+     ],
+     "tail": [
+      -3.0,
+      0.06,
+      3.0
+     ]
+    },
+    {
+     "name": "toe_fr",
+     "parent": "ankle_fr",
+     "head": [
+      -3.0,
+      0.06,
+      3.0
+     ],
+     "tail": [
+      -3.0935,
+      0.06,
+      3.2806
+     ]
+    },
+    {
+     "name": "hip_ml",
+     "parent": "spine_1",
+     "head": [
+      1.75,
+      1.05,
+      0.35
+     ],
+     "tail": [
+      2.8,
+      1.9,
+      0.35
+     ]
+    },
+    {
+     "name": "knee_ml",
+     "parent": "hip_ml",
+     "head": [
+      2.8,
+      1.9,
+      0.35
+     ],
+     "tail": [
+      3.1,
+      0.46,
+      0.25
+     ]
+    },
+    {
+     "name": "ankle_ml",
+     "parent": "knee_ml",
+     "head": [
+      3.1,
+      0.46,
+      0.25
+     ],
+     "tail": [
+      3.35,
+      0.06,
+      0.55
+     ]
+    },
+    {
+     "name": "toe_ml",
+     "parent": "ankle_ml",
+     "head": [
+      3.35,
+      0.06,
+      0.55
+     ],
+     "tail": [
+      3.5065,
+      0.06,
+      0.7378
+     ]
+    },
+    {
+     "name": "hip_mr",
+     "parent": "spine_1",
+     "head": [
+      -1.75,
+      1.05,
+      0.35
+     ],
+     "tail": [
+      -2.8,
+      1.9,
+      0.35
+     ]
+    },
+    {
+     "name": "knee_mr",
+     "parent": "hip_mr",
+     "head": [
+      -2.8,
+      1.9,
+      0.35
+     ],
+     "tail": [
+      -3.1,
+      0.46,
+      0.25
+     ]
+    },
+    {
+     "name": "ankle_mr",
+     "parent": "knee_mr",
+     "head": [
+      -3.1,
+      0.46,
+      0.25
+     ],
+     "tail": [
+      -3.35,
+      0.06,
+      0.55
+     ]
+    },
+    {
+     "name": "toe_mr",
+     "parent": "ankle_mr",
+     "head": [
+      -3.35,
+      0.06,
+      0.55
+     ],
+     "tail": [
+      -3.5065,
+      0.06,
+      0.7378
+     ]
+    },
+    {
+     "name": "hip_hl",
+     "parent": "hips",
+     "head": [
+      1.25,
+      0.95,
+      -1.15
+     ],
+     "tail": [
+      2.3,
+      1.7,
+      -1.6
+     ]
+    },
+    {
+     "name": "knee_hl",
+     "parent": "hip_hl",
+     "head": [
+      2.3,
+      1.7,
+      -1.6
+     ],
+     "tail": [
+      2.75,
+      0.42,
+      -1.9
+     ]
+    },
+    {
+     "name": "ankle_hl",
+     "parent": "knee_hl",
+     "head": [
+      2.75,
+      0.42,
+      -1.9
+     ],
+     "tail": [
+      2.95,
+      0.06,
+      -2.4
+     ]
+    },
+    {
+     "name": "toe_hl",
+     "parent": "ankle_hl",
+     "head": [
+      2.95,
+      0.06,
+      -2.4
+     ],
+     "tail": [
+      3.0581,
+      0.06,
+      -2.6702
+     ]
+    },
+    {
+     "name": "hip_hr",
+     "parent": "hips",
+     "head": [
+      -1.25,
+      0.95,
+      -1.15
+     ],
+     "tail": [
+      -2.3,
+      1.7,
+      -1.6
+     ]
+    },
+    {
+     "name": "knee_hr",
+     "parent": "hip_hr",
+     "head": [
+      -2.3,
+      1.7,
+      -1.6
+     ],
+     "tail": [
+      -2.75,
+      0.42,
+      -1.9
+     ]
+    },
+    {
+     "name": "ankle_hr",
+     "parent": "knee_hr",
+     "head": [
+      -2.75,
+      0.42,
+      -1.9
+     ],
+     "tail": [
+      -2.95,
+      0.06,
+      -2.4
+     ]
+    },
+    {
+     "name": "toe_hr",
+     "parent": "ankle_hr",
+     "head": [
+      -2.95,
+      0.06,
+      -2.4
+     ],
+     "tail": [
+      -3.0581,
+      0.06,
+      -2.6702
+     ]
+    }
+   ],
+   "chains": {
+    "spine": [
+     "hips",
+     "spine_0",
+     "spine_1",
+     "chest"
+    ],
+    "neck": [
+     "neck",
+     "head"
+    ],
+    "tail": [
+     "tail_0",
+     "tail_1",
+     "tail_2"
+    ]
+   },
+   "jaw": "jaw",
+   "frill": [],
+   "legs": {
+    "fl": {
+     "hip": "hip_fl",
+     "knee": "knee_fl",
+     "ankle": "ankle_fl",
+     "toe": "toe_fl",
+     "ik": "ik_fl",
+     "toe_at": [
+      3.0,
+      0.06,
+      3.0
+     ],
+     "hip_at": [
+      1.25,
+      1.0,
+      1.7
+     ]
+    },
+    "fr": {
+     "hip": "hip_fr",
+     "knee": "knee_fr",
+     "ankle": "ankle_fr",
+     "toe": "toe_fr",
+     "ik": "ik_fr",
+     "toe_at": [
+      -3.0,
+      0.06,
+      3.0
+     ],
+     "hip_at": [
+      -1.25,
+      1.0,
+      1.7
+     ]
+    },
+    "ml": {
+     "hip": "hip_ml",
+     "knee": "knee_ml",
+     "ankle": "ankle_ml",
+     "toe": "toe_ml",
+     "ik": "ik_ml",
+     "toe_at": [
+      3.35,
+      0.06,
+      0.55
+     ],
+     "hip_at": [
+      1.75,
+      1.05,
+      0.35
+     ]
+    },
+    "mr": {
+     "hip": "hip_mr",
+     "knee": "knee_mr",
+     "ankle": "ankle_mr",
+     "toe": "toe_mr",
+     "ik": "ik_mr",
+     "toe_at": [
+      -3.35,
+      0.06,
+      0.55
+     ],
+     "hip_at": [
+      -1.75,
+      1.05,
+      0.35
+     ]
+    },
+    "hl": {
+     "hip": "hip_hl",
+     "knee": "knee_hl",
+     "ankle": "ankle_hl",
+     "toe": "toe_hl",
+     "ik": "ik_hl",
+     "toe_at": [
+      2.95,
+      0.06,
+      -2.4
+     ],
+     "hip_at": [
+      1.25,
+      0.95,
+      -1.15
+     ]
+    },
+    "hr": {
+     "hip": "hip_hr",
+     "knee": "knee_hr",
+     "ankle": "ankle_hr",
+     "toe": "toe_hr",
+     "ik": "ik_hr",
+     "toe_at": [
+      -2.95,
+      0.06,
+      -2.4
+     ],
+     "hip_at": [
+      -1.25,
+      0.95,
+      -1.15
+     ]
+    }
+   },
+   "sockets": {
+    "mouth": {
+     "bone": "head",
+     "at": [
+      0.0,
+      0.6,
+      4.2
+     ]
+    },
+    "back": {
+     "bone": "spine_1",
+     "at": [
+      0.0,
+      1.98,
+      0.4
+     ]
+    },
+    "reeds": {
+     "bone": "reed_1",
+     "at": [
+      0.0,
+      3.0,
+      -0.1
+     ]
+    },
+    "tail_tip": {
+     "bone": "tail_2",
+     "at": [
+      0.0,
+      0.56,
+      -3.45
+     ]
+    },
+    "arm_l": {
+     "bone": "knee_fl",
+     "at": [
+      2.6,
+      0.9,
+      2.35
+     ]
+    },
+    "arm_r": {
+     "bone": "knee_fr",
+     "at": [
+      -2.6,
+      0.9,
+      2.35
+     ]
+    },
+    "head_top": {
+     "bone": "head",
+     "at": [
+      0.0,
+      1.4,
+      3.3
+     ]
+    }
+   },
+   "roles": {
+    "hide": [
+     0.8,
+     0.64,
+     0.2
+    ],
+    "belly": [
+     0.86,
+     0.76,
+     0.5
+    ],
+    "reed": [
+     0.76,
+     0.4,
+     0.16
+    ],
+    "bristle": [
+     0.58,
+     0.3,
+     0.12
+    ],
+    "arc": [
+     0.62,
+     0.32,
+     0.96
+    ],
+    "teeth": [
+     0.95,
+     0.93,
+     0.84
+    ],
+    "eye": [
+     0.98,
+     0.72,
+     0.16
+    ],
+    "claw": [
+     0.3,
+     0.22,
+     0.16
+    ]
+   },
+   "reeds": [
+    "reed_0",
+    "reed_1",
+    "reed_2"
+   ],
+   "bristles": [
+    "knee_fl",
+    "knee_fr"
+   ],
+   "generator": "tools/blender/build_monster_spirewalker.py"
   }
  }
 }
