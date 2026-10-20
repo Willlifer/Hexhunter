@@ -393,10 +393,10 @@ func update(delta: float) -> void:
 
 # ------------------------------------------------------------------ reactive state (L-12)
 
-const SMOULDER_COLOR := Color(1.0, 0.36, 0.1)        ## quill ember (HHLook fire glow, warmer)
-const COLD_COLOR := Color(0.62, 0.92, 1.0)           ## crystal cold (pale cyan)
+const SMOULDER_COLOR := Color(1.0, 0.32, 0.06)       ## quill ember (HHLook fire glow, warmer)
+const COLD_COLOR := Color(0.42, 0.85, 1.0)           ## crystal cold (saturated cyan; white-out at 30 m otherwise)
 const CHARGE_COLOR := Color(0.72, 0.42, 1.0)         ## arc violet
-const DARK_COLOR := Color(0.55, 0.25, 0.95)          ## Swampfang's darkness call (eyes, frill)
+const DARK_COLOR := Color(0.42, 0.12, 0.95)          ## Swampfang's darkness call (eyes, frill): deep violet, not pink
 const ARC_EVERY := 0.07                              ## seconds between arc re-rolls
 const CUE_SECONDS := 1.5                             ## the darkness telegraph window (45 ticks)
 
@@ -447,7 +447,7 @@ func _drive_smoulder() -> void:
 	var pulse := 0.72 + 0.28 * sin(_state_t * 7.5)          # a slow breathing ember
 	glow = pulse if on else 0.0
 	state_name = "smouldering" if on else ""
-	_emit("quill", SMOULDER_COLOR, 3.2 * glow, Color(1.0, 0.62, 0.42) if on else Color.WHITE, glow)
+	_emit("quill", SMOULDER_COLOR, 4.5 * glow, Color(1.0, 0.5, 0.25) if on else Color.WHITE, glow)
 	_emit("eye", SMOULDER_COLOR, 2.5 * glow, Color.WHITE, 0.0)
 
 
@@ -458,7 +458,7 @@ func _drive_cold() -> void:
 	# the crystals: smoky grey -> pale cyan, and brighter with the meter;
 	# a shimmer above 0.7 (the weak-point band, H335)
 	var shimmer := 1.0 + (0.18 * sin(_state_t * 9.0) if cold > 0.7 else 0.0)
-	_emit("crystal", COLD_COLOR, 3.6 * cold * cold * shimmer, Color(0.72, 1.0, 1.25), cold)
+	_emit("crystal", COLD_COLOR, 1.9 * cold * cold * shimmer, Color(0.6, 0.95, 1.2), cold)
 	_emit("eye", COLD_COLOR, 2.0 * cold, Color.WHITE, 0.0)
 
 
@@ -470,7 +470,7 @@ func _drive_charge(delta: float) -> void:
 	state_name = "reeds_burnt" if burnt else ("charged" if charged else "")
 	var flicker := 1.0 + (0.3 * sin(_state_t * 23.0) * sin(_state_t * 5.3) if charged else 0.0)
 	var live := 0.0 if burnt else 1.0
-	_emit("arc", CHARGE_COLOR, (1.2 + 3.0 * charge) * flicker * live, Color.WHITE, 0.0)
+	_emit("arc", CHARGE_COLOR, (1.2 + 3.0 * charge) * flicker * live, Color(0.3, 0.26, 0.24) if burnt else Color.WHITE, 1.0 if burnt else 0.0)
 	# the reed tips take the violet with the charge; cut reeds go to charcoal
 	_emit("reed", CHARGE_COLOR, 1.6 * charge * flicker * live, Color(0.3, 0.26, 0.24) if burnt else Color.WHITE, 1.0 if burnt else 0.0)
 	if _arcs == null:
