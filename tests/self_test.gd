@@ -97,17 +97,20 @@ static func run() -> Dictionary:
 
 const SCRATCH_SAVE := "user://selftest_hunter.json"
 const SCRATCH_LAST := "user://selftest_last.json"
+const SCRATCH_RUNS := "user://selftest_runs.json"
 
 
 static func _scratch_user_files() -> void:
 	HHSave.path = SCRATCH_SAVE
 	HHLobbyState.last_path = SCRATCH_LAST
+	HHLobbyState.runs_path = SCRATCH_RUNS
 
 
 static func _restore_user_files() -> void:
 	HHSave.path = HHSave.DEFAULT_PATH
 	HHLobbyState.last_path = HHLobbyState.LAST_PATH
-	for p in [SCRATCH_SAVE, SCRATCH_LAST]:
+	HHLobbyState.runs_path = HHLobbyState.RUNS_PATH
+	for p in [SCRATCH_SAVE, SCRATCH_LAST, SCRATCH_RUNS]:
 		if FileAccess.file_exists(p):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
 
