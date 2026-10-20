@@ -1,7 +1,7 @@
 # PLAN — Hexhunt
 
 Phases with gates. The author checks each gate before the next phase starts.
-Status: **Visual pass passed 2026-10-20 ("No notes for now. Continue."). Phase 4 co-op running as three lanes (N net, S sim, C game), contract in guide/02 (H52, H53).**
+Status: **Phase 4 co-op built 2026-10-20: lanes N, S, C merged and wired (H52-H55), 288/288; host and client proven as two processes and from the exported exe. Awaiting the author's co-op gate (LEDGER L-27). Then Phase 5 web.**
 
 ## 0. Interview record
 

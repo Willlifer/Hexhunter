@@ -44,4 +44,8 @@ States: BLOCKED / OWED / AWAITING PLAY / WATCH / DEFERRED. IDs never change.
 | L-24 | Cave worst-case frames dip to ~45 fps with every effect forced (average 78); weaker GPUs will do worse | WATCH | Lane FX tools/fx_perf.gd |
 | L-25 | Quiet tells: generic dust attacks (bite, swipe, tail drag) differ only by footprint at 30 m; thin streaks (Pierce, death-roll vortex) shrink to a pixel; big ice areas wash the red out in the last fifth | WATCH | author's call after play |
 | L-26 | Caldera snowline is a per-tile staircase; no water reflections; skill icons are drawn glyphs, not painted art | WATCH | polish phase |
+| L-27 | Phase 4 gate: the author plays co-op with a friend on the same network (Host.bat on one PC, Join.bat with the shown address on the other), a fight and a hunt; also solo still feels the same | AWAITING PLAY | dist\Hexhunt.exe, Host.bat, Join.bat |
+| L-28 | Internet play (not LAN) needs the host to forward UDP port 24631 or a relay; Windows may show a firewall prompt the first time someone hosts | WATCH | Phase 5 (web: WebSocket transport + a relay) |
+| L-29 | A client's own movement has one round trip of lag (~60 ms on one machine, 120-200 ms over the internet); no client-side prediction yet | AWAITING PLAY | author feels it; prediction if it bothers |
+| L-30 | Co-op rough edges: nothing points at a downed ally off-camera; the downed pose barely reads in water; results show HP and downs per hunter but not per-hunter damage (hurt events carry no source for skills and reactions); a lost delta stalls a client ~120 ms and its events are not replayed | OWED | next co-op pass |
 
