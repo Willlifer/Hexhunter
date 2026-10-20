@@ -93,6 +93,9 @@ func _roll(sv: Variant) -> Array:
 		return []
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("drops-%s-%d-%d" % [str(cfg.get("monster", "")), int(cfg.get("seed", 1)), int(fight.get("ticks", 0))])
+	var who := str(fight.get("local_id", cfg.get("local_id", "")))
+	if str(cfg.get("net", "solo")) in ["host", "client"] and who != "":   # H916: each hunter in a party rolls its own drops
+		rng.seed = hash("drops-%s-%d-%d-%s" % [str(cfg.get("monster", "")), int(cfg.get("seed", 1)), int(fight.get("ticks", 0)), who])
 	var owned: Array = []
 	if sv != null:
 		var o: Variant = sv.get("owned") if sv is Object else (sv as Dictionary).get("owned")

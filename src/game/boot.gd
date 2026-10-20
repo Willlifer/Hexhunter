@@ -17,6 +17,13 @@ extends Node
 ##   --cam dist,pitch           start the camera at this distance (m) and pitch (deg)
 ##   --tune key=value           override one HHTune number this run (repeatable)
 ##   --bench                    Lane C's arena bench (src/arena/bench/bench.gd)
+##   --host [--name X]          co-op: open the lobby already hosting a party (H914)
+##   --join <address> [--name X]   co-op: open the lobby already joined to that host
+##       [--port N] on either: not the default 24631 (smoke runs stay off a real game)
+##       with --autoplay [--peers n] [--seconds s]: the host starts the fight once n
+##       hunters are in and ready (guests ready at once); each process's bot drives
+##       its own hunter, prints its summary and quits (the two-process smoke test).
+##       --arena / --fight / --weapon / --element / --backup / --seed prefill the lobby.
 ## With no args (a double-clicked exe) it opens the lobby (H47). Any fight flag
 ## starts that fight directly; when it ends (or on Esc) the lobby opens with
 ## the same cfg (H48). Both run under HHShell.
@@ -57,6 +64,21 @@ func _ready() -> void:
 	if "--shot-lobby" in args:
 		shell.go_lobby(HHShell.default_cfg())
 		_capture(args, "--shot-lobby")
+		return
+	if "--host" in args or "--join" in args:                        # H914: the lobby, already hosting / joined
+		var lc := HHShell.default_cfg()
+		for kv in [["--arena", "arena"], ["--fight", "monster"], ["--weapon", "weapon"], ["--element", "element"], ["--backup", "backup"]]:
+			if kv[0] in args:
+				lc[kv[1]] = _arg(args, kv[0], str(lc[kv[1]]))
+		if "--seed" in args:
+			lc.seed = int(_arg(args, "--seed", "1"))
+		if "--cam" in args:
+			lc.cam = _arg(args, "--cam", "30,44")
+		var host := "--host" in args
+		shell.coop_boot = { "mode": "host" if host else "join", "address": _arg(args, "--join", ""),
+			"name": _arg(args, "--name", "Host" if host else "Guest"), "autoplay": "--autoplay" in args,
+			"peers": int(_arg(args, "--peers", "2")), "port": int(_arg(args, "--port", str(HHParty.PORT))), "seconds": float(_arg(args, "--seconds", "30")) }
+		shell.go_lobby(lc)
 		return
 	if "--hunt" in args:                                            # H612: straight onto the world map
 		var hc := HHShell.default_cfg()

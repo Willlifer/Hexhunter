@@ -28,16 +28,110 @@ var node: Node = null          ## the current screen (or the fight's finished so
 var history: Array = []        ## [{ screen, result }] as screens finish (tests)
 var immediate := false         ## tests: transition inside the finished signal, not deferred
 
+## Co-op (Lane C, H913, H915-H917): when the shell's net is online the hunt
+## is a party hunt. The host's map decides the approach (any hunter's token
+## near the stir), every peer sees every token (each peer moves its own and
+## broadcasts it), the ambush plays everywhere, prep is each peer's own lobby
+## (the lobby's own co-op ready gate starts the fight), results are each
+## peer's own. Messages ride HHCoopWire (one HHNet message kind, relayed by the host):
+##   "token"    { x, z, name, weapon }      every peer, ~8 Hz while moving
+##   "approach" { monster, arena, site }    host -> all
+##   "leave"    {}                          a peer left the map hunt
+var role := "solo"             ## "solo" | "host" | "client"
+var session: Object = null
+var net: Object = null
+var tokens := {}               ## peer -> the last "token" data (applied to each new map)
+var wire: HHCoopWire = null    ## party messages (HHNet kind 40, relayed by the host; R-C3 is now Lane C's own)
+var end_note := ""             ## why the hunt ended on its own (the host left)
+var _pending_approach := {}
+var _over := false             # the loop ended: late results (a fight finishing as the host leaves) are ignored    # a client's approach that arrived off the map (applied when it is back)
+
 
 static func start(p_shell: Object, cfg_seed: Dictionary = {}) -> HHHunt:
 	var h := HHHunt.new()
 	h.name = "Hunt"
 	h.shell = p_shell
 	h.state = HHHuntFlow.initial(cfg_seed)
+	h._attach_coop()
 	if p_shell is Node:
 		(p_shell as Node).add_child(h)
 	h.go({ "screen": "map", "cfg": h.state.cfg })
 	return h
+
+
+## A shell with an online net + session makes this a party hunt.
+func _attach_coop() -> void:
+	if shell == null:
+		return
+	var n: Variant = shell.get("net")
+	var s: Variant = shell.get("session")
+	if not (n is Object and s is Object) or n == null or s == null:
+		return
+	if not (n.has_method("is_online") and n.is_online()):
+		return
+	net = n
+	session = s
+	role = "host" if n.is_host() else "client"
+	state.cfg.net = role
+	wire = HHCoopWire.open(net, session)
+	wire.message.connect(_on_message)
+	if net.has_signal("disconnected"):
+		net.connect("disconnected", _on_disconnected)
+
+
+func _exit_tree() -> void:
+	if wire != null:
+		wire.close()
+	if net != null and is_instance_valid(net) and net.has_signal("disconnected") and net.is_connected("disconnected", _on_disconnected):
+		net.disconnect("disconnected", _on_disconnected)
+
+
+func _send(kind: String, data: Dictionary) -> void:
+	if wire != null:
+		wire.send(kind, data)
+
+
+func _on_message(peer: int, kind: String, data: Dictionary) -> void:
+	match kind:
+		"token":
+			tokens[peer] = data
+			if screen == "map" and node is HHWorldMap:
+				(node as HHWorldMap).set_remote(peer, data)
+		"leave":
+			tokens.erase(peer)
+			if screen == "map" and node is HHWorldMap:
+				(node as HHWorldMap).remove_remote(peer)
+		"approach":
+			if role != "client":
+				return
+			if screen == "map" and node is HHWorldMap:
+				(node as HHWorldMap).approach_from(data)
+			else:
+				_pending_approach = data
+
+
+func _on_disconnected() -> void:
+	if role == "solo":
+		return
+	end_note = "The host left: the hunt is over, back to solo" if role == "client" else "Disconnected: back to solo"
+	role = "solo"
+	go({ "screen": "", "cfg": state.cfg })
+
+
+## The map as a party sees it: other hunters' tokens, the host deciding the approach.
+func _coop_map(m: HHWorldMap) -> void:
+	m.coop_role = role
+	m.my_peer = int(net.peer_id()) if net != null and net.has_method("peer_id") else 1
+	var ms: Variant = session.get("members") if session != null else null
+	if ms is Dictionary:
+		m.peer_ids = HHParty.assign_ids((ms as Dictionary).keys())
+		m.my_name = str(((ms as Dictionary).get(m.my_peer, {}) as Dictionary).get("name", "Hunter"))
+	m.token_moved.connect(func(data: Dictionary): _send("token", data))
+	for peer in tokens:
+		m.set_remote(int(peer), tokens[peer])
+	if role == "client" and not _pending_approach.is_empty():
+		m.approach_on_setup = _pending_approach
+		_pending_approach = {}
 
 
 ## Show a screen from a flow step { screen, cfg }.
@@ -46,11 +140,15 @@ func go(step: Dictionary) -> void:
 	var cfg: Dictionary = step.cfg
 	match screen:
 		"":
+			_over = true
 			ended.emit()
 			queue_free()
 			return
 		"map":
-			_show(HHWorldMap.new(), cfg)
+			var m := HHWorldMap.new()
+			if role != "solo":
+				_coop_map(m)
+			_show(m, cfg)
 		"ambush":
 			_show(HHAmbush.new(), cfg)
 		"prep":
@@ -123,7 +221,13 @@ func _fight(cfg: Dictionary) -> void:
 
 
 func _on_finished(result: Dictionary) -> void:
+	if _over:
+		return
 	history.append({ "screen": screen, "result": result })
+	if role == "host" and screen == "map" and str(result.get("result", "")) == "approach":
+		_send("approach", { "monster": str(result.get("monster", "")), "arena": str(result.get("arena", "")), "site": int(result.get("site", -1)) })
+	if role != "solo" and screen == "map" and str(result.get("result", "")) == "quit":
+		_send("leave", {})
 	var step := HHHuntFlow.next(state, result)
 	if immediate:
 		go(step)

@@ -9,12 +9,23 @@ extends Node
 ## result in the ticker. A caller (the hunt loop, Lane H) passes its own
 ## `on_finished` to drive the flow itself.
 
+## Co-op (Lane C, H900+): the shell owns Lane N's HHNet at `Shell/Net` (its
+## HHSession lives at `Shell/Net/Session`), made on first use by
+## `ensure_net()` (R-N2); tests and captures assign fakes to
+## `net` / `session` instead. They outlive screens, so a party survives the
+## lobby -> fight -> lobby round trip. `coop_boot` (boot's --host / --join)
+## is handed to the next lobby once.
+
 signal screen_changed(screen: Node)
+
 
 var screen: Node = null
 var last_cfg: Dictionary = {}
 var last_result: Dictionary = {}
 var fights_run := 0
+var net: Node = null
+var session: Node = null
+var coop_boot := {}                ## { mode: "host"|"join", address, name, autoplay, peers, seconds }
 
 
 ## The cfg a fresh lobby starts from (guide/02 "Launch config").
@@ -64,7 +75,26 @@ func go_lobby(cfg: Dictionary = last_cfg, result: Dictionary = {}) -> void:
 	lobby.name = "Lobby"
 	lobby.can_replay = fights_run > 0
 	lobby.result_text = result_line(result)
+	if not coop_boot.is_empty():
+		lobby.coop_boot = coop_boot
+		coop_boot = {}
 	show_screen(lobby, cfg)
+
+
+## R-N2: Shell/Net is Lane N's HHNet (it owns its HHSession at
+## Net/Session). Made on first use; true when a net and session are there
+## (made now, earlier, or assigned by a test).
+func ensure_net() -> bool:
+	if net != null and session != null:
+		return true
+	if net == null:
+		var n := HHNet.new()
+		n.name = "Net"
+		add_child(n)
+		net = n
+	if session == null:
+		session = net.get("session")
+	return net != null and session != null
 
 
 ## Build and show the fight `cfg` describes. The hunt loop passes its own
@@ -82,7 +112,12 @@ func play(cfg: Dictionary, on_finished: Callable = Callable()) -> Node:
 func hunt(cfg: Dictionary = last_cfg) -> void:
 	var h: Node = HHHunt.start(self, { "seed": int(cfg.get("seed", 1)), "weapon": str(cfg.get("weapon", "lance")),
 		"element": str(cfg.get("element", "fire")), "backup": str(cfg.get("backup", "water")) })
-	h.connect("ended", func(): go_lobby(last_cfg), CONNECT_ONE_SHOT)
+	h.connect("ended", func():
+		go_lobby(last_cfg)
+		var why := str(h.get("end_note")) if is_instance_valid(h) and h.get("end_note") != null else ""
+		if why != "" and screen is HHLobby:              # H917: "the host left" stays in the ticker
+			(screen as HHLobby).coop_note = why
+			(screen as HHLobby)._ticker_rest(), CONNECT_ONE_SHOT)
 
 
 func replay() -> void:
@@ -107,5 +142,5 @@ static func result_line(r: Dictionary) -> String:
 	match str(r.get("result", "")):
 		"win": return "VICTORY in %d s" % int(secs)
 		"fallen": return "FALLEN at %s" % clock
-		"abort": return "aborted at %s" % clock
+		"abort": return ("the host left at %s" if bool(r.get("host_left", false)) else "aborted at %s") % clock
 	return str(r.get("result", ""))
