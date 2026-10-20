@@ -72,3 +72,10 @@ Reaction damage = `sim.reaction_unit(source)` x a multiplier: a player's auto at
 
 **Game (Lane C).** `HHFight.setup_cfg` builds every hunter in `cfg.players`, controls `cfg.local_id`, and in client mode applies replicated state instead of stepping. Other hunters get bodies, nameplates and party frames on the HUD; a downed hunter shows a revive ring. Lobby: Host / Join panel, party list, ready toggles; host-only tiles for arena/monster/seed. Hunt loop: the host's map drives the hunt; every peer sees every hunter's token; the ambush plays everywhere; prep is each peer's own lobby (arena/monster locked); results roll each peer's own drops into its own save.
 
+
+### Net API as built (Lane N, H850-H863)
+- **HHNet**: `host`, `join`, `leave`, `is_host`, `is_client`, `is_online`, `peer_id`, `peers()`, `poll()`, `send`, `send_encoded`, `session`, `player_name`, `accepting` / `refuse_reason`, `last_error` (a sentence), `names`, `stats` / `sent_rate`, `make_peer(server, address, port, peers)` (the transport seam); signals `peer_joined`, `peer_left`, `connected`, `failed`, `disconnected`, `message`. Each HHNet runs its own SceneMultiplayer on its own tree branch and sends raw packets, no RPCs. Joins are a versioned handshake the host can refuse; a dead join fails in 5 s; a vanished peer drops in 3-6 s.
+- **HHSession**: `members`, `joined`, `fields`, `set_mine`, `host_set`, `all_ready`, `start(force := false) -> Error`, `build_cfg(peer)`, `unit_id(peer)`, `end_fight()`; signals `changed`, `start_fight(cfg)`.
+- **HHSnapshot**: `capture`, `apply`, `delta`, `apply_delta`, `same`, `encode` / `decode`, `age_charge`, `clean`. Charge decay and telegraph / projectile countdowns are predicted on both ends; only real changes travel.
+- **HHReplicator**: `attach(fight, sim, cfg)` (null in solo), `role`, `merge(local_orders)`, `publish(tick, events)`, `send_order(o)`, `request_full()`, `pump()`, `stats`; signals `snapshot_applied(events)`, `lost`.
+- Measured: 11.7 KB/s per client compressed with four hunters; ~62 ms click-to-mirror on localhost; 0 mismatches across 1800 ticks; two real processes agree on every full snapshot.
