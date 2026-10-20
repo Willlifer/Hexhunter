@@ -32,6 +32,8 @@ import math
 
 from mathutils import Matrix, Vector
 
+import shapes_ma
+
 UP = Vector((0, 0, 1))
 FORWARD = Vector((0, -1, 0))
 
@@ -40,6 +42,7 @@ _orig = {}
 
 def install(rigkit):
     """Wrap rigkit.build_leg and rigkit.build_fins (idempotent)."""
+    shapes_ma.install_normal_fix(rigkit)
     if _orig:
         return
     _orig["build_leg"] = rigkit.build_leg
@@ -49,12 +52,15 @@ def install(rigkit):
     def build_leg(mb, spec, leg):
         if leg.get("hang"):
             build_arm(mb, spec, leg, rigkit)
+        elif leg.get("digi"):
+            shapes_ma.digi_leg(mb, spec, leg, rigkit)
         else:
             _orig["build_leg"](mb, spec, leg)
 
     def build_fins(mb, spec, bones):
         _orig["build_fins"](mb, spec, bones)
         build_quills(mb, spec, rigkit)
+        build_extras(mb, spec)
 
     rigkit.build_leg = build_leg
     rigkit.build_fins = build_fins
@@ -103,6 +109,20 @@ def build_arm(mb, spec, leg, rigkit):
         mb.pyramid(base, tip, {"toe_" + lid: 1.0}, leg.get("claw_role", "claw"))
 
 
+# ------------------------------------------------------------------ extras (visual pass, H650)
+def build_extras(mb, spec):
+    """spec["masses"]: [ { a, b, u, r: (side, len, fwd), w: {bone: weight}, role } ]
+    muscle ellipsoids (shapes_ma.mass_along); spec["horns"]: [ { pts, radii, bone,
+    role, colors } ] ringed horns (shapes_ma.horn)."""
+    for m in spec.get("masses", []):
+        r = m["r"]
+        shapes_ma.mass_along(mb, m["a"], m["b"], float(m.get("u", 0.5)), r[0], r[1], r[2], m["w"],
+                             m.get("role", "hide"), seg=int(m.get("seg", 10)), rings=int(m.get("rings", 6)))
+    for h in spec.get("horns", []):
+        shapes_ma.horn(mb, h["pts"], h["radii"], {h["bone"]: 1.0}, h.get("role", "claw"), h.get("colors"),
+                       sides=int(h.get("sides", 6)))
+
+
 # ------------------------------------------------------------------ quills
 def build_quills(mb, spec, rigkit):
     q = spec.get("quills")
@@ -130,8 +150,8 @@ def build_quills(mb, spec, rigkit):
         base = [root + side * hw - back * hb, root - side * hw - back * hb,
                 root - side * hw + back * hb, root + side * hw + back * hb]
         # a darker ring two thirds up, then the dark point
-        mid_c = tuple(base_c[i] + (tip_c[i] - base_c[i]) * 0.45 for i in range(3))
-        mid = root + (tip - root) * 0.62
+        mid_c = tuple(base_c[i] + (tip_c[i] - base_c[i]) * 0.62 for i in range(3))
+        mid = root + (tip - root) * 0.55
         mw = hw * 0.55
         mb_ = hb * 0.55
         ring = [mid + side * mw - back * mb_, mid - side * mw - back * mb_,

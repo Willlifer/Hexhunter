@@ -11,7 +11,7 @@ const TUNE := {
 	"approach_m": 4.0,         # within this of the disturbance, the ambush starts
 	"map_span_m": 200.0,       # the region, edge to edge
 	"map_site_r": 50.0,        # sites sit this far from the centre
-	"map_cam_dist": 170.0,     # world metres (the rig runs under a x5 parent, H502): all four sites in frame
+	"map_cam_dist": 170.0,     # H761: the map camera uses HHCameraRig.dist_max, no scaled parent
 	"map_cam_pitch": 64.0,
 	"pulse_period": 1.6,       # one disturbance ring per this many seconds
 	"pulse_radius_m": 7.0,     # the ring's full size on the map

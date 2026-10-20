@@ -41,6 +41,9 @@ var out_dir := "design/art/monsters"
 var body: HHMonsterBody
 var cam: Camera3D
 var world: Node3D
+var scale_bar: Node3D
+var gauntlet := -1                 ## --gauntlet N: the Lane MB comparison round N only
+var only_clips: PackedStringArray = []   ## --clips a,b: just these clip shots (no views)
 
 
 func _initialize() -> void:
@@ -51,6 +54,12 @@ func _initialize() -> void:
 	i = args.find("--out")
 	if i >= 0 and i + 1 < args.size():
 		out_dir = args[i + 1]
+	i = args.find("--gauntlet")
+	if i >= 0 and i + 1 < args.size():
+		gauntlet = int(args[i + 1])
+	i = args.find("--clips")
+	if i >= 0 and i + 1 < args.size():
+		only_clips = args[i + 1].split(",")
 	root.size = Vector2i(1280, 800)
 	_build.call_deferred()
 
@@ -106,6 +115,7 @@ func _build() -> void:
 	pmat.albedo_color = Color(0.92, 0.92, 0.9)
 	p.material_override = pmat
 	world.add_child(p)
+	scale_bar = p
 	body = HHMonsterBody.new()
 	world.add_child(body)
 	if not body.build(monster_id):
@@ -151,17 +161,51 @@ func _aim(yaw_deg: float, pitch_deg: float, dist: float = DIST, lift: float = LI
 func _shoot_all() -> void:
 	var abs := ProjectSettings.globalize_path("res://").path_join(out_dir).simplify_path()
 	DirAccess.make_dir_recursive_absolute(abs)
-	for v in VIEWS:
+	if gauntlet >= 0:
+		await _shoot_gauntlet()
+		return
+	for v in (VIEWS if only_clips.is_empty() else []):
 		body.pose_at("aggravated_idle", 0.8)
 		_aim(float(v.yaw), float(v.pitch))
 		await _save(abs.path_join("%s_%s.png" % [monster_id, v.name]))
 	for s in CLIP_SHOTS:
 		var clip := str(s.clip)
+		if not only_clips.is_empty() and not (clip in only_clips):
+			continue
 		var key := float(HHMonsterBody.clips(monster_id).get(clip, {}).get("key", 0.0))
 		body.pose_at(clip, key)
 		_aim(float(s.yaw), float(s.pitch), float(s.get("dist", 15.0)))
 		await _save(abs.path_join("%s_%s.png" % [monster_id, clip]))
 	print("monster_preview: done -> ", abs)
+	quit(0)
+
+
+## Lane MB gauntlet (design/visual_pass/BRIEF.md): the reference's pose and
+## camera, no scale bar, saved as <id>_round<N>_render.png, then the
+## comparison (reference left, render right) as <id>_round<N>.png in
+## design/visual_pass/MB, plus the three turntable views for the round.
+const GAUNTLET := { "clip": "aggravated_idle", "t": 0.8, "yaw": 52.0, "pitch": 8.0, "dist": 13.0, "lift": 1.4, "crop": [0.0, 0.1, 1.0, 0.9] }
+const GAUNTLET_REF := "res://design/kickoff/ref/monster_spirewalker.png"
+
+
+func _shoot_gauntlet() -> void:
+	var dir := ProjectSettings.globalize_path("res://design/visual_pass/MB").simplify_path()
+	DirAccess.make_dir_recursive_absolute(dir)
+	scale_bar.visible = false
+	body.pose_at(str(GAUNTLET.clip), float(GAUNTLET.t))
+	_aim(float(GAUNTLET.yaw), float(GAUNTLET.pitch), float(GAUNTLET.dist), float(GAUNTLET.lift))
+	var ren := dir.path_join("%s_round%d_render.png" % [monster_id, gauntlet])
+	await _save(ren)
+	var cmp := load("res://tools/gauntlet_compare_mb.gd")
+	var c: Array = GAUNTLET.crop
+	var err: Error = cmp.compose(ProjectSettings.globalize_path(GAUNTLET_REF), ren,
+		dir.path_join("%s_round%d.png" % [monster_id, gauntlet]), 600, Rect2(c[0], c[1], c[2] - c[0], c[3] - c[1]))
+	print("monster_preview: gauntlet round %d (%s)" % [gauntlet, "ok" if err == OK else error_string(err)])
+	scale_bar.visible = true
+	for v in VIEWS:
+		body.pose_at("aggravated_idle", 0.8)
+		_aim(float(v.yaw), float(v.pitch))
+		await _save(dir.path_join("%s_round%d_%s.png" % [monster_id, gauntlet, v.name]))
 	quit(0)
 
 

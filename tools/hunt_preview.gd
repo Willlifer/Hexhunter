@@ -61,6 +61,7 @@ func _run() -> void:
 		await _frames(2)
 		await _save("ambush_%s_peak.png" % m)
 	var r := HHResults.new()
+	r.record_run = false                                   # R-UI5: a preview never writes the player's run history
 	r.inject(HHHuntFlow.script_named("HHDrops"), null)      # real drops when Lane U is in; no save written
 	shell.show_screen(r, { "cfg": { "monster": "swampfang", "arena": "pond", "seed": 1, "weapon": "lance" },
 		"fight": { "result": "win", "ticks": 2460, "hp": 1240.0, "monster_hp": 0.0 } })

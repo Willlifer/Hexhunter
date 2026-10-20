@@ -114,6 +114,77 @@ static func snow_at(L: Dictionary, x: float, z: float) -> float:
 	return maxf(s, drift)
 
 
+## H758: the outer flank from the skirt's reach down to a cloud deck 300 m
+## out: a polar grid seamed onto height() at the reach, a short crest, then
+## a long fall; snow ribs and dark gullies, as in the reference. Look only.
+static func _flank(L: Dictionary, a: HHArena, R: float) -> ArrayMesh:
+	# one snow surface, the rock painted in per-vertex (smooth streak edges at
+	# any distance, ~10k tris), unlike the floor's per-quad roles
+	var r0 := R + SKIRT_M
+	var segs := 150
+	var radii: Array = [r0]
+	var step := 1.5
+	while float(radii.back()) < 330.0:
+		radii.append(float(radii.back()) + step)
+		step *= 1.12
+	var hts: Array = []
+	for ri in radii.size():
+		var rr: float = radii[ri]
+		var row: Array = []
+		for k in segs + 1:
+			var th := TAU * float(k) / float(segs)
+			var edge := height(L, cos(th) * r0, sin(th) * r0)
+			var d := rr - r0
+			var crest := 2.0 * exp(-pow((d - 4.0) / 4.0, 2.0)) * smoothstep(0.0, 2.0, d)
+			var fall := pow(smoothstep(0.0, 300.0, d), 0.8) * 90.0
+			var wob := sin(th * 7.0 + rr * 0.02) * minf(d, 40.0) * 0.08
+			var p := Vector3(cos(th) * rr, edge + crest - fall + wob, sin(th) * rr)
+			var alt := clampf((p.y + 60.0) / 75.0, 0.0, 1.0)
+			var cover := gully(p.x * 0.22, p.z * 0.22) * 0.95 + alt * 0.15 - 0.1 - smoothstep(20.0, 160.0, d) * 0.35
+			var snow_t := smoothstep(0.58, 0.64, cover)
+			row.append([p, Color(0.018, 0.019, 0.024).lerp(Color(0.95, 0.97, 1.0), snow_t)])
+		hts.append(row)
+	var v := PackedVector3Array()
+	var col := PackedColorArray()
+	for ri in radii.size() - 1:
+		for k in segs:
+			var q: Array = [hts[ri][k], hts[ri + 1][k], hts[ri + 1][k + 1], hts[ri][k + 1]]
+			for idx in [0, 1, 2, 0, 2, 3]:
+				v.append(q[idx][0])
+				col.append(q[idx][1])
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = v
+	arr[Mesh.ARRAY_COLOR] = col
+	var st := SurfaceTool.new()
+	st.create_from_arrays(arr)
+	st.generate_normals()
+	var m := st.commit()
+	m.surface_set_name(0, role("flank_snow"))
+	return m
+
+
+## H758: 0..1 downhill gullies (look only): radial ribs that wander.
+## Snow lies in patches stretched along the contours (the reference's
+## streaks wrap round the bowl): seeded noise sampled in (arc, radius) with
+## the radius axis squeezed.
+static var _gully_noise: FastNoiseLite
+
+
+static func gully(x: float, z: float) -> float:
+	if _gully_noise == null:
+		_gully_noise = FastNoiseLite.new()
+		_gully_noise.seed = 1729
+		_gully_noise.frequency = 0.2
+		_gully_noise.fractal_octaves = 3
+		_gully_noise.domain_warp_enabled = true
+		_gully_noise.domain_warp_amplitude = 12.0
+	var th := atan2(z, x)
+	var r := sqrt(x * x + z * z)
+	var w := _gully_noise.get_noise_2d(th * r * 0.3, r * 1.4)
+	return clampf(0.5 + 0.9 * w, 0.0, 1.0)
+
+
 static func layout(q: Dictionary) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(q.seed)
@@ -247,12 +318,20 @@ func _build(q: Dictionary) -> GKAsset:
 		# snow where cover beats a per-quad dither: a patchy line, not a grid staircase
 		var hash_v: float = sin(cx * 12.9898 + cz * 78.233) * 43758.5453
 		var dither: float = hash_v - floorf(hash_v)
-		if s > (0.5 + (dither - 0.5) * 0.5 if u > float(L.snowline) - 0.3 else 0.6):
-			return [snow, Color.WHITE.lerp(Color(0.86, 0.9, 0.95), clampf(1.0 - s, 0.0, 1.0))]
-		# ash greys the basalt up the rim as a tint, so there is no role seam
-		var warm := 1.0 - clampf(r / R, 0.0, 1.0) * 0.25
-		var grey := clampf(u * 3.5, 0.0, 1.0)
-		return [basalt, Color(1.0, warm, warm * 0.95).lerp(Color(2.6, 2.55, 2.5), grey).lerp(Color(2.4, 2.4, 2.5), s * 2.0)])
+		# H758: the reference's rim is snow cut by dark rock gullies running
+		# downhill; a radial streak field breaks the snowline into ribs
+		var streak := gully(cx, cz)
+		if u > 0.0:
+			var cover := s * 0.3 + streak * 0.75 + (dither - 0.5) * 0.12
+			if cover > 0.62:
+				return [snow, Color.WHITE.lerp(Color(0.8, 0.84, 0.92), clampf(1.0 - cover, 0.0, 0.6))]
+			var dark := 0.75 + 0.35 * clampf(u * 2.0, 0.0, 1.0)
+			return [role("rim_rock"), Color(dark, dark, dark * 1.04)]
+		if s > 0.6 + (dither - 0.5) * 0.3:
+			return [snow, Color(0.9, 0.93, 0.98)]
+		# the floor: cool charcoal, a little lighter where ash settles at the outer band
+		var ash_t := clampf((r / R - 0.6) / 0.4, 0.0, 1.0) * 0.5 + s * 0.6
+		return [basalt, Color(0.95, 0.97, 1.02).lerp(Color(1.9, 1.9, 1.95), ash_t)])
 	var ground := g.commit()
 	asset.add_part("ground", ground)
 	asset.add_trimesh_collider(ground)
@@ -337,17 +416,45 @@ func _build(q: Dictionary) -> GKAsset:
 		var z := float(cr.z)
 		var rad := float(cr.r)
 		var s := snow_at(L, x, z)
-		rg.tint = Color(0.75, 0.74, 0.73).lerp(Color(1.6, 1.65, 1.7), s)
+		rg.tint = Color(0.75, 0.74, 0.73).lerp(Color(1.6, 1.65, 1.7), s * 0.6)
 		rg.push(Transform3D(Basis(Vector3.UP, float(cr.rot)), Vector3(x, a.height_at(x, z) + rad * 0.2, z)))
-		rg.sphere(sc, Vector3.ZERO, rad, 6, Vector3(1.0, float(cr.sq), 0.7))
+		rg.sphere(role("rim_rock"), Vector3.ZERO, rad, 6, Vector3(1.0, float(cr.sq), 0.7))
 		rg.pop()
 	rg.tint = Color.WHITE
 	asset.add_part("rocks", rg.commit())
-	# -- markers and a hazy warm sky
+	# -- H758: the volcano's outer flank, so the crater sits on a mountain
+	# (the world used to end at the skirt and float on fog), and a cloud deck below
+	asset.add_part("flank", _flank(L, a, R), Transform3D.IDENTITY, true)
+	var crng := HHGenUtil.dress_rng(int(q.seed), "caldera-cloud")
+	var clouds: Array = []                   # soft-edged flat puffs (alpha fades out, colour stays white)
+	for i in 150:
+		var ang := crng.randf_range(0.0, TAU)
+		var rr := crng.randf_range(140.0, 330.0)
+		var below := 16.0 - pow(smoothstep(0.0, 300.0, rr - R - SKIRT_M), 0.8) * 90.0     # the flank's height out there
+		clouds.append({ "x": cos(ang) * rr, "z": sin(ang) * rr, "y": below + crng.randf_range(-4.0, 6.0),
+			"r": crng.randf_range(16.0, 40.0), "col": Color(1, 1, 1, crng.randf_range(0.5, 0.85)) })
+	asset.add_part("clouds", HHGenUtil.glow_discs(clouds, role("cloud"), func(_x: float, _z: float) -> float: return 0.0, 0.0, 2, 10, false), Transform3D.IDENTITY, false)
+	# -- H758: lava glow on the ground round every pool and vent, steam over them
+	var glow := role("glow_warm")
+	var discs: Array = []
+	var sg := GKMesh.new()
+	var srng := HHGenUtil.dress_rng(int(q.seed), "caldera-steam")
+	for k in asset.markers:
+		var name := str(k)
+		var p: Vector3 = (asset.markers[k] as Transform3D).origin
+		if name.begins_with("glow_vent_"):
+			discs.append({ "x": p.x, "z": p.z, "r": 2.4, "col": Color(0.7, 0.26, 0.05, 1.0) })
+			HHGenUtil.plume(sg, role("steam"), Vector3(p.x, p.y - 0.6, p.z), 4.5, 0.55, srng, 6, 0.03)
+		elif name.begins_with("glow_"):
+			discs.append({ "x": p.x, "z": p.z, "r": 6.5, "col": Color(0.9, 0.32, 0.06, 1.0) })
+			HHGenUtil.plume(sg, role("steam"), Vector3(p.x, p.y - 1.0, p.z), 7.0, 1.1, srng, 7, 0.035)
+	asset.add_part("lava_glow", HHGenUtil.glow_discs(discs, glow, func(x: float, z: float) -> float: return a.height_at(x, z), 0.06), Transform3D.IDENTITY, false)
+	asset.add_part("steam", sg.commit(), Transform3D.IDENTITY, false)
+	# -- markers and a cold high-altitude sky (H758: the reference is blue-grey and clear above the clouds)
 	HHGenUtil.markers(asset, a, R * 1.05, R + 17.0)
-	asset.lights = { "sun_dir_deg": [-38.0, -35.0], "sun_energy": 1.05, "sun_color": "#ffd6ae",
-		"sky_top": "#8d8b98", "sky_horizon": "#e8c9a4", "ground_horizon": "#6a5a50", "ground_bottom": "#2c2422", "ambient": 0.55,
-		"fog": { "color": "#d9bfa0", "density": 0.0012 },
+	asset.lights = { "sun_dir_deg": [-40.0, -35.0], "sun_energy": 1.35, "sun_color": "#f6f2ea",
+		"sky_top": "#1f2940", "sky_horizon": "#7d899e", "ground_horizon": "#4a5262", "ground_bottom": "#20242c", "ambient": 0.6, "sky_curve": 0.12,
+		"fog": { "color": "#55627a", "density": 0.0022, "sky_affect": 0.1, "aerial": 0.5 }, "glow": 0.6,
 		"points": { "glow": { "color": "#ff7a28", "energy": 9.0, "range": 14.0 }, "glow_vent": { "color": "#ff9040", "energy": 2.0, "range": 6.0 } } }
 	var lava_cells := 0
 	for pd in pools:

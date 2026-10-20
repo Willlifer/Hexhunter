@@ -44,18 +44,32 @@ static func sky(lights: Dictionary) -> WorldEnvironment:
 	mat.ground_bottom_color = Color(str(lights.get("ground_bottom", "#333833")))
 	mat.ground_horizon_color = Color(str(lights.get("ground_horizon", "#999e94")))
 	mat.sun_angle_max = 20.0
+	mat.sky_curve = float(lights.get("sky_curve", 0.15))
+	mat.ground_curve = float(lights.get("ground_curve", 0.02))
 	sk.sky_material = mat
 	env.sky = sk
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.ambient_light_energy = float(lights.get("ambient", 0.8))
+	if lights.has("ambient_color"):                 # H753: a biome's own fill (the cave's warm bounce)
+		env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+		env.ambient_light_color = Color(str(lights.ambient_color))
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.glow_enabled = false
+	env.tonemap_exposure = float(lights.get("exposure", 1.0))
+	env.glow_enabled = lights.has("glow")             # H753: lava and torches bloom a little
+	if env.glow_enabled:
+		env.glow_intensity = float(lights.glow)
+		env.glow_hdr_threshold = 1.0
+		env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
 	if lights.has("fog"):
 		var fog: Dictionary = lights.fog
 		env.fog_enabled = true
 		env.fog_light_color = Color(str(fog.get("color", "#c0c0c0")))
 		env.fog_density = float(fog.get("density", 0.01))
 		env.fog_sky_affect = float(fog.get("sky_affect", 0.4))
+		env.fog_aerial_perspective = float(fog.get("aerial", 0.0))
+		if fog.has("height"):                     # low-lying haze (the caldera's cloud deck, the glade's mist)
+			env.fog_height = float(fog.height)
+			env.fog_height_density = float(fog.get("height_density", 0.1))
 	var we := WorldEnvironment.new()
 	we.name = "Sky"
 	we.environment = env

@@ -269,3 +269,116 @@ static func pick_spaced(rng: RandomNumberGenerator, pool: Array[Vector2i], count
 		if ok:
 			out.append(h)
 	return out
+
+
+# ------------------------------------------------------------------ Lane ENV dressing (H754)
+
+## A second seeded stream for the visual pass's dressing. The layout's own
+## rng feeds the cells; drawing new dressing from it would move them, so new
+## props come from here (seed + salt), and the hex logic stays put.
+static func dress_rng(seed: int, salt: String) -> RandomNumberGenerator:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("hh-dress-%s-%d" % [salt, seed])
+	return rng
+
+
+## Soft discs draped on the ground, colour fading to nothing at the rim
+## (per-vertex, which GKMesh's per-triangle tint cannot do): torch pools,
+## lava glow. discs = [{ x, z, r, col: Color }]; `height.call(x, z)` drapes
+## them, `lift` floats them above it. One surface named `role`.
+static func glow_discs(discs: Array, role: String, height: Callable, lift: float = 0.05, rings: int = 5, segs: int = 20, fade_rgb: bool = true) -> ArrayMesh:
+	var v := PackedVector3Array()
+	var n := PackedVector3Array()
+	var col := PackedColorArray()
+	for dd in discs:
+		var d: Dictionary = dd
+		var cx := float(d.x)
+		var cz := float(d.z)
+		var rad := float(d.r)
+		var c0: Color = d.col
+		var pts: Array = []           # [ring][seg] -> [pos, colour]
+		for i in rings + 1:
+			var t := float(i) / float(rings)
+			var fall := pow(1.0 - t, 1.8)
+			var row: Array = []
+			for k in segs:
+				var a := TAU * float(k) / float(segs)
+				var x := cx + cos(a) * rad * t
+				var z := cz + sin(a) * rad * t
+				var fc := fall if fade_rgb else 1.0
+				row.append([Vector3(x, (float(d.y) if d.has("y") else float(height.call(x, z))) + lift, z), Color(c0.r * fc, c0.g * fc, c0.b * fc, c0.a * fall)])
+			pts.append(row)
+		for i in rings:
+			for k in segs:
+				var k2 := (k + 1) % segs
+				var q: Array = [pts[i][k], pts[i + 1][k], pts[i + 1][k2], pts[i][k2]]
+				for idx in [0, 2, 1, 0, 3, 2]:
+					v.append(q[idx][0])
+					col.append(q[idx][1])
+					n.append(Vector3.UP)
+	if v.is_empty():
+		return null
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = v
+	arr[Mesh.ARRAY_NORMAL] = n
+	arr[Mesh.ARRAY_COLOR] = col
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	m.surface_set_name(0, role)
+	return m
+
+
+## A rising plume of soft puffs (steam over vents and lava): spheres in a
+## mix-blended role, alpha thinning with height.
+static func plume(g: GKMesh, role: String, base: Vector3, height: float, rad: float, rng: RandomNumberGenerator, puffs: int = 5, alpha: float = 0.16) -> void:
+	for i in puffs:
+		var t := float(i) / float(maxi(puffs - 1, 1))
+		var drift := Vector3(rng.randf_range(-0.3, 0.3) + t * 0.8, 0.0, rng.randf_range(-0.3, 0.3))
+		var r := rad * (0.6 + t * 1.1)
+		g.tint = Color(1, 1, 1, alpha * (1.0 - t * 0.7))
+		g.sphere(role, base + drift + Vector3(0, height * t, 0), r, 7, Vector3(1.0, 0.75, 1.0))
+	g.tint = Color.WHITE
+
+
+## A low-poly conifer (two or three stacked cones on a short trunk).
+static func conifer(g: GKMesh, leaf: String, trunk: String, base: Vector3, h: float, w: float, tint: Color) -> void:
+	g.tint = Color.WHITE
+	g.cyl(trunk, base - Vector3(0, 0.3, 0), base + Vector3(0, h * 0.25, 0), w * 0.09, 5)
+	g.tint = tint
+	g.tube(leaf, [base + Vector3(0, h * 0.15, 0), base + Vector3(0, h * 0.62, 0)], [w, 0.0], 7, true)
+	g.tint = tint.lightened(0.06)
+	g.tube(leaf, [base + Vector3(0, h * 0.42, 0), base + Vector3(0, h * 0.85, 0)], [w * 0.74, 0.0], 7, true)
+	g.tube(leaf, [base + Vector3(0, h * 0.66, 0), base + Vector3(0, h, 0)], [w * 0.46, 0.0], 6, true)
+	g.tint = Color.WHITE
+
+
+## A broadleaf tree with an irregular crown of `lobes` squashed spheres.
+static func broadleaf(g: GKMesh, leaf: String, trunk: String, base: Vector3, h: float, w: float, rng: RandomNumberGenerator, tint: Color, lobes: int = 5) -> void:
+	g.tint = Color.WHITE
+	var lean := Vector3(rng.randf_range(-0.12, 0.12), 0, rng.randf_range(-0.12, 0.12)) * h
+	var top := base + Vector3(0, h * 0.6, 0) + lean
+	g.tube(trunk, [base - Vector3(0, 0.3, 0), base + Vector3(0, h * 0.3, 0) + lean * 0.4, top], [w * 0.11, w * 0.08, w * 0.05], 6, false)
+	for k in 2:
+		var a := rng.randf_range(0.0, TAU)
+		g.tube(trunk, [base + Vector3(0, h * 0.35, 0) + lean * 0.5, base + Vector3(cos(a) * w * 0.45, h * 0.62, sin(a) * w * 0.45)], [w * 0.05, w * 0.02], 4, false)
+	for k in lobes:
+		var a := rng.randf_range(0.0, TAU)
+		var d := rng.randf_range(0.0, w * 0.5) if k > 0 else 0.0
+		var lr := w * rng.randf_range(0.42, 0.62) if k > 0 else w * 0.62
+		var ti := rng.randf_range(0.86, 1.1)
+		g.tint = Color(tint.r * ti, tint.g * ti, tint.b * ti)
+		g.sphere(leaf, top + Vector3(cos(a) * d, h * rng.randf_range(0.05, 0.32), sin(a) * d), lr, 6, Vector3(1.0, rng.randf_range(0.7, 0.95), 1.0))
+	g.tint = Color.WHITE
+
+
+## A tuft of thin blades (flat tapered triangles, both faces), not the old cone.
+static func tuft(g: GKMesh, role: String, x: float, y: float, z: float, h: float, blades: int, spread: float, ph: float) -> void:
+	for b in blades:
+		var a := ph + TAU * float(b) / float(blades) + float(b) * 0.7
+		var lean := Vector3(cos(a), 0, sin(a)) * spread
+		var side := Vector3(-sin(a), 0, cos(a)) * 0.045
+		var foot := Vector3(x + cos(a) * 0.05, y, z + sin(a) * 0.05)
+		var tip := foot + lean + Vector3(0, h * (0.7 + 0.3 * float(b % 3) / 2.0), 0)
+		g.tri(role, foot - side, foot + side, tip)
+		g.tri(role, foot + side, foot - side, tip)

@@ -30,6 +30,7 @@ var _motes: CPUParticles3D
 var _spot: OmniLight3D
 var _name: Label
 var _sub: Label
+var _band: TitleBand                 ## Lane UI: the plate behind the name (the HUD's banner language)
 var _bars: Array = []
 var _roared := false
 var _done := false
@@ -146,14 +147,22 @@ func _build_hud() -> void:
 		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		layer.add_child(bar)
 		_bars.append(bar)
-	_name = HHHuntKit.label(HHHuntFlow.display_name(monster_id).to_upper(), 112, Color(1.0, 0.93, 0.8))
+	_band = TitleBand.new()
+	_band.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(_band)
+	_name = HHHuntKit.label(HHHuntFlow.display_name(monster_id).to_upper(), 104, Color(1.0, 0.9, 0.62))
+	_name.add_theme_font_override("font", HHHud.serif())
+	_name.add_theme_constant_override("outline_size", 14)
+	_name.add_theme_color_override("font_outline_color", Color(0.06, 0.03, 0.0, 0.95))
 	_name.set_anchors_preset(Control.PRESET_CENTER)
 	_name.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_name.grow_vertical = Control.GROW_DIRECTION_BOTH
 	_name.position.y += 200.0                        # lower third: the monster stays in view
 	_name.modulate = Color(1, 1, 1, 0)
 	layer.add_child(_name)
-	_sub = HHHuntKit.label("ambushes you in %s" % HHHuntFlow.display_name(biome), 30, Color(0.95, 0.95, 0.95))
+	_sub = HHHuntKit.label("ambushes you in %s" % HHHuntFlow.display_name(biome), 28, Color(1.0, 0.95, 0.86))
+	_sub.add_theme_font_override("font", HHHud.serif())
 	_sub.set_anchors_preset(Control.PRESET_CENTER)
 	_sub.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_sub.grow_vertical = Control.GROW_DIRECTION_BOTH
@@ -262,6 +271,9 @@ func _apply(_delta: float) -> void:
 		_name.pivot_offset = _name.size * 0.5
 		_name.scale = Vector2(s, s)
 		_sub.modulate = Color(1, 1, 1, clampf((time - name_at - 0.3) / 0.35, 0.0, 1.0))
+	if _band != null:
+		_band.open = clampf((time - name_at + 0.05) / 0.3, 0.0, 1.0)
+		_band.queue_redraw()
 
 
 static func _yaw_from_to(from: Vector3, to: Vector3) -> float:
@@ -280,3 +292,41 @@ func _unhandled_input(ev: InputEvent) -> void:
 		return
 	if (ev is InputEventKey and ev.pressed and not ev.echo) or (ev is InputEventMouseButton and ev.pressed):
 		_finish("skipped")
+
+
+## The title card's band (Lane UI): a dark plate across the lower third,
+## gold rules fading to the screen edges, diamond studs at the ends of the
+## top rule; `open` (0..1) wipes it out from the centre.
+class TitleBand:
+	extends Control
+	const Y := 200.0                 # the name's offset below the centre (as _name)
+	const H := 190.0
+	var open := 0.0
+
+	func _draw() -> void:
+		if open <= 0.0:
+			return
+		var pt := HHHud.Paint.new(get_canvas_item())
+		var s := get_viewport_rect().size
+		var cx := s.x * 0.5
+		var cy := s.y * 0.5 + Y + 38.0
+		var half := s.x * 0.5 * (1.0 - pow(1.0 - open, 3.0))
+		var top := cy - H * 0.5
+		var bot := cy + H * 0.5
+		var dark := Color(0.03, 0.022, 0.015, 0.88)
+		var clear := Color(dark.r, dark.g, dark.b, 0.0)
+		var g := HHHud.GOLD
+		var gc := Color(g.r, g.g, g.b, 0.0)
+		for side in [-1.0, 1.0]:
+			var x1: float = cx + side * half
+			pt.poly_colors(PackedVector2Array([Vector2(cx, top), Vector2(x1, top), Vector2(x1, bot), Vector2(cx, bot)]),
+				PackedColorArray([dark, clear, clear, dark]))
+			for y in [top, bot]:
+				var w: float = 1.0 if y == cy + 54.0 else 1.5
+				var a := 0.9 if y != cy + 54.0 else 0.6
+				var c0 := Color(g.r, g.g, g.b, a)
+				pt.poly_colors(PackedVector2Array([Vector2(cx, y - w), Vector2(x1, y - w), Vector2(x1, y + w), Vector2(cx, y + w)]),
+					PackedColorArray([c0, gc, gc, c0]))
+		var d := Vector2(cx, top)
+		pt.poly(PackedVector2Array([d + Vector2(0, -6), d + Vector2(6, 0), d + Vector2(0, 6), d + Vector2(-6, 0)]), g)
+

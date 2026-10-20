@@ -243,13 +243,74 @@ func _build(q: Dictionary) -> GKAsset:
 	for i in trees.size():
 		var c := a.world(trees[i])
 		_tree(tg, trunk, leaf, c, L.tree_look[i])
+	# H757: the woodland wall. The reference is a meadow closed in by many
+	# tall, loose, light-green broadleaves; two rows of them (the old ring's
+	# positions plus a dressing-seed back row) and a darker understory.
+	var drng := HHGenUtil.dress_rng(int(q.seed), "glade-forest")
+	var young := role("leaf_young")
+	var shade := role("leaf_shade")
 	for fd in L.forest:
 		var f: Dictionary = fd
 		var x := float(f.x)
 		var z := float(f.z)
-		_tree(tg, trunk, leaf, Vector3(x, a.height_at(x, z) - 0.3, z), f)
+		var ti := float(f.tint)
+		HHGenUtil.broadleaf(tg, young if drng.randf() < 0.6 else leaf, "bark_fade", Vector3(x, a.height_at(x, z), z), float(f.h) * 1.35, float(f.w) * 1.1, drng, Color(ti, ti, ti), 4)
+	for i in 90:
+		var ang := TAU * float(i) / 90.0 + drng.randf_range(-0.03, 0.03)
+		var rr := R + drng.randf_range(8.0, 12.0)
+		var x := cos(ang) * rr
+		var z := sin(ang) * rr
+		var ti := drng.randf_range(0.7, 1.0)
+		HHGenUtil.broadleaf(tg, shade if drng.randf() < 0.5 else young, "bark_fade", Vector3(x, a.height_at(x, z), z), drng.randf_range(10.0, 15.0), drng.randf_range(3.2, 4.6), drng, Color(ti, ti, ti), 4)
 	tg.tint = Color.WHITE
 	asset.add_part("trees", tg.commit())
+	# -- H757: understory brambles round the rim, a few low clumps and logs out on the meadow
+	var ug := GKMesh.new()
+	var bram := role("bramble")
+	for i in 70:
+		var ang := drng.randf_range(0.0, TAU)
+		var rr := R + drng.randf_range(0.5, 8.0)
+		var x := cos(ang) * rr
+		var z := sin(ang) * rr
+		var rad := drng.randf_range(0.9, 1.9)
+		var ti := drng.randf_range(0.7, 1.05)
+		ug.tint = Color(ti, ti, ti)
+		ug.sphere(bram, Vector3(x, a.height_at(x, z) + rad * 0.25, z), rad, 6, Vector3(1.3, 0.6, 1.0))
+	for i in 110:                               # tall shrubs: the leafy mass under the canopies
+		var ang := TAU * float(i) / 110.0 + drng.randf_range(-0.03, 0.03)
+		var rr := R + drng.randf_range(3.0, 10.0)
+		var x := cos(ang) * rr
+		var z := sin(ang) * rr
+		var rad := drng.randf_range(1.6, 2.8)
+		var ti := drng.randf_range(0.7, 1.05)
+		ug.tint = Color(ti, ti, ti)
+		ug.sphere(shade if i % 3 else young, Vector3(x, a.height_at(x, z) + rad * 0.55, z), rad, 6, Vector3(1.0, 0.9, 1.0))
+	var placed := 0
+	var tries := 0
+	while placed < 16 and tries < 300:          # low clumps (0.45 m) on plain floor hexes only, never on sun cells
+		tries += 1
+		var ang := drng.randf_range(0.0, TAU)
+		var rr := sqrt(drng.randf()) * (R - 2.0)
+		var x := cos(ang) * rr
+		var z := sin(ang) * rr
+		var h := HHHex.from_world(Vector2(x, z), HHArena.HEX)
+		if not a.cells.has(h) or a.kind(h) != "floor" or Vector2(x, z).distance_to(Vector2(0.0, R * 0.72)) < 5.0:
+			continue
+		var ti := drng.randf_range(0.8, 1.05)
+		ug.tint = Color(ti, ti, ti)
+		ug.sphere(bram, Vector3(x, a.height_at(x, z) + 0.05, z), drng.randf_range(0.5, 0.75), 6, Vector3(1.2, 0.55, 1.0))
+		placed += 1
+	var dead := role("dead_wood")
+	for i in 7:
+		var ang := drng.randf_range(0.0, TAU)
+		var rr := R + drng.randf_range(0.0, 4.0)
+		var p := Vector3(cos(ang) * rr, 0, sin(ang) * rr)
+		p.y = a.height_at(p.x, p.z) + 0.15
+		var d := Vector3(cos(ang + 1.4), 0.12, sin(ang + 1.4)) * drng.randf_range(2.0, 4.0)
+		ug.tint = Color.WHITE
+		ug.tube(dead, [p - d * 0.5, p + d * 0.5], [0.22, 0.14], 6, true)
+	ug.tint = Color.WHITE
+	asset.add_part("understory", ug.commit())
 	# -- bushes
 	var bg := GKMesh.new()
 	var bush := role("bush")
@@ -288,17 +349,33 @@ func _build(q: Dictionary) -> GKAsset:
 		var h := float(t.h)
 		var ti := float(t.tint)
 		fg.tint = Color(ti, ti, ti * 0.9)
-		for b in 3:
-			var ba := TAU * float(b) / 3.0 + h
-			var bx := x + cos(ba) * 0.12
-			var bz := z + sin(ba) * 0.12
-			fg.tube(stem, [Vector3(bx, y, bz), Vector3(bx + cos(ba) * 0.1, y + h * (0.7 + 0.3 * float(b) / 2.0), bz + sin(ba) * 0.1)], [0.11, 0.0], 4, false)
+		var rr := sqrt(x * x + z * z)
+		HHGenUtil.tuft(fg, role("bramble"), x, y, z, h * (0.7 if rr < R - 0.5 else 1.6), 5, 0.12, h * 9.0)
+	var grng := HHGenUtil.dress_rng(int(q.seed), "glade-grass")
+	for i in 1300:                             # H757: a short carpet over the floor (0.15-0.3 m: telegraphs read through it)
+		var ang := grng.randf_range(0.0, TAU)
+		var rr := sqrt(grng.randf()) * (R + 1.0)
+		var x := cos(ang) * rr
+		var z := sin(ang) * rr
+		var ti := grng.randf_range(0.75, 1.1)
+		fg.tint = Color(ti, ti, ti * 0.85)
+		HHGenUtil.tuft(fg, role("bramble"), x, a.height_at(x, z) - 0.02, z, grng.randf_range(0.15, 0.3), 3, 0.08, grng.randf() * TAU)
+	for i in 700:                              # H757: the long grass the reference stands in, on the rim
+		var ang := grng.randf_range(0.0, TAU)
+		var rr := R + grng.randf_range(-1.0, 9.0)
+		var x := cos(ang) * rr
+		var z := sin(ang) * rr
+		var ti := grng.randf_range(0.8, 1.15)
+		fg.tint = Color(ti, ti, ti * 0.85)
+		HHGenUtil.tuft(fg, role("bramble"), x, a.height_at(x, z) - 0.02, z, grng.randf_range(0.7, 1.3), 6, 0.25, grng.randf() * TAU)
 	fg.tint = Color.WHITE
 	asset.add_part("flowers", fg.commit())
 	# -- markers and a bright sunny day
 	HHGenUtil.markers(asset, a, R * 0.95, R + 15.0)
-	asset.lights = { "sun_dir_deg": [-52.0, 28.0], "sun_energy": 1.7, "sun_color": "#fff6dc",
-		"sky_top": "#3f86e0", "sky_horizon": "#d8e8f6", "ground_horizon": "#8fae6a", "ground_bottom": "#3e5230", "ambient": 1.0 }
+	# H757: a bright, hazy spring day (the reference's sky is near white)
+	asset.lights = { "sun_dir_deg": [-55.0, 28.0], "sun_energy": 1.45, "sun_color": "#fff8e4",
+		"sky_top": "#9fc0e6", "sky_horizon": "#f2f5ec", "ground_horizon": "#7a9a50", "ground_bottom": "#33452a", "ambient": 0.6, "sky_curve": 0.25,
+		"fog": { "color": "#e4ecdc", "density": 0.0022, "sky_affect": 0.0, "aerial": 0.4 } }
 	asset.meta = { "trees": trees.size(), "sun_patches": (L.sun_patches as Array).size(), "sun_cells": (L.sun_cells as Array).size(),
 		"walkable": a.walkable_count(), "cells": a.cells.size(), "reach": HHGenUtil.reach_fraction(a, a.spawns.player[0]) }
 	if a.path(a.spawns.player[0], a.spawns.monster).is_empty():
@@ -321,12 +398,18 @@ static func _tree(g: GKMesh, trunk: String, leaf: String, base: Vector3, look: D
 		var ang := ph + PI * float(k)
 		var tip := top + Vector3(cos(ang) * w * 0.4, h * 0.2, sin(ang) * w * 0.4)
 		g.tube(trunk, [top - Vector3(0, h * 0.1, 0), tip], [rad * 0.55, rad * 0.2], 5, false)
+	# H757: a looser crown (a small core and five lobes at different heights,
+	# two leaf tones) instead of one big ball: it reads as a tree, not a lollipop
 	g.tint = Color(ti, ti, ti * 0.95)
-	var crown := top + Vector3(0, h * 0.18, 0)
-	g.sphere(leaf, crown, w * 0.62, 8, Vector3(1.0, 0.78, 1.0))
-	for k in 3:
-		var ang := ph + TAU * float(k) / 3.0
-		var t2 := ti * (0.92 + 0.08 * float(k))
+	var crown := top + Vector3(0, h * 0.2, 0)
+	g.sphere(leaf, crown, w * 0.45, 7, Vector3(1.0, 0.8, 1.0))
+	for k in 5:
+		var ang := ph + TAU * float(k) / 5.0 + 0.3 * sin(ph * 3.0 + float(k))
+		var t2 := ti * (0.86 + 0.06 * float(k % 3))
 		g.tint = Color(t2, t2, t2 * 0.95)
-		g.sphere(leaf, crown + Vector3(cos(ang) * w * 0.42, h * 0.06 - 0.05 * float(k), sin(ang) * w * 0.42), w * 0.42, 7, Vector3(1.0, 0.8, 1.0))
+		var lr := w * (0.3 + 0.06 * float((k * 7 + int(ph * 10.0)) % 3))
+		var lift := h * (0.02 + 0.07 * float((k * 5 + int(ph * 7.0)) % 4))
+		if k % 2 == 0:
+			g.tint = Color(t2 * 1.25, t2 * 1.3, t2 * 1.0)
+		g.sphere(leaf, crown + Vector3(cos(ang) * w * 0.48, lift - h * 0.06, sin(ang) * w * 0.48), lr, 6, Vector3(1.0, 0.82, 1.0))
 	g.tint = Color.WHITE

@@ -13,7 +13,8 @@ extends RefCounted
 ## the body lands the blow.
 ##
 ## Bone names (art/monsters/monsters.json): root, hips, spine_0, spine_1,
-## chest, neck, head, jaw, tail_0..tail_3, frill_l, frill_r, and per leg
+## chest, neck, head, jaw, tail_0..tail_3, frill_l, frill_r, fin_0 (the head
+## crest) fin_1 fin_2 (the dorsal sails: fold bones, Phase 3.5), and per leg
 ## fl / fr / hl / hr: hip_, knee_, ankle_, toe_.
 ## Axes (HHMonsterBody.rot): pitch about X (+ drops a forward tip, lifts a
 ## tail tip), yaw about Y (+ swings a tip to the monster's left), roll about Z.
@@ -42,9 +43,11 @@ const CLIPS := {
 const SPINE := ["hips", "spine_0", "spine_1", "chest"]
 const NECK := ["neck", "head"]
 const TAIL := ["tail_0", "tail_1", "tail_2", "tail_3"]
+const FINS := ["fin_0", "fin_1", "fin_2"]
+const FIN_FOLD := -78.0  ## sail pitch when laid flat back along the body
 const FRONT := ["fl", "fr"]
 const HIND := ["hl", "hr"]
-const UNDER := -2.1      ## root drop when submerged (m)
+const UNDER := -2.5      ## root drop when submerged (m; -2.1 before the Phase 3.5 skull, which stands taller)
 const FLOAT := -1.72     ## root drop when floating calm (m): eyes and frill at the surface
 
 
@@ -125,6 +128,13 @@ static func _frill(b: HHMonsterBody, flare: float) -> void:
 	b.rot("frill_r", Vector3(0.0, 48.0 * flare, -28.0 * flare))
 
 
+## The crest and dorsal sails: `raise` 1 = up (the rest pose), 0 = laid flat
+## back along the body (calm, swimming); `flick` adds a lagged ripple.
+static func _fins(b: HHMonsterBody, raise: float, flick: float = 0.0) -> void:
+	for k in FINS.size():
+		b.rot(FINS[k], Vector3(FIN_FOLD * (1.0 - raise) + flick * (1.0 - 0.2 * k), 0.0, 0.0))
+
+
 static func _jaw(b: HHMonsterBody, open_deg: float) -> void:
 	b.rot("jaw", Vector3(open_deg, 0.0, 0.0))
 
@@ -187,6 +197,8 @@ static func _calm_float(t: float, b: HHMonsterBody) -> void:
 	b.rot("neck", Vector3(-6.0 + 2.0 * sway2, 3.0 * sway, 0.0))       # eyes and nostrils at the surface, crocodile style
 	b.rot("head", Vector3(-2.0, 0.0, 0.0))
 	_tail_sway(b, t, 5.0, 8.0, 0.18)
+	b.bend(TAIL, Vector3(-26.0, 0.0, 0.0), 0.8)                    # the tail sail hangs under the surface
+	_fins(b, 0.05)                                                  # sails laid flat: only the frill shows
 	_frill(b, 0.35 + 0.05 * sway2)
 	for leg in FRONT:
 		b.rot("hip_" + leg, Vector3(30.0, 0.0, 0.0))                      # legs trail, paddling
@@ -201,6 +213,7 @@ static func _aggravated_idle(t: float, b: HHMonsterBody) -> void:
 	b.rot("head", Vector3(-4.0 + 2.0 * s, 4.0 * sin(TAU * t / 6.0 + 0.6), 0.0))
 	_jaw(b, 6.0 + 3.0 * s)
 	_frill(b, 0.8 + 0.1 * s)
+	_fins(b, 1.0, 3.0 * sin(TAU * t / 1.5))
 	_tail_sway(b, t, 3.0, 14.0)
 	b.rot("hip_fl", Vector3(2.0 * s, 0.0, 0.0))
 	b.rot("hip_fr", Vector3(-2.0 * s, 0.0, 0.0))
@@ -242,6 +255,7 @@ static func _frill_roar(t: float, b: HHMonsterBody) -> void:
 	b.rot("head", Vector3(10.0 * crouch - 26.0 * hold, 2.0 * sh, 0.0))
 	_jaw(b, 4.0 * crouch + 40.0 * hold + 3.0 * sh)
 	_frill(b, 0.8 * (1.0 - a) + 1.0 * flare * s * (1.0 - rel * 0.2) + 0.08 * sh)
+	_fins(b, 1.0 - 0.45 * crouch, 6.0 * (flare - 1.0) * s + 2.0 * sh)
 	for leg in FRONT:
 		b.rot("hip_" + leg, Vector3(8.0 * crouch - 12.0 * hold, 0.0, 0.0))
 		b.rot("knee_" + leg, Vector3(10.0 * crouch, 0.0, 0.0))
@@ -286,6 +300,7 @@ static func _collapse(t: float, b: HHMonsterBody) -> void:
 	b.rot("head", Vector3(14.0 * d, 0.0, 0.0))
 	_jaw(b, 20.0 * d)
 	_frill(b, 0.8 * (1.0 - d))
+	_fins(b, 1.0 - 0.45 * d)
 	b.bend(TAIL, Vector3(-10.0 * d, 0.0, 0.0))
 
 
@@ -407,6 +422,7 @@ static func _dive(t: float, b: HHMonsterBody) -> void:
 	b.rot("head", Vector3(-8.0 * rear + 14.0 * plunge, 0.0, 0.0))
 	_jaw(b, 8.0 * rear)
 	_frill(b, 0.8 * (1.0 - plunge))
+	_fins(b, 1.0 - plunge)
 	b.bend(TAIL, Vector3(75.0 * slap - 30.0 * _ss(t, 1.2, 1.4) * (1.0 - _ss(t, 1.5, 1.8)), 0.0, 0.0), 1.2)
 	for leg in FRONT:
 		b.rot("hip_" + leg, Vector3(-20.0 * rear + 35.0 * plunge, 0.0, 0.0))
@@ -421,6 +437,8 @@ static func _swim(t: float, b: HHMonsterBody) -> void:
 	_tail_sway(b, t, 1.0, 22.0, 0.2)
 	b.rot("neck", Vector3(-6.0, 0.0, 0.0))
 	_frill(b, 0.1)
+	_fins(b, 0.0)
+	b.bend(TAIL, Vector3(-22.0, 0.0, 0.0), 0.8)                    # the tail sail stays under
 	for leg in FRONT:
 		b.rot("hip_" + leg, Vector3(34.0, 0.0, 0.0))
 		b.rot("knee_" + leg, Vector3(22.0, 0.0, 0.0))
@@ -441,6 +459,7 @@ static func _surface_lunge(t: float, b: HHMonsterBody) -> void:
 	b.rot("head", Vector3(-12.0 * up * (1.0 - down) + 10.0 * down * (1.0 - settle), 0.0, 0.0))
 	_jaw(b, 42.0 * up * (1.0 - settle))
 	_frill(b, 0.1 + 0.9 * up)
+	_fins(b, clampf(up, 0.0, 1.0), 8.0 * (up - 1.0))
 	b.bend(TAIL, Vector3(-30.0 * up * (1.0 - down) + 20.0 * down * (1.0 - settle), 0.0, 0.0), 1.3)
 	for leg in FRONT:
 		b.rot("hip_" + leg, Vector3(30.0 * (1.0 - up) - 20.0 * up * (1.0 - down), 0.0, 0.0))

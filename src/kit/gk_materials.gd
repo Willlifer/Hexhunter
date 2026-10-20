@@ -12,9 +12,14 @@ extends RefCounted
 ## relief (G61: the pattern's height in metres, bent into the normal: grit on
 ## polymer, checkering, flecks), alpha (G61: a see-through role, drawn by
 ## gk_surface_clear.gdshader; the edges stay opaque).
+## Lane ENV (H752): `emit` (a StandardMaterial3D that glows: lava, flames;
+## emission = col_c x emit; the vertex tint multiplies the albedo only) and
+## `blend` ("add" or "mix": an unshaded vertex-coloured sheet for light
+## pools, lava glow, steam and clouds; the tint's alpha fades it).
 
 const SHADER := "res://shaders/gk_surface.gdshader"
 const SHADER_CLEAR := "res://shaders/gk_surface_clear.gdshader"   ## roles with `alpha` (G61): see-through polymer
+const SHADER_FADE := "res://src/arena/shaders/gk_fade.gdshader"   ## roles with `fade: [near, far]` (H759): scenery that dissolves near the camera
 const PAT := { "plain": 0, "grain": 1, "plaster": 2, "blocks": 3, "cobble": 4, "siding": 5, "membrane": 6,
 	"stipple": 7, "brushed": 8, "asphalt": 9, "grass": 10, "concrete": 11, "pavers": 12, "checker": 13, "speckle": 14 }
 
@@ -99,36 +104,57 @@ const ROLES := {
 	"bark_birch": { "a": "#e2ddd2", "b": "#8a857c", "c": "#2e2b27", "rough": 0.9, "pat": "plaster", "scale": 2.4, "amt": 0.55, "world": true },
 	# Hexhunt pond (Lane C, H205): merged from HHPondGen.ROLES
 	"pond_bed": { "a": "#9c8a62", "b": "#7e6d4a", "c": "#6a5a3c", "rough": 0.95, "pat": "stipple", "scale": 1.5, "amt": 0.4, "world": true },
-	"water_shallow": { "a": "#2f6f8e", "b": "#285f7a", "rough": 0.08, "spec": 1.0, "pat": "plain", "scale": 2.0, "amt": 0.1, "world": true, "alpha": 0.45 },
+	"water_shallow": { "a": "#0a3570", "b": "#082c5c", "rough": 0.05, "spec": 0.55, "pat": "plain", "scale": 2.0, "amt": 0.1, "world": true, "alpha": 0.84 },
 	"lilypad": { "a": "#4f8a2e", "b": "#3a6a22", "c": "#7aa43a", "rough": 0.7, "spec": 0.5, "pat": "grass", "scale": 1.6, "amt": 0.3, "world": true },
 	"lilypad_tall": { "a": "#3f7a2a", "b": "#2c5a1e", "c": "#6a9a3a", "rough": 0.75, "pat": "grass", "scale": 1.6, "amt": 0.3, "world": true },
 	"reed": { "a": "#6f8a3a", "b": "#55702a", "c": "#8aa44a", "rough": 0.9, "pat": "plain", "scale": 2.0, "amt": 0.2, "world": true },
 	"cattail": { "a": "#5a3e26", "b": "#3e2a18", "rough": 0.95, "pat": "stipple", "scale": 40.0, "amt": 0.3, "world": true },
 	"pond_flower": { "a": "#e8c020", "b": "#c89a10", "c": "#f2d84a", "rough": 0.8, "pat": "plain", "scale": 4.0, "amt": 0.2, "world": true },
-	"meadow_grass": { "a": "#7a9a3e", "b": "#5e7e30", "c": "#9ab050", "rough": 1.0, "pat": "grass", "scale": 0.35, "amt": 0.45, "world": true },
+	"meadow_grass": { "a": "#5f9a30", "b": "#4a8226", "c": "#86b444", "rough": 1.0, "pat": "grass", "scale": 0.35, "amt": 0.45, "world": true },
 	# Hexhunt cave (Lane C/D, H222)
-	"cave_floor": { "a": "#4a4440", "b": "#3a3531", "c": "#5a534c", "rough": 0.95, "pat": "cobble", "scale": 0.6, "amt": 0.35, "world": true },
+	"cave_floor": { "a": "#4e3e32", "b": "#3c2f26", "c": "#2a211b", "rough": 0.55, "pat": "plaster", "scale": 0.5, "amt": 0.4, "world": true },
 	"cave_wall": { "a": "#2e2b29", "b": "#232120", "c": "#3c3836", "rough": 0.95, "pat": "blocks", "scale": 0.9, "amt": 0.4, "world": true },
-	"stalagmite": { "a": "#8c7d6a", "b": "#6f6254", "c": "#a69684", "rough": 0.85, "pat": "stipple", "scale": 1.2, "amt": 0.35, "world": true },
-	"cave_boulder": { "a": "#555049", "b": "#433f3a", "c": "#67625a", "rough": 0.92, "pat": "blocks", "scale": 0.5, "amt": 0.35, "world": true },
+	"stalagmite": { "a": "#6e5442", "b": "#4e3a2c", "c": "#86684e", "rough": 0.7, "pat": "plaster", "scale": 0.7, "amt": 0.45, "world": true },
+	"cave_boulder": { "a": "#5a4434", "b": "#3e2e24", "c": "#6e5644", "rough": 0.8, "pat": "plaster", "scale": 0.6, "amt": 0.4, "world": true },
 	"frost": { "a": "#cfeaf2", "b": "#a9cfdd", "c": "#e8f6fa", "rough": 0.3, "spec": 0.9, "pat": "speckle", "scale": 2.0, "amt": 0.25, "world": true },
-	"torch_flame": { "a": "#ffb040", "b": "#ff7a18", "c": "#fff0a0", "rough": 0.2, "pat": "plain", "scale": 4.0, "amt": 0.2 },
+	"torch_flame": { "a": "#ffb040", "b": "#ff7a18", "c": "#ffb050", "rough": 0.2, "pat": "plain", "scale": 4.0, "amt": 0.2, "emit": 3.0 },
 	"torch_post": { "a": "#4a3626", "b": "#352618", "rough": 0.95, "pat": "grain", "scale": 3.0, "amt": 0.4, "axis": [0, 1, 0] },
 	# Hexhunt glade (Lane C/D, H222)
-	"glade_grass": { "a": "#6fa03a", "b": "#55852c", "c": "#8fbf4e", "rough": 1.0, "pat": "grass", "scale": 0.35, "amt": 0.45, "world": true },
-	"sun_grass": { "a": "#b4d65a", "b": "#9cc24a", "c": "#d4e878", "rough": 1.0, "pat": "grass", "scale": 0.35, "amt": 0.35, "world": true },
-	"canopy": { "a": "#4c8a2c", "b": "#376a20", "c": "#78b040", "rough": 1.0, "pat": "grass", "scale": 1.2, "amt": 0.35, "world": true },
+	"glade_grass": { "a": "#2a6a16", "b": "#1f5410", "c": "#4a9228", "rough": 1.0, "pat": "grass", "scale": 0.35, "amt": 0.6, "world": true },
+	"sun_grass": { "a": "#9ccc48", "b": "#86b63c", "c": "#c2e070", "rough": 1.0, "pat": "grass", "scale": 0.35, "amt": 0.35, "world": true },
+	"canopy": { "a": "#5a9a30", "b": "#427a24", "c": "#86bc48", "rough": 1.0, "pat": "grass", "scale": 1.2, "amt": 0.35, "world": true, "fade": [10.0, 17.0] },
 	"glade_trunk": { "a": "#5a4634", "b": "#43342a", "c": "#6e5a46", "rough": 0.95, "pat": "grain", "scale": 3.0, "amt": 0.5, "world": true, "axis": [0, 1, 0] },
 	"glade_flower": { "a": "#f0e0f8", "b": "#d8b8e8", "c": "#ffffff", "rough": 0.8, "pat": "plain", "scale": 4.0, "amt": 0.2, "world": true },
 	"bush": { "a": "#3f6f2a", "b": "#2c5220", "c": "#558a36", "rough": 1.0, "pat": "grass", "scale": 2.0, "amt": 0.3, "world": true },
 	# Hexhunt caldera (Lane C/D, H222)
-	"basalt": { "a": "#2b2927", "b": "#201e1c", "c": "#3a3734", "rough": 0.95, "pat": "asphalt", "scale": 0.5, "amt": 0.35, "world": true },
+	"basalt": { "a": "#2c2d31", "b": "#212226", "c": "#3c3d42", "rough": 0.95, "pat": "asphalt", "scale": 0.5, "amt": 0.35, "world": true },
 	"ash": { "a": "#7d7873", "b": "#67625e", "c": "#938e88", "rough": 1.0, "pat": "stipple", "scale": 1.0, "amt": 0.35, "world": true },
 	"snow": { "a": "#eef2f5", "b": "#d8e0e8", "c": "#ffffff", "rough": 0.7, "pat": "speckle", "scale": 1.5, "amt": 0.15, "world": true },
-	"lava": { "a": "#ff6a1a", "b": "#ff3a08", "c": "#ffd060", "rough": 0.4, "pat": "stipple", "scale": 0.8, "amt": 0.5, "world": true },
+	"lava": { "a": "#ff6a1a", "b": "#ff3a08", "c": "#ff6a18", "rough": 0.4, "pat": "stipple", "scale": 0.8, "amt": 0.5, "world": true, "emit": 2.0 },
 	"lava_crust": { "a": "#3a2a24", "b": "#2a1c18", "c": "#5a3a2c", "rough": 0.95, "pat": "blocks", "scale": 0.4, "amt": 0.4, "world": true },
 	"vent_rim": { "a": "#4a3f3a", "b": "#372f2b", "c": "#6a5a50", "rough": 0.95, "pat": "stipple", "scale": 1.2, "amt": 0.4, "world": true },
 	"scoria": { "a": "#3b3330", "b": "#2b2522", "c": "#4d4440", "rough": 0.98, "pat": "blocks", "scale": 0.35, "amt": 0.45, "world": true },
+	# Lane ENV visual pass (H752-H760): light pools, steam, clouds, biome dressing, the world map
+	"glow_warm": { "a": "#ffffff", "rough": 1.0, "pat": "plain", "blend": "add" },
+	"steam": { "a": "#eef1f4", "rough": 1.0, "pat": "plain", "blend": "mix" },
+	"cloud": { "a": "#f4f6fa", "rough": 1.0, "pat": "plain", "blend": "mix" },
+	"conifer": { "a": "#1a3820", "b": "#122a17", "c": "#25482a", "rough": 1.0, "pat": "grass", "scale": 1.4, "amt": 0.3, "world": true, "fade": [16.0, 26.0] },
+	"reed_tall": { "a": "#7fa040", "b": "#5f8030", "c": "#a8c060", "rough": 0.9, "pat": "grass", "scale": 3.0, "amt": 0.3, "world": true },
+	"moss_rock": { "a": "#6c6a5c", "b": "#55574a", "c": "#5f7a3a", "rough": 0.95, "pat": "plaster", "scale": 0.8, "amt": 0.45, "world": true },
+	"tube_rock": { "a": "#7a5434", "b": "#352318", "c": "#1a110b", "rough": 0.75, "pat": "grain", "scale": 0.35, "amt": 0.7, "world": true, "axis": [1, 0, 0.35] },
+	"puddle": { "a": "#120d0a", "b": "#0c0907", "rough": 0.04, "spec": 1.0, "pat": "plain", "scale": 2.0, "amt": 0.1, "world": true },
+	"leaf_young": { "a": "#7cb843", "b": "#5c9a30", "c": "#a2d060", "rough": 1.0, "pat": "grass", "scale": 1.0, "amt": 0.4, "world": true, "fade": [16.0, 26.0] },
+	"leaf_shade": { "a": "#3d7428", "b": "#2c5a1e", "c": "#4f8a32", "rough": 1.0, "pat": "grass", "scale": 1.2, "amt": 0.35, "world": true, "fade": [16.0, 26.0] },
+	"bramble": { "a": "#4f8a2c", "b": "#386a22", "c": "#6aa03a", "rough": 1.0, "pat": "grass", "scale": 2.4, "amt": 0.4, "world": true },
+	"dead_wood": { "a": "#6e5e4c", "b": "#4e4234", "c": "#857560", "rough": 0.95, "pat": "grain", "scale": 3.0, "amt": 0.5, "world": true, "axis": [0, 1, 0] },
+	"bark_fade": { "a": "#4a3a2c", "b": "#3a2c20", "c": "#5a4a3a", "rough": 0.95, "pat": "grain", "scale": 3.0, "amt": 0.5, "world": true, "axis": [0, 1, 0], "fade": [16.0, 26.0] },
+	"tube_lip": { "a": "#7a5434", "b": "#352318", "c": "#1a110b", "rough": 0.75, "pat": "grain", "scale": 0.35, "amt": 0.7, "world": true, "axis": [1, 0, 0.35], "fade": [20.0, 30.0] },
+	"drip": { "a": "#6e5442", "b": "#4e3a2c", "c": "#86684e", "rough": 0.7, "pat": "plaster", "scale": 0.7, "amt": 0.45, "world": true, "fade": [20.0, 30.0] },
+	"flank_snow": { "a": "#eef2f5", "b": "#d8e0e8", "c": "#ffffff", "rough": 1.0, "spec": 0.15, "pat": "speckle", "scale": 0.4, "amt": 0.15, "world": true },
+	"rim_rock": { "a": "#222329", "b": "#18191d", "c": "#303138", "rough": 0.95, "pat": "plaster", "scale": 0.25, "amt": 0.4, "world": true },
+	"dirt_path": { "a": "#8a7656", "b": "#76644a", "c": "#9c8a68", "rough": 1.0, "pat": "stipple", "scale": 1.2, "amt": 0.35, "world": true },
+	"ruin_stone": { "a": "#9c968a", "b": "#7e796e", "c": "#6a6a5a", "rough": 0.95, "pat": "blocks", "scale": 0.5, "amt": 0.4, "world": true },
+	"water_river": { "a": "#24597e", "b": "#1d4a6a", "rough": 0.05, "spec": 1.0, "pat": "plain", "scale": 2.0, "amt": 0.1, "world": true, "alpha": 0.8 },
 	"barrier": { "a": "#ff00ff", "b": "#ff00ff", "rough": 1.0, "pat": "plain", "scale": 1.0, "amt": 0.0, "world": true },
 }
 
@@ -168,8 +194,16 @@ static func get_material(role: String) -> Material:
 	if _cache.has(role):
 		return _cache[role]
 	var s := _spec(role)
+	if s.has("blend") or s.has("emit"):
+		_cache[role] = _special(s)
+		return _cache[role]
 	var m := ShaderMaterial.new()
 	m.shader = load(SHADER_CLEAR if s.has("alpha") else SHADER)
+	if s.has("fade") and ResourceLoader.exists(SHADER_FADE):    # H759: dissolves near the camera
+		m.shader = load(SHADER_FADE)
+		var fd: Array = s.fade
+		m.set_shader_parameter("fade_near", float(fd[0]))
+		m.set_shader_parameter("fade_far", float(fd[1]))
 	m.set_shader_parameter("col_a", Color(str(s.a)))
 	m.set_shader_parameter("col_b", Color(str(s.get("b", s.a))))
 	m.set_shader_parameter("col_c", Color(str(s.get("c", s.get("b", s.a)))))
@@ -186,6 +220,27 @@ static func get_material(role: String) -> Material:
 	var ax: Array = s.get("axis", [0, 0, 1])
 	m.set_shader_parameter("axis", Vector3(float(ax[0]), float(ax[1]), float(ax[2])))
 	_cache[role] = m
+	return m
+
+
+## H752: glowing roles (`emit`) and unshaded sheets (`blend`: add / mix).
+static func _special(s: Dictionary) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(str(s.a))
+	m.vertex_color_use_as_albedo = true
+	m.roughness = float(s.get("rough", 0.8))
+	if s.has("blend"):
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD if str(s.blend) == "add" else BaseMaterial3D.BLEND_MODE_MIX
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		m.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+		m.disable_receive_shadows = true
+		m.disable_fog = str(s.blend) == "add"
+	if s.has("emit"):
+		m.emission_enabled = true
+		m.emission = Color(str(s.get("c", s.a)))
+		m.emission_energy_multiplier = float(s.emit)
 	return m
 
 

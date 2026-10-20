@@ -13,6 +13,9 @@ const VIEWS := [
 	{ "name": "view_side", "yaw": 90.0, "pitch": 8.0 },
 	{ "name": "view_back34", "yaw": 150.0, "pitch": 22.0 },
 ]
+## The gauntlet shot (BRIEF.md): the reference's angle, aggravated_idle.
+## `-- --gauntlet <png>` renders only this; `-- --only a,b` only those clips/views.
+const GAUNTLET := { "clip": "aggravated_idle", "yaw": 90.0, "pitch": 4.0, "dist": 14.0, "lift": 2.2 }
 const CLIP_SHOTS := [
 	{ "clip": "calm_sit", "yaw": 50.0, "pitch": 14.0 },
 	{ "clip": "frost_over", "yaw": 140.0, "pitch": 22.0 },
@@ -35,6 +38,8 @@ const CLIP_SHOTS := [
 
 var monster_id := "rimeslithe"
 var out_dir := "design/art/monsters"
+var gauntlet_path := ""
+var only: PackedStringArray = []
 var body: HHMonsterBody
 var cam: Camera3D
 var world: Node3D
@@ -45,6 +50,12 @@ func _initialize() -> void:
 	var i := args.find("--out")
 	if i >= 0 and i + 1 < args.size():
 		out_dir = args[i + 1]
+	i = args.find("--gauntlet")
+	if i >= 0 and i + 1 < args.size():
+		gauntlet_path = args[i + 1]
+	i = args.find("--only")
+	if i >= 0 and i + 1 < args.size():
+		only = args[i + 1].split(",")
 	root.size = Vector2i(1280, 800)
 	_build.call_deferred()
 
@@ -143,12 +154,25 @@ func _aim(yaw_deg: float, pitch_deg: float, dist: float = 19.0, lift: float = 1.
 func _shoot_all() -> void:
 	var abs := ProjectSettings.globalize_path("res://").path_join(out_dir).simplify_path()
 	DirAccess.make_dir_recursive_absolute(abs)
+	if gauntlet_path != "":
+		var g := ProjectSettings.globalize_path("res://").path_join(gauntlet_path).simplify_path()
+		DirAccess.make_dir_recursive_absolute(g.get_base_dir())
+		var gk := float(HHMonsterBody.clips(monster_id).get(str(GAUNTLET.clip), {}).get("key", 0.0))
+		body.pose_at(str(GAUNTLET.clip), gk)
+		_aim(float(GAUNTLET.yaw), float(GAUNTLET.pitch), float(GAUNTLET.dist), float(GAUNTLET.lift))
+		await _save(g)
+		quit(0)
+		return
 	for v in VIEWS:
+		if not only.is_empty() and not str(v.name) in only:
+			continue
 		body.pose_at("aggravated_idle", 0.8)
 		_aim(float(v.yaw), float(v.pitch))
 		await _save(abs.path_join("%s_%s.png" % [monster_id, v.name]))
 	for s in CLIP_SHOTS:
 		var clip := str(s.clip)
+		if not only.is_empty() and not clip in only:
+			continue
 		var key := float(HHMonsterBody.clips(monster_id).get(clip, {}).get("key", 0.0))
 		body.pose_at(clip, key)
 		_aim(float(s.yaw), float(s.pitch), float(s.get("dist", 19.0)))
