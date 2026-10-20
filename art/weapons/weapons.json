@@ -1,0 +1,392 @@
+{
+ "version": 1,
+ "rig_version": 1,
+ "generator": "tools/blender/build_weapons.py",
+ "space": "Godot weapon-local: origin = centre of the holding fist, +Y along the blade/shaft, +Z the edge/arrow direction (the wielder's forward), +X the wielder's left. Matches the rig sockets' rest frame, so mount is identity.",
+ "hands": {
+  "two": "right hand on socket_weapon_r; second_hand.point is the LEFT hand's IK target",
+  "pair": "right hand on socket_weapon_r plus the x-mirrored offhand_glb on socket_offhand_l (its points mirror in x)",
+  "bow": "LEFT hand on socket_offhand_l; second_hand.point is the RIGHT hand's draw (nock) target; string = the straight run's two ends (its own 'string' surface, hide it and draw the drawn string)",
+  "none": "a projectile: no socket; origin = the shaft's middle, tip = the head, trail_base = the nock"
+ },
+ "roles": [
+  "steel",
+  "wood",
+  "wrap",
+  "feather",
+  "gem",
+  "string"
+ ],
+ "weapons": {
+  "lance": {
+   "class": "lance",
+   "hands": "two",
+   "socket": "socket_weapon_r",
+   "offhand_socket": null,
+   "mount": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation_deg": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "second_hand": {
+    "hand": "l",
+    "point": [
+     0,
+     0.5,
+     0
+    ]
+   },
+   "tip": [
+    0,
+    2.58,
+    -0.3
+   ],
+   "trail_base": [
+    0,
+    1.6,
+    0.02
+   ],
+   "aura_points": [
+    [
+     0,
+     1.7,
+     0.14
+    ],
+    [
+     0,
+     1.96,
+     0.22
+    ],
+    [
+     0,
+     2.22,
+     0.19
+    ],
+    [
+     0,
+     2.44,
+     0.06
+    ],
+    [
+     0,
+     2.55,
+     -0.22
+    ],
+    [
+     0,
+     1.8,
+     -0.19
+    ]
+   ],
+   "length": 3.17,
+   "aabb": {
+    "min": [
+     -0.037,
+     -0.59,
+     -0.3
+    ],
+    "max": [
+     0.037,
+     2.58,
+     0.24
+    ]
+   },
+   "scale": 1.0,
+   "tris": 362,
+   "roles": [
+    "steel",
+    "wood",
+    "wrap"
+   ],
+   "role_tris": {
+    "steel": 302,
+    "wood": 20,
+    "wrap": 40
+   },
+   "glb": "res://art/weapons/lance.glb",
+   "projectile": null,
+   "notes": "Glaive-headed lance: 2.8 m pole, single-edged curved blade with a wavy back spur (weapon_glaive.png)."
+  },
+  "karambit": {
+   "class": "daggers",
+   "hands": "pair",
+   "socket": "socket_weapon_r",
+   "offhand_socket": "socket_offhand_l",
+   "mount": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation_deg": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "second_hand": null,
+   "tip": [
+    0,
+    0.715,
+    0.66
+   ],
+   "trail_base": [
+    0,
+    0.4,
+    -0.05
+   ],
+   "aura_points": [
+    [
+     0,
+     0.5,
+     -0.05
+    ],
+    [
+     0,
+     0.72,
+     0.04
+    ],
+    [
+     0,
+     0.86,
+     0.22
+    ],
+    [
+     0,
+     0.85,
+     0.44
+    ],
+    [
+     0,
+     0.76,
+     0.62
+    ]
+   ],
+   "length": 1.262,
+   "aabb": {
+    "min": [
+     -0.044,
+     -0.3366,
+     -0.095
+    ],
+    "max": [
+     0.0396,
+     0.925,
+     0.66
+    ]
+   },
+   "scale": 1.0,
+   "tris": 602,
+   "roles": [
+    "gem",
+    "steel",
+    "wrap"
+   ],
+   "role_tris": {
+    "steel": 204,
+    "wrap": 240,
+    "gem": 158
+   },
+   "glb": "res://art/weapons/karambit.glb",
+   "projectile": null,
+   "notes": "Sword-sized karambit: ridged grip, finger ring, ~0.9 m violet claw blade, edge on the inner curve (weapon_karambit.jpg); one per hand.",
+   "offhand_glb": "res://art/weapons/karambit_l.glb",
+   "mirror_offhand": true
+  },
+  "bow": {
+   "class": "bow",
+   "hands": "bow",
+   "socket": "socket_offhand_l",
+   "offhand_socket": null,
+   "mount": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation_deg": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "second_hand": {
+    "hand": "r",
+    "point": [
+     0,
+     0.0,
+     -0.215
+    ]
+   },
+   "tip": [
+    0,
+    0.05,
+    0.08
+   ],
+   "trail_base": [
+    0,
+    0.0,
+    -0.215
+   ],
+   "aura_points": [
+    [
+     0,
+     0.825,
+     -0.1
+    ],
+    [
+     0,
+     -0.825,
+     -0.1
+    ],
+    [
+     0,
+     0.6,
+     -0.14
+    ],
+    [
+     0,
+     -0.6,
+     -0.14
+    ],
+    [
+     0,
+     0.2,
+     0.085
+    ],
+    [
+     0,
+     -0.2,
+     0.085
+    ]
+   ],
+   "length": 2.376,
+   "aabb": {
+    "min": [
+     -0.05,
+     -1.1882,
+     -0.5803
+    ],
+    "max": [
+     0.048,
+     1.1882,
+     0.125
+    ]
+   },
+   "scale": 1.0,
+   "tris": 1252,
+   "roles": [
+    "feather",
+    "gem",
+    "steel",
+    "string",
+    "wrap"
+   ],
+   "role_tris": {
+    "steel": 452,
+    "wrap": 20,
+    "feather": 504,
+    "gem": 268,
+    "string": 8
+   },
+   "glb": "res://art/weapons/bow.glb",
+   "projectile": "arrow",
+   "notes": "Winged recurve: gold riser, red heart gems, feather wings off both limbs, straight string behind (weapon_bow.jpg).",
+   "string": [
+    [
+     0,
+     0.72,
+     -0.215
+    ],
+    [
+     0,
+     -0.72,
+     -0.215
+    ]
+   ]
+  },
+  "arrow": {
+   "class": "projectile",
+   "hands": "none",
+   "socket": null,
+   "offhand_socket": null,
+   "mount": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation_deg": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "second_hand": null,
+   "tip": [
+    0,
+    0.56,
+    0
+   ],
+   "trail_base": [
+    0,
+    -0.42,
+    0
+   ],
+   "aura_points": [
+    [
+     0,
+     0.47,
+     0
+    ],
+    [
+     0,
+     0.0,
+     0
+    ],
+    [
+     0,
+     -0.32,
+     0
+    ]
+   ],
+   "length": 1.01,
+   "aabb": {
+    "min": [
+     -0.0286,
+     -0.45,
+     -0.0465
+    ],
+    "max": [
+     0.052,
+     0.56,
+     0.0465
+    ]
+   },
+   "scale": 1.0,
+   "tris": 150,
+   "roles": [
+    "feather",
+    "gem",
+    "steel",
+    "wood"
+   ],
+   "role_tris": {
+    "steel": 82,
+    "wood": 20,
+    "feather": 32,
+    "gem": 16
+   },
+   "glb": "res://art/weapons/arrow.glb",
+   "projectile": null,
+   "notes": "The bow's arrow: wood shaft, steel head, three vanes; origin at the shaft's middle, +Y toward the head."
+  }
+ }
+}
