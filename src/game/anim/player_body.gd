@@ -44,8 +44,15 @@ extends Node3D
 
 const RIG_PATH := "res://art/characters/base_rig.glb"
 const RIG_JSON := "res://art/characters/rig.json"
-const WEAPON_DIR := "res://art/weapons/bw_temp/"       ## Lane A's set: "res://art/weapons/"
+const WEAPON_DIR := "res://art/weapons/"              ## Lane A's coloured set (L-13; bw_temp retired)
 const WEAPON_JSON := WEAPON_DIR + "weapons.json"
+## Weapon id (the sim's `weapon`, the clip set) -> Lane A's manifest row.
+## The manifest keys rows by model (karambit); the arrow is a row of class
+## "projectile" in the same table.
+const WEAPON_ROWS := { "lance": "lance", "daggers": "karambit", "bow": "bow" }
+## Per-role look for the weapon glbs (vertex COLOR carries the palette).
+const WEAPON_ROUGHNESS := { "steel": 0.32, "wood": 0.75, "wrap": 0.85, "feather": 0.7, "gem": 0.2, "string": 0.6 }
+const WEAPON_METALLIC := { "steel": 0.55, "gem": 0.1 }
 const CLIP_SETS := {
 	"lance": "res://src/game/anim/clips_lance.gd",
 	"daggers": "res://src/game/anim/clips_daggers.gd",
@@ -125,7 +132,17 @@ static func weapon_json() -> Dictionary:
 
 static func weapon_row(weapon: String) -> Dictionary:
 	var w: Dictionary = weapon_json().get("weapons", {})
-	return w.get(weapon, {})
+	return w.get(WEAPON_ROWS.get(weapon, weapon), {})
+
+
+## A projectile row (the arrow): Lane A keeps it in the weapons table as
+## class "projectile"; an older manifest kept a "projectiles" table.
+static func projectile_row(id: String) -> Dictionary:
+	var w: Dictionary = weapon_json().get("weapons", {})
+	if w.has(id):
+		return w[id]
+	var pr: Dictionary = weapon_json().get("projectiles", {})
+	return pr.get(id, {})
 
 
 static func clip_set(weapon: String) -> GDScript:
@@ -209,7 +226,7 @@ func equip(weapon: String) -> bool:
 		if hands == "pair" and row.get("offhand_socket") != null:
 			weapon_off = _attach(str(row.get("offhand_glb", row.get("glb", ""))), str(row.offhand_socket), row.get("mount", {}), "weapon_off")
 		if hands == "bow":
-			var pr: Dictionary = (weapon_json().get("projectiles", {}) as Dictionary).get(str(row.get("projectile", "arrow")), {})
+			var pr: Dictionary = projectile_row(str(row.get("projectile", "arrow")))
 			if not pr.is_empty():
 				arrow = _instance(str(pr.get("glb", "")), "arrow")
 				if arrow != null:
@@ -237,17 +254,25 @@ func _instance(path: String, node_name: String) -> Node3D:
 		var m3 := mi as MeshInstance3D
 		m3.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		for i in m3.mesh.get_surface_count():
-			# the weapon glbs bake their palette into COLOR_0 (Black | White's
-			# builders); the imported emission material ignores it, so swap in
-			# a lit vertex-colour material
+			# the weapon glbs bake their palette into COLOR_0 (one surface per
+			# role, named by role); swap in a lit vertex-colour material with
+			# the role's roughness / metallic
 			var src := m3.mesh.surface_get_material(i)
+			var role := src.resource_name if src else ""
 			var m := StandardMaterial3D.new()
 			m.vertex_color_use_as_albedo = true
 			m.albedo_color = (src as BaseMaterial3D).albedo_color if src is BaseMaterial3D else Color.WHITE
 			if m.albedo_color.get_luminance() < 0.05:
 				m.albedo_color = Color.WHITE
-			m.roughness = 0.45
-			m.metallic = 0.1
+			m.roughness = float(WEAPON_ROUGHNESS.get(role, 0.45))
+			m.metallic = float(WEAPON_METALLIC.get(role, 0.0))
+			if role == "gem":
+				m.emission_enabled = true
+				m.emission = Color(0.6, 0.2, 0.9)
+				m.emission_energy_multiplier = 0.35
+			if role == "feather" or role == "string":
+				m.cull_mode = BaseMaterial3D.CULL_DISABLED
+			m.resource_name = "hh_" + role
 			m3.set_surface_override_material(i, m)
 	return n
 
