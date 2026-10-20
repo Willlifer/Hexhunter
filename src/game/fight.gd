@@ -213,6 +213,7 @@ func _build_hud() -> void:
 	debug.add_theme_font_size_override("font_size", 14)
 	debug.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	debug.add_theme_constant_override("outline_size", 4)
+	debug.visible = autoplay or sandbox                 # R-UI2: the debug read-out is F3 in a normal fight
 	layer.add_child(debug)
 	add_child(HHTunePanel.new())
 
@@ -424,6 +425,9 @@ func _unhandled_input(ev: InputEvent) -> void:
 		match ev.keycode:
 			KEY_SPACE: _order({ "stop": true })
 			KEY_T: _order({ "potion": true })
+			KEY_F3:
+				if debug != null:
+					debug.visible = not debug.visible
 			KEY_W: _order({ "swap": true })
 			KEY_Q, KEY_E, KEY_R:
 				var aim := _hex_under(get_viewport().get_mouse_position())
