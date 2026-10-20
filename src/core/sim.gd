@@ -107,6 +107,10 @@ func add_player(id: String, hex: Vector2i, element: String = "fire", backup: Str
 	u.dash_recover = 0
 	u.dash_iframes = 0
 	u.heal_zone = {}
+	u.recovery = 0                                       # H57: rooted ticks after an action
+	u.flinch = 0                                         # H58: held after a landed monster hit
+	u.combo = {}                                         # H57: { step, until, target } (lance, daggers)
+	u.queued = {}                                        # H57: a buffered press { o, until }
 	scale_for_party()
 	return u
 
@@ -119,6 +123,7 @@ func add_monster(id: String, hex: Vector2i, hp: float = 20000.0, size: int = 2, 
 	u.reach = size + 1
 	u.allowed_kinds = allowed_kinds
 	u.party_scale = 1.0
+	u.exposed = 0                                        # H57: ticks left of a punish window (replicates)
 	scale_for_party()
 	return u
 
@@ -368,6 +373,7 @@ func step(orders: Dictionary = {}) -> Array:
 		var u: Dictionary = units[id]
 		if alive(u) and u.kind == "player":
 			_charge_tick(u)
+			_queued_tick(u)
 	for id in brains.keys():
 		var u: Dictionary = units.get(id, {})
 		if not u.is_empty() and alive(u):
@@ -410,6 +416,14 @@ func step(orders: Dictionary = {}) -> Array:
 			u.immune = int(u.immune) - 1
 		if u.kind == "player":
 			_dash_timers(u)
+			if int(u.get("recovery", 0)) > 0:
+				u.recovery = int(u.recovery) - 1
+			if int(u.get("flinch", 0)) > 0:
+				u.flinch = int(u.flinch) - 1
+		elif int(u.get("exposed", 0)) > 0:
+			u.exposed = int(u.exposed) - 1
+			if int(u.exposed) == 0:
+				_emit({ "type": "exposed_end", "id": u.id })
 	charge.tick()
 	if tick % int(HHTune.value("authored_reform_every")) == 0:
 		charge.author_rows(arena.authored_rows(), true)  # H44: vents, lava and shade re-form
@@ -426,7 +440,87 @@ func _emit(e: Dictionary) -> void:
 ## Committed to an action (wind-up, vault, stagger, paralysis): no new moves.
 func held(u: Dictionary) -> bool:
 	return int(u.stagger) > 0 or _paralysed(u) or not (u.leap as Dictionary).is_empty() or not (u.windup as Dictionary).is_empty() \
-		or not (u.get("dash", {}) as Dictionary).is_empty()
+		or not (u.get("dash", {}) as Dictionary).is_empty() or int(u.get("recovery", 0)) > 0 or int(u.get("flinch", 0)) > 0
+
+
+## H57: held only by a commit an escape may break: a wind-up, a recovery or a
+## held charge (not a stagger, a flinch, paralysis, a leap or a dash).
+func escapable(u: Dictionary) -> bool:
+	if int(u.stagger) > 0 or _paralysed(u) or not (u.leap as Dictionary).is_empty() \
+			or not (u.get("dash", {}) as Dictionary).is_empty() or int(u.get("flinch", 0)) > 0:
+		return false
+	return not (u.windup as Dictionary).is_empty() or int(u.get("recovery", 0)) > 0 or charging(u)
+
+
+## H57: an escape (the dash, a movement skill) breaks the commit: the wind-up
+## does not happen, the recovery ends, a held charge is lost (spent). The
+## combo string resets.
+func break_commit(u: Dictionary, why: String) -> void:
+	var w: Dictionary = u.windup
+	if not w.is_empty():
+		u.windup = {}
+		_emit({ "type": "windup_broken", "id": u.id, "kind": str(w.kind), "why": why })
+	u.recovery = 0
+	if charging(u):
+		cancel_charge(u, "dash")
+	_combo_reset(u, why)
+
+
+func _combo_reset(u: Dictionary, why: String) -> void:
+	if not (u.get("combo", {}) as Dictionary).is_empty():
+		u.combo = {}
+		_emit({ "type": "combo_reset", "id": u.id, "why": why })
+
+
+## H57: a buffered press fires once nothing holds the hunter; dropped when stale.
+func _queued_tick(u: Dictionary) -> void:
+	var q: Dictionary = u.get("queued", {})
+	if q.is_empty():
+		return
+	if tick > int(q.until):
+		u.queued = {}
+		return
+	if held(u) or charging(u):
+		return
+	u.queued = {}
+	_orders(u, q.o)
+
+
+## H58: a monster attack landed on a hunter: the wind-up, a held charge (no
+## shot, no cooldown spent), the combo string and the recovery are cancelled,
+## and a short flinch holds it (a stagger still wins when longer).
+func _interrupt(u: Dictionary, cause: String) -> void:
+	var what: Array = []
+	var w: Dictionary = u.windup
+	if not w.is_empty():
+		u.windup = {}
+		what.append(str(w.kind))
+		_emit({ "type": "windup_broken", "id": u.id, "kind": str(w.kind), "why": "interrupted" })
+	var skill := interrupted_skill(w)
+	if charging(u):
+		what.append("charge")
+		skill = str(u.charging.skill)
+		cancel_charge(u, "interrupted")
+	if not (u.get("combo", {}) as Dictionary).is_empty():
+		what.append("combo")
+		_combo_reset(u, "interrupted")
+	if int(u.get("recovery", 0)) > 0:
+		what.append("recovery")
+		u.recovery = 0
+	u.queued = {}
+	u.flinch = maxi(int(u.get("flinch", 0)), int(HHTune.value("flinch_ticks")))
+	_stop(u)
+	_emit({ "type": "interrupted", "id": u.id, "what": ",".join(PackedStringArray(what)), "skill": skill, "cause": cause })
+
+
+## The skill box a cancelled wind-up belongs to (the HUD flashes it).
+static func interrupted_skill(w: Dictionary) -> String:
+	match str(w.get("kind", "")):
+		"pierce", "energized", "flourish": return "q"
+		"exchange": return "w"
+		"potion": return "t"
+		"basic": return "basic"
+	return ""
 
 
 ## H56: a hunter holding a charged Q.
@@ -483,7 +577,26 @@ func _orders(u: Dictionary, o: Dictionary) -> void:
 		var rl: Dictionary = o.release
 		if charging(u) and str(rl.get("skill", "q")) == str(u.charging.skill):
 			_release_charge(u, rl.get("aim", (u.charging as Dictionary).get("aim", u.hex)))
+	if u.kind == "player" and o.has("move") and not (u.get("combo", {}) as Dictionary).is_empty():
+		_combo_reset(u, "move")                          # H57: breaking off resets the string
 	var busy := held(u) or charging(u)
+	if u.kind == "player" and busy and o.has("cast") and o.cast is Dictionary \
+			and HHWeapons.is_escape(str(u.weapon), str(o.cast.get("skill", ""))) and escapable(u):
+		break_commit(u, "escape")                        # H57: a movement skill is an escape from a commit
+		busy = held(u) or charging(u)
+	if u.kind == "player" and busy and escapable(u) and not charging(u):
+		var q := {}                                      # H57: a press during a wind-up / recovery fires when it ends
+		var w: Dictionary = u.windup
+		var rem := int(u.get("recovery", 0)) + (int(w.left) + int((w.get("data", {}) as Dictionary).get("recovery", HHTune.value("recovery_ticks"))) if not w.is_empty() else 0)
+		for k in ["swap", "cast", "potion"]:
+			if o.has(k) and not (o[k] is bool and not o[k]):
+				var key := "w" if k == "swap" else ("t" if k == "potion" else str((o[k] as Dictionary).get("skill", "")) if o[k] is Dictionary else "")
+				if int((u.cooldowns as Dictionary).get(key, 0)) > rem:
+					_emit({ "type": "cast_refused", "id": u.id, "skill": key, "why": "cooldown" })
+				else:
+					q[k] = o[k]
+		if not q.is_empty() and rem <= int(HHTune.value("input_buffer_ticks")) * 3:
+			u.queued = { "o": q, "until": tick + rem + int(HHTune.value("input_buffer_ticks")) }
 	if o.get("swap", false) and u.kind == "player" and not busy:
 		HHWeapons.cast(self, u, "w", u.hex)
 	if o.has("cast") and u.kind == "player" and not busy:
@@ -575,7 +688,10 @@ func _walk_free(u: Dictionary) -> void:
 	if int(u.stagger) > 0:
 		u.stagger = int(u.stagger) - 1
 		return
-	if _paralysed(u) or not (u.windup as Dictionary).is_empty() or rooted(u):
+	if _paralysed(u) or not (u.windup as Dictionary).is_empty() or rooted(u) or int(u.get("flinch", 0)) > 0:
+		return
+	if int(u.get("recovery", 0)) > 0:
+		_recovery_turn(u)                                # H57: rooted; turns slowly toward the target
 		return
 	var blocked := blocked_for(u)
 	# walk into range of the target (not while charging: only an explicit move moves a charging hunter)
@@ -649,6 +765,20 @@ func _walk_free(u: Dictionary) -> void:
 		if path.is_empty():
 			u.goal_pos = NO_POS
 			_emit({ "type": "arrive", "id": u.id, "hex": u.hex })
+
+
+## H57 facing lock: during a recovery the hunter turns toward its target at
+## recovery_turn_dps at most (during a wind-up it does not turn at all).
+func _recovery_turn(u: Dictionary) -> void:
+	if u.target == "" or not units.has(u.target):
+		return
+	var d: Vector3 = (unit(u.target).pos as Vector3) - (u.pos as Vector3)
+	if Vector2(d.x, d.z).length_squared() < 1e-6:
+		return
+	var want := atan2(d.x, d.z)
+	var diff := wrapf(want - float(u.facing), -PI, PI)
+	var lim := deg_to_rad(HHTune.value("recovery_turn_dps")) * TICK
+	u.facing = wrapf(float(u.facing) + clampf(diff, -lim, lim), -PI, PI)
 
 
 func _walk_hex(u: Dictionary) -> void:
@@ -725,13 +855,15 @@ func _leap(u: Dictionary) -> void:
 		_emit({ "type": "land", "id": u.id, "hex": u.hex })
 		if (L.on_land as Callable).is_valid():
 			(L.on_land as Callable).call(self, u)
+		if u.kind == "player" and alive(u) and (u.leap as Dictionary).is_empty():
+			begin_recovery(u, int(HHTune.value("recovery_ticks")))   # H57: a landing is an action too
 
 
 ## A committed action: `ticks` of wind-up, then `on_done.call(sim, u, data)`.
 ## The unit cannot move or start another action meanwhile (H34).
 func begin_windup(u: Dictionary, kind: String, ticks: int, data: Dictionary, on_done: Callable) -> void:
 	u.windup = { "left": maxi(1, ticks), "total": maxi(1, ticks), "kind": kind, "data": data, "on_done": on_done }
-	_emit({ "type": "windup", "id": u.id, "kind": kind, "ticks": ticks })
+	_emit({ "type": "windup", "id": u.id, "kind": kind, "ticks": ticks, "step": int(data.get("step", 0)), "level": int(data.get("level", 0)) })
 
 
 func _windup(u: Dictionary) -> void:
@@ -747,6 +879,17 @@ func _windup(u: Dictionary) -> void:
 		return
 	u.windup = {}
 	(w.on_done as Callable).call(self, u, w.data)
+	if u.kind == "player" and alive(u) and (u.windup as Dictionary).is_empty() and (u.leap as Dictionary).is_empty():
+		begin_recovery(u, int((w.data as Dictionary).get("recovery", HHTune.value("recovery_ticks"))))
+
+
+## H57: rooted for `ticks` after an action (no movement, no other action;
+## the dash and the movement skills may break it).
+func begin_recovery(u: Dictionary, ticks: int) -> void:
+	if ticks <= 0:
+		return
+	u.recovery = maxi(int(u.get("recovery", 0)), ticks)
+	_emit({ "type": "recovery", "id": u.id, "ticks": u.recovery })
 
 
 func _enter(u: Dictionary, hex: Vector2i) -> void:
@@ -878,14 +1021,31 @@ func _auto_attack(u: Dictionary) -> void:
 		return
 	if HHHex.distance(u.hex, t.hex) > int(u.reach) + int(t.size) or not (u.path as Array).is_empty():
 		return
-	if int(u.cooldowns.basic) > 0:
+	if int(u.cooldowns.basic) > 0 or charging(u):
 		return
 	u.cooldowns.basic = int(HHWeapons.basic_ticks(u.weapon))
 	_face_pos(u, t.pos)
-	begin_windup(u, "basic", int(HHWeapons.basic_windup(u.weapon)), { "target": t.id }, Callable(self, "_basic_land"))
+	# H57: lance and daggers string basics on one target: hit 2 within
+	# combo_window_ticks of hit 1's recovery, hit 3 after hit 2 (the finisher).
+	var step := 1
+	if HHWeapons.has_combo(str(u.weapon)):
+		var cb: Dictionary = u.get("combo", {})
+		if not cb.is_empty() and int(cb.step) in [1, 2] and tick <= int(cb.until) and str(cb.target) == str(t.id):
+			step = int(cb.step) + 1
+		u.combo = { "step": step, "until": -1, "target": str(t.id) }
+		_emit({ "type": "combo", "id": u.id, "step": step, "target": t.id })
+	var hit := HHWeapons.combo_hit(str(u.weapon), step)
+	begin_windup(u, "basic", int(hit.windup), { "target": t.id, "step": step, "recovery": int(hit.recovery) }, Callable(self, "_basic_land"))
 
 
 func _basic_land(_sim: HHSim, u: Dictionary, data: Dictionary) -> void:
+	var step := int(data.get("step", 1))
+	var hit := HHWeapons.combo_hit(str(u.weapon), step)
+	if not (u.get("combo", {}) as Dictionary).is_empty():
+		if step >= 3:
+			u.combo = {}                                 # the string is done; the next basic starts a new one
+		else:
+			u.combo.until = tick + int(hit.recovery) + int(HHTune.value("combo_window_ticks"))
 	var t := unit(str(data.target))
 	if t.is_empty() or not targetable(t):
 		return
@@ -893,13 +1053,17 @@ func _basic_land(_sim: HHSim, u: Dictionary, data: Dictionary) -> void:
 		_emit({ "type": "miss", "id": u.id, "target": t.id })
 		return
 	var hex := nearest_hex_of(t, u.hex)
-	strike(u, t, HHWeapons.basic_damage(u.weapon), hex, "basic", HHTune.value("basic_stagger"))
-	paint([hex], u.element, u.id, 1)
+	strike(u, t, HHWeapons.basic_damage(u.weapon) * float(hit.mult), hex, "basic", float(hit.stagger), { "combo": step, "heavy": step >= 3 })
+	var hexes: Array = [hex]
+	if step >= 3 and int(hit.get("splash", 0)) > 0:
+		hexes = arena.area(hex, int(hit.splash))         # the finisher lays its element round the blow
+	paint(hexes, u.element, u.id, int(hit.steps))
 
 
 ## One blow from `u` on `t` landing on `hex`: rear multiplier (a brain may
-## expose rear_mult), resistance, then hurt.
-func strike(u: Dictionary, t: Dictionary, base: float, hex: Vector2i, cause: String, stagger: float = 0.0) -> float:
+## expose rear_mult), resistance, then hurt. `extra` rides on the strike
+## event (combo step, heavy: the view's hit-stop).
+func strike(u: Dictionary, t: Dictionary, base: float, hex: Vector2i, cause: String, stagger: float = 0.0, extra: Dictionary = {}) -> float:
 	if allies(str(u.get("id", "")), str(t.get("id", ""))):
 		return 0.0                                       # H53: a hunter's blow passes through an ally
 	var mult := 1.0
@@ -908,7 +1072,9 @@ func strike(u: Dictionary, t: Dictionary, base: float, hex: Vector2i, cause: Str
 		mult = float(brain.rear_mult(t, u.hex))
 	var dmg: float = HHFormulas.hit(base, mult, resist_of(t, u.element)).value
 	hurt(t, dmg, cause, stagger, str(u.id))
-	_emit({ "type": "strike", "id": u.id, "target": t.id, "hex": hex, "amount": dmg, "cause": cause, "rear": mult > 1.0 })
+	var ev := { "type": "strike", "id": u.id, "target": t.id, "hex": hex, "amount": dmg, "cause": cause, "rear": mult > 1.0 }
+	ev.merge(extra)
+	_emit(ev)
 	return dmg
 
 
@@ -998,7 +1164,8 @@ func cancel_charge(u: Dictionary, why: String) -> void:
 ## left of it, mid-action, out of charges or still recovering. It cancels a
 ## charging Q (spending it) and dodges hits for its first dash_iframe_ticks.
 func _dash_order(u: Dictionary, to: Variant) -> void:
-	if int(u.get("dash_charges", 0)) <= 0 or int(u.get("dash_recover", 0)) > 0 or held(u):
+	var blocked_by_commit := held(u) and not escapable(u)   # H57: a wind-up / recovery / charge is escapable; stagger, flinch, leaps are not
+	if int(u.get("dash_charges", 0)) <= 0 or int(u.get("dash_recover", 0)) > 0 or blocked_by_commit:
 		var why := "recovering" if int(u.get("dash_recover", 0)) > 0 else ("none left" if int(u.get("dash_charges", 0)) <= 0 else "busy")
 		_emit({ "type": "cast_refused", "id": u.id, "skill": "dash", "why": why })
 		return
@@ -1024,8 +1191,7 @@ func _dash_order(u: Dictionary, to: Variant) -> void:
 	if Vector2(end.x - from.x, end.z - from.z).length() < 0.3:
 		_emit({ "type": "cast_refused", "id": u.id, "skill": "dash", "why": "blocked" })
 		return
-	if charging(u):
-		cancel_charge(u, "dash")
+	break_commit(u, "dash")                              # the wind-up, recovery or held charge is lost; the string resets
 	_stop(u)
 	u.dash_charges = int(u.dash_charges) - 1
 	if int(u.get("dash_recharge", 0)) <= 0:
@@ -1138,7 +1304,7 @@ func _resolve_telegraph(tg: Dictionary) -> void:
 			if int(u.guard) > 0:
 				dmg *= 1.0 - HHTune.value("guard_reduce")
 				_guard_counter(u, owner)
-				hurt(u, dmg, cause, 0.0, str(tg.owner))
+				hurt(u, dmg, cause, 0.0, str(tg.owner), false)          # H58: a guarded hit did not land: no interrupt
 			else:
 				hurt(u, dmg, cause, float(p.get("stagger", 0.0)), str(tg.owner))
 		if str(p.get("status", "")) != "" and int(u.guard) <= 0:
@@ -1150,6 +1316,32 @@ func _resolve_telegraph(tg: Dictionary) -> void:
 	if str(p.get("element", "")) != "" and int(p.get("paint_steps", 0)) > 0:
 		paint(tg.hexes, str(p.element), str(tg.owner), int(p.paint_steps))
 	_emit({ "type": "telegraph_end", "id": tg.id, "owner": tg.owner, "hexes": tg.hexes, "hit": hit, "name": cause })
+	_expose(owner, tg)
+
+
+## H57: a monster that just landed a big attack is `exposed` for the rest of
+## the recovery its brain already has (busy_until): hunters deal
+## exposed_dmg_mult more. No idle time is added.
+func _expose(m: Dictionary, tg: Dictionary) -> void:
+	if m.is_empty() or str(m.get("kind", "")) != "monster" or not alive(m):
+		return
+	var p: Dictionary = tg.payload
+	if float(p.get("dmg_pct", 0.0)) <= 0.0:
+		return
+	if (tg.hexes as Array).size() < int(HHTune.value("exposed_min_hexes")) and float(p.get("stagger", 0.0)) < HHTune.value("exposed_min_stagger"):
+		return
+	var brain: Variant = brains.get(str(m.id))
+	if brain == null:
+		return
+	var until: Variant = brain.get("busy_until")
+	if not (until is int or until is float):
+		return
+	var left := int(until) - tick
+	if left > int(m.get("exposed", 0)):
+		var was := int(m.get("exposed", 0))
+		m.exposed = left
+		if was <= 0:
+			_emit({ "type": "exposed", "id": m.id, "ticks": left })
 
 
 func _guard_counter(u: Dictionary, attacker: Dictionary) -> void:
@@ -1336,12 +1528,12 @@ func _land_reactions(hits: Dictionary) -> void:
 		for i in range(1, list.size()):
 			total += float(list[i].amount) * HHTune.value("reaction_chain_frac")
 		_emit({ "type": "reaction", "id": u.id, "amount": total, "blasts": list.size(), "cause": top.cause })
-		hurt(u, total, str(top.cause), float(top.stagger), str(top.get("source", "")))
+		hurt(u, total, str(top.cause), float(top.stagger), str(top.get("source", "")), false)   # H58: reactions never interrupt
 
 
 ## `by` (optional): the unit that dealt it. A hunter's hit on a monster is
 ## remembered for aggro (aggro_id / aggro_tick, monster_target).
-func hurt(u: Dictionary, amount: float, cause: String, stagger: float = 0.0, by: String = "") -> void:
+func hurt(u: Dictionary, amount: float, cause: String, stagger: float = 0.0, by: String = "", interrupt: bool = true) -> void:
 	if not alive(u) or amount <= 0.0:
 		return
 	if int(u.immune) > 0:                                # H552: immunity ticks skip the whole hit
@@ -1352,6 +1544,9 @@ func hurt(u: Dictionary, amount: float, cause: String, stagger: float = 0.0, by:
 		return
 	if rooted(u):
 		amount *= 1.0 - HHTune.value("lance_charge_guard")   # H56: the lance braces while it charges
+	var by_kind := str(unit(by).get("kind", "")) if by != "" else ""
+	if u.kind == "monster" and int(u.get("exposed", 0)) > 0 and by_kind == "player":
+		amount *= HHTune.value("exposed_dmg_mult")      # H57: punished in its own recovery
 	u.hurt_tick = tick
 	if by != "" and u.kind == "monster" and str(unit(by).get("kind", "")) == "player":
 		u.aggro_id = by
@@ -1368,6 +1563,8 @@ func hurt(u: Dictionary, amount: float, cause: String, stagger: float = 0.0, by:
 			if charging(u):
 				cancel_charge(u, "stagger")
 	_emit({ "type": "hurt", "id": u.id, "amount": amount, "cause": cause, "hp": u.hp })
+	if interrupt and u.kind == "player" and by_kind == "monster" and float(u.hp) > 0.0:
+		_interrupt(u, cause)                             # H58: a landed monster attack interrupts
 	if float(u.hp) <= 0.0:
 		_stop(u)
 		u.leap = {}
@@ -1487,6 +1684,9 @@ func state_hash() -> int:
 			var z: Dictionary = u.get("heal_zone", {})
 			parts.append("c%d:%d:d%d:%d:%d:z%d" % [int(ch.get("ticks", -1)), int(ch.get("level", 0)), int(u.get("dash_charges", 0)),
 				int(u.get("dash_recharge", 0)), int((u.get("dash", {}) as Dictionary).get("ticks", -1)), int(z.get("left", -1))])
+			parts.append("r%d:f%d:k%d" % [int(u.get("recovery", 0)), int(u.get("flinch", 0)), int((u.get("combo", {}) as Dictionary).get("step", 0))])
+		else:
+			parts.append("x%d" % int(u.get("exposed", 0)))   # H57
 	var keys := charge.entries.keys()
 	keys.sort()
 	for h in keys:

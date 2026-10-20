@@ -79,7 +79,10 @@ func test_energized_shot_stops_at_first_monster(c: HHSelfTest.HHCheck) -> void:
 				miss = e
 	c.eq((miss.get("hexes", []) as Array).size(), int(HHBow.TUNE.q_range), "a miss flies 10 hexes")
 	c.eq(str(miss.get("hit", "x")), "", "nothing hit")
-	c.ok(not t.held(q), "free after the shot")
+	c.ok(int(q.recovery) > 0, "a recovery after the shot (H57)")
+	for i in int(HHTune.value("recovery_ticks")):
+		t.step()
+	c.ok(not t.held(q), "free after the shot and its recovery")
 
 
 func test_arcing_shot_is_a_telegraph(c: HHSelfTest.HHCheck) -> void:
@@ -97,7 +100,10 @@ func test_arcing_shot_is_a_telegraph(c: HHSelfTest.HHCheck) -> void:
 	c.eq(str(tg.get("name", "")), "arcing shot", "named")
 	c.eq((tg.get("hexes", []) as Array).size(), 7, "radius-1 burst")
 	c.eq(int(tg.get("ticks", 0)), int(HHBow.TUNE.e_ticks), "lands after e_ticks")
-	c.ok(not s.held(p), "the archer is free while it flies")
+	for i in int(HHTune.value("recovery_ticks")):
+		s.step()
+	c.ok(not s.held(p), "the archer is free while it flies (after the 0.3 s recovery, H57)")
+	c.ok(not s.telegraphs.is_empty(), "...the bomb still in the air")
 	c.near(float(m.hp), hp, 0.1, "nothing yet")
 	var ended: Dictionary = {}
 	for i in int(HHBow.TUNE.e_ticks):
@@ -179,8 +185,15 @@ func test_swap(c: HHSelfTest.HHCheck) -> void:
 	var s := _sim()
 	var p := s.unit("p1")
 	s.step({ "p1": { "swap": true } })
+	c.eq(str(p.windup.get("kind", "")), "exchange", "a very short wind-up first (H57)")
+	for i in int(HHTune.value("exchange_windup")):
+		s.step()
 	c.eq(p.element, "water", "swapped")
+	for i in int(HHTune.value("recovery_ticks")):
+		s.step()
 	s.step({ "p1": { "swap": true } })
+	for i in int(HHTune.value("exchange_windup")):
+		s.step()
 	c.eq(p.element, "water", "second swap refused on cooldown")
 
 

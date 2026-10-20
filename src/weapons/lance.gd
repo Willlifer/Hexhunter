@@ -26,7 +26,19 @@ const TUNE := {
 	"q_l3_mult": 3.5,         # ... x lance_q_dmg ("big damage")
 	"q_l3_stagger": 0.9,      # ... heavy stagger
 	"q_l3_windup": 16,        # the full lunge winds up longer than the stab (lance_q_windup)
-	"up_q_width": 3,          # pierce_wide: hexes across (1 = the plain line, 3 = line plus both sides; +2 on the level-3 lunge)
+	# basic string (H57): hit 1 is the plain basic (lance_basic_windup, HHTune recovery_ticks)
+	"combo2_windup": 14,      # hit 2: the sweeping slash
+	"combo2_recovery": 12,
+	"combo2_mult": 1.35,      # x lance_basic_dmg
+	"combo2_steps": 1,
+	"combo2_stagger": 0.15,
+	"combo3_windup": 18,      # hit 3: the spinning slam, the finisher
+	"combo3_recovery": 17,    # ~0.57 s: the longest commit
+	"combo3_mult": 2.0,
+	"combo3_steps": 2,        # strength 2 ...
+	"combo3_splash": 1,       # ... on the blow's hex and its ring
+	"combo3_stagger": 0.5,
+	"up_q_width": 3,         # pierce_wide: hexes across (1 = the plain line, 3 = line plus both sides; +2 on the level-3 lunge)
 	"up_e_stagger": 1.0,      # guard_stagger: the counter's stagger strength (0..1 of stagger_max_ticks)
 	"up_r_echo_ticks": 30,    # eruption_twice: the aftershock lands this many ticks after the first
 	"up_r_echo_pct": 1.5,     # eruption_twice: aftershock damage, pct of the victim's max HP
@@ -84,6 +96,13 @@ static func widen(sim: HHSim, u: Dictionary, line: Array, width: int) -> Array:
 			if sim.arena.exists(n) and not n in out:
 				out.append(n)
 	return out
+
+
+## H57: hit 2 / 3 of the basic string (HHWeapons.combo_hit).
+static func combo(step: int) -> Dictionary:
+	var k := "combo%d_" % clampi(step, 2, 3)
+	return { "windup": int(_t(k + "windup")), "recovery": int(_t(k + "recovery")), "mult": float(_t(k + "mult")),
+		"steps": int(_t(k + "steps")), "stagger": float(_t(k + "stagger")), "splash": int(_t("combo3_splash")) if step >= 3 else 0 }
 
 
 ## H56: the charged Pierce's footprint, { hex: strength }.

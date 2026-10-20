@@ -75,12 +75,49 @@ static func cast(sim: HHSim, u: Dictionary, key: String, aim: Vector2i, level: i
 	if int(u.cooldowns[key]) > 0:
 		sim._emit({ "type": "cast_refused", "id": u.id, "skill": key, "why": "cooldown" })
 		return false
-	var ok: bool = s.cast(sim, u, key, aim, clampi(level, 1, 3))
+	var ok := false
+	if key == "w":                                       # H57: Exchange gets a very short wind-up (every weapon)
+		sim.begin_windup(u, "exchange", int(HHTune.value("exchange_windup")), {}, Callable(HHWeapons, "_exchange_land"))
+		ok = true
+	else:
+		ok = s.cast(sim, u, key, aim, clampi(level, 1, 3))
 	if ok:
 		var sk: Dictionary = s.skills()[key]
 		u.cooldowns[key] = int(sk.cooldown)
 		sim._emit({ "type": "cast", "id": u.id, "skill": key, "name": str(sk.name), "aim": aim, "element": u.element, "level": clampi(level, 1, 3) })
+		if (u.windup as Dictionary).is_empty() and (u.leap as Dictionary).is_empty():
+			sim.begin_recovery(u, int(HHTune.value("recovery_ticks")))   # H57: an instant skill (Guard, Arcing Shot, Knifedance) recovers now
 	return ok
+
+
+static func _exchange_land(sim: HHSim, u: Dictionary, _data: Dictionary) -> void:
+	exchange(sim, u)
+
+
+## H57: the movement skills that may break a wind-up or recovery (escapes):
+## Eruption's vault, Daggerleap, Arrowstorm.
+const ESCAPES := { "lance": "r", "daggers": "e", "bow": "r" }
+
+
+static func is_escape(weapon: String, key: String) -> bool:
+	return key != "" and str(ESCAPES.get(weapon, "")) == key
+
+
+## H57: lance and daggers string their basics (combo()); the bow never does.
+static func has_combo(weapon: String) -> bool:
+	var s := script(weapon)
+	return s != null and s.has_method("combo")
+
+
+## One hit of a basic string: { windup, recovery, mult, steps, stagger, splash }.
+## Hit 1 (and every bow basic) is the plain basic with the shared recovery.
+static func combo_hit(weapon: String, step: int) -> Dictionary:
+	var s := script(weapon)
+	var base := { "windup": basic_windup(weapon), "recovery": int(HHTune.value("recovery_ticks")), "mult": 1.0, "steps": 1,
+		"stagger": HHTune.value("basic_stagger"), "splash": 0 }
+	if s != null and s.has_method("combo") and step >= 2:
+		base.merge(s.combo(step), true)
+	return base
 
 
 ## H56: what a charged Q at `level` aimed at `aim` would paint, for the aim

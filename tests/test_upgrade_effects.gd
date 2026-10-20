@@ -29,7 +29,7 @@ func _events(evs: Array, type: String, key: String = "", val: Variant = null) ->
 func test_exchange_immune(c: HHSelfTest.HHCheck) -> void:
 	var s := _sim("lance", { "w": ["exchange_immune"] })
 	var p := s.unit("p1")
-	var evs := _run(s, 0, { "p1": { "swap": true } })
+	var evs := _run(s, int(HHTune.value("exchange_windup")) - 1, { "p1": { "swap": true } })   # H57: W winds up briefly
 	c.eq(p.element, "water", "swapped")
 	c.eq(int(p.immune), int(HHTune.value("upgrade_exchange_immune_ticks")) - 1, "immunity ticks set at the swap (one tick elapsed)")
 	c.ok(not _events(evs, "upgrade", "upgrade", "exchange_immune").is_empty(), "upgrade event")
@@ -55,7 +55,7 @@ func test_exchange_burst(c: HHSelfTest.HHCheck) -> void:
 	for weapon in ["lance", "daggers", "bow"]:
 		var s := _sim(weapon, { "w": ["exchange_burst"] })
 		var p := s.unit("p1")
-		var evs := _run(s, 0, { "p1": { "swap": true } })
+		var evs := _run(s, int(HHTune.value("exchange_windup")) - 1, { "p1": { "swap": true } })   # H57: W winds up briefly
 		var up := _events(evs, "upgrade", "upgrade", "exchange_burst")
 		c.eq(up.size(), 1, "%s: the nova fired" % weapon)
 		var r := int(HHTune.value("upgrade_exchange_burst_radius"))

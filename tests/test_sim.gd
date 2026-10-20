@@ -119,6 +119,8 @@ func test_swap_and_statuses(c: HHSelfTest.HHCheck) -> void:
 	var s := _sim()
 	var p := s.unit("p1")
 	s.step({ "p1": { "swap": true } })
+	for i in int(HHTune.value("exchange_windup")):     # H57: a very short wind-up
+		s.step()
 	c.eq(p.element, "water", "swap: backup becomes active")
 	c.eq(p.backup, "fire", "and active becomes backup")
 	s.apply_status(p, "burn", 60)

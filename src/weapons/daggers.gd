@@ -37,6 +37,18 @@ const TUNE := {
 	"q_dmg": 120.0,
 	"q_steps": 1,               # element laid on the area
 	"q_stagger": 0.2,
+	# basic string (H57): hit 1 is the plain basic (basic_windup, HHTune recovery_ticks)
+	"combo2_windup": 7,         # hit 2: the reverse spin
+	"combo2_recovery": 11,
+	"combo2_mult": 1.3,         # x basic_dmg
+	"combo2_steps": 1,
+	"combo2_stagger": 0.12,
+	"combo3_windup": 10,        # hit 3: the leaping double stab, the finisher
+	"combo3_recovery": 16,      # ~0.53 s
+	"combo3_mult": 1.9,
+	"combo3_steps": 2,
+	"combo3_splash": 1,
+	"combo3_stagger": 0.4,
 	# Q charged (H56, Lane W H95x): hold to wind the spin; you may walk while winding, slowed (HHTune charge_move_mult)
 	"q_l2_radius": 2,           # level 2 (held 1.5 s): radius 2 (19 hexes) ...
 	"q_l2_steps": 1,            # ... still strength 1 (the level buys reach)
@@ -88,6 +100,13 @@ static func skills() -> Dictionary:
 		"e": { "name": "Daggerleap", "cooldown": int(_t("e_cd")), "text": "Leap to the cursor, spinning; a trail of your element behind you." },
 		"r": { "name": "Knifedance", "cooldown": int(_t("r_cd")), "text": "6 s: take 25% more damage; every second lay your active, then backup element round you." },
 	}
+
+
+## H57: hit 2 / 3 of the basic string (HHWeapons.combo_hit).
+static func combo(step: int) -> Dictionary:
+	var k := "combo%d_" % clampi(step, 2, 3)
+	return { "windup": int(_t(k + "windup")), "recovery": int(_t(k + "recovery")), "mult": float(_t(k + "mult")),
+		"steps": int(_t(k + "steps")), "stagger": float(_t(k + "stagger")), "splash": int(_t("combo3_splash")) if step >= 3 else 0 }
 
 
 ## H56: the charged Flourish's footprint round `centre`, { hex: strength }.

@@ -20,6 +20,16 @@ const DEFAULTS := {
 	"dash_recharge_s": 3.5,      # one charge comes back every this many seconds (one at a time)
 	"dash_recover_ticks": 9.0,   # after a dash lands: this long before the next dash (no instant chain)
 	"dash_iframe_ticks": 5.0,    # from the dash's start: hits in this window are dodged (0.17 s)
+	# commit feel (H57, H58, Lane W)
+	"recovery_ticks": 9.0,       # 0.3 s rooted after every hunter action (basics, Q/E/R, W, the potion throw); combo hits carry their own
+	"recovery_turn_dps": 180.0,  # turning speed during a recovery (none during a wind-up: aim is fixed at its start)
+	"exchange_windup": 5.0,      # W gets a very short wind-up so you can see it go off
+	"combo_window_ticks": 20.0,  # lance / daggers: the next basic continues the string if it starts within this long after the last hit's recovery
+	"input_buffer_ticks": 9.0,   # a cast / swap / potion pressed during a wind-up or recovery fires when it ends, if within this long
+	"flinch_ticks": 8.0,         # a landed monster attack interrupts the hunter and holds it this long (stagger wins when longer)
+	"exposed_dmg_mult": 1.25,    # a monster recovering from a big attack takes this much more damage from hunters (its own recovery, no added idle)
+	"exposed_min_hexes": 10.0,   # "big": a damaging monster telegraph at least this many hexes ...
+	"exposed_min_stagger": 0.4,  # ... or with at least this stagger
 	# charged Q (H56, Lane W): hold Q to charge, release to fire; "strength" = element steps
 	"charge_l2_s": 1.5,          # held this long: level 2
 	"charge_l3_s": 3.0,          # held this long: level 3, which fires on its own

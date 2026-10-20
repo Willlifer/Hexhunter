@@ -128,12 +128,20 @@ func test_swap_cooldown(c: HHSelfTest.HHCheck) -> void:
 	var s := _sim()
 	var p := s.unit("p1")
 	s.step({ "p1": { "swap": true } })
+	for i in int(HHTune.value("exchange_windup")):     # H57: a very short wind-up
+		s.step()
 	c.eq(p.element, "water", "swapped")
+	for i in int(HHTune.value("recovery_ticks")):
+		s.step()
 	s.step({ "p1": { "swap": true } })
+	for i in int(HHTune.value("exchange_windup")):
+		s.step()
 	c.eq(p.element, "water", "second swap refused on cooldown")
 	for i in int(HHTune.value("exchange_cd")):
 		s.step()
 	s.step({ "p1": { "swap": true } })
+	for i in int(HHTune.value("exchange_windup")):
+		s.step()
 	c.eq(p.element, "fire", "swapped back after the cooldown")
 
 
