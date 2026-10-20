@@ -379,6 +379,8 @@ func _walk_free(u: Dictionary) -> void:
 		if path.size() == 1 and goal != NO_POS and arena.from_world(goal) == path[0]:
 			target = goal
 	var mps := HHTune.value("run_mps") if u.run else HHTune.value("walk_mps")
+	if u.statuses.has("slow"):
+		mps *= HHTune.value("slow_mult")
 	var step := mps * charge.move_mult(u.hex, u.id) * TICK
 	var from: Vector3 = u.pos
 	var flat := Vector3(target.x - from.x, 0.0, target.z - from.z)
@@ -426,6 +428,8 @@ func _walk_hex(u: Dictionary) -> void:
 		return
 	var next: Vector2i = u.path[0]
 	var ticks := float(u.get("walk_ticks", HHTune.value("monster_walk_ticks")))
+	if u.statuses.has("slow"):
+		ticks /= HHTune.value("slow_mult")
 	u.progress = float(u.progress) + charge.move_mult(u.hex, u.id) / ticks
 	if float(u.progress) >= 1.0 - 1e-6:
 		u.progress = 0.0
@@ -648,6 +652,9 @@ func _resolve_telegraph(tg: Dictionary) -> void:
 				hurt(u, dmg, cause, float(p.get("stagger", 0.0)))
 		if str(p.get("status", "")) != "" and int(u.guard) <= 0:
 			apply_status(u, str(p.status), int(p.get("status_ticks", 90)))
+		if int(u.guard) <= 0:
+			for st in p.get("statuses", []):             # a list: [{ name, ticks }] (Spirewalker's pollen)
+				apply_status(u, str(st.name), int(st.get("ticks", 90)))
 		hit.append(u.id)
 	if str(p.get("element", "")) != "" and int(p.get("paint_steps", 0)) > 0:
 		paint(tg.hexes, str(p.element), str(tg.owner), int(p.paint_steps))

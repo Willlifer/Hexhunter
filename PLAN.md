@@ -1,7 +1,7 @@
 # PLAN — Hexhunt
 
 Phases with gates. The author checks each gate before the next phase starts.
-Status: **Phase 1 First Fight built 2026-10-19; awaiting the author's Phase 1 gate check** (LEDGER L-7): lance vs Swampfang in the lilypad pond, `dist\Hexhunt.exe`.
+Status: **Phase 1 gate passed and its notes applied (H31-H41). Phase 2 Fan-out built 2026-10-19: three weapons, rigged hunter, four arenas, four monsters, all merged to dev (165/165). Awaiting the author's Phase 2 gate check** (LEDGER L-10).
 
 ## 0. Interview record
 

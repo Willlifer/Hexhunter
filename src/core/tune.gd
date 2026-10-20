@@ -30,6 +30,7 @@ const DEFAULTS := {
 	"burn_pct_per_s": 2.0,
 	"poison_pct_per_s": 1.5,
 	"stagger_max_ticks": 45.0,   # a full-strength hit holds you 1.5 s
+	"slow_mult": 0.6,            # the `slow` status (overfreeze, pollen, spores) cuts speed to this
 	"detonate_stagger": 0.35,    # a blast under you staggers this much (0..1)
 	"overfreeze_slow_ticks": 90.0,
 	# monsters

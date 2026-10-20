@@ -1,20 +1,20 @@
 # HANDOFF
 
 ## Where
-`<repo>`, branch `dev`. No remote (H6). Godot 4.7 console binary in Downloads (CLAUDE.md). Playable exe: `dist\Hexhunt.exe` (opens the pond fight).
+`<repo>`, branch `dev`. No remote (H6). Godot 4.7 console binary in Downloads (CLAUDE.md). Playable exe: `dist\Hexhunt.exe` (opens the pond, lance). Re-export: `godot --headless --path . --export-release "Windows Desktop" dist/Hexhunt.exe`.
 
-## Where it stands (2026-10-19, night)
-Phase 1 First Fight is built. All four lanes merged to dev: P (lance kit, auto-attack, HUD, F1 panel, telegraphs, HHSfx), C (pond generator, bench `--bench`, arenas/pond.json), E (rigkit Blender builder, Swampfang glb + 16 clips + brain), F (sfx manifest, MIDI loops outside the repo). Self-test 71/71 in 11 suites. Pond smoke run with the brain is clean.
-Waiting on the author's Phase 1 gate (L-7): play lance vs Swampfang in the pond and call the feel.
+## Where it stands (2026-10-19, late)
+Phase 2 is built and merged: weapons (glaive-lance, karambits, winged bow; daggers and bow kits), the rigged hunter with every weapon clip, four arenas (pond, cave, glade, caldera with pillars / vents / lava / sun / shade cells), four monsters (Swampfang, Colambros, Rimeslithe, Spirewalker) with brains and clips, potions on T. Self-test 165/165 in 23 suites. All four fights smoke-run clean on their biomes; frames in design/art/shots/<biome>/.
+Waiting on the author's Phase 2 gate (L-10).
 
 ## Do this first
-1. Author plays `dist\Hexhunt.exe`. Notes go into DECISIONS (Author rows) and HHTune / HHSwampfang.TUNE.
-2. L-9: trigger hit_react / stagger / collapse / death clips on the body from sim events (hurt, stagger, death).
-3. On the gate: Phase 2 fan-out (PLAN §3): lanes A weapons, B weapon animation, C biome tooling, D maps, E three monsters, F music handoff.
+1. Author plays: `run.bat --arena caldera --fight colambros --weapon daggers`, `--arena cave --fight rimeslithe --weapon bow`, `--arena glade --fight spirewalker`, and the pond. Notes -> DECISIONS Author rows and the F1 panel.
+2. L-12: the visual state hooks (quill glow, crystal tint, reed arcs, status icons).
+3. Phase 3 (PLAN §3): hunt loop (world map, disturbance, cutscene, prep screen with element choice), drops, three upgrade slots per skill.
 
 ## Run
-`test.bat`. `run.bat` (pond fight) or `run.bat --sandbox` (paint tool). `run.bat --bench` (pond bench). Smoke: `godot --headless --path . -- --arena pond --fight swampfang --autoplay --seconds 40`. Shots: `run.bat --arena pond --fight swampfang --shot design/art/shots --cam 24,48 --seconds 24`. Monster previews: `godot --path . --script res://tools/monster_preview.gd`.
+`test.bat`. `run.bat [--arena pond|cave|glade|caldera] [--fight swampfang|colambros|rimeslithe|spirewalker] [--weapon lance|daggers|bow] [--sandbox] [--seed N]`. `run.bat --bench` (all four generators). Previews: `godot --path . --script res://tools/player_preview.gd`, `res://tools/monster_preview_<id>.gd`, `res://tools/weapon_preview.gd`.
 
 ## Open questions
-- Feel: thrash_splash hits 15% on a 42-hex ring every ~3.7 s; the bot cannot dodge it, a human should. The author decides.
-- LEDGER L-2 (windowed checks not in CI), L-3 (light's ring on grass), L-4 (FX cards), L-8, L-9.
+- Roared shapes are huge (L-11). Author decides after play.
+- LEDGER L-2 (windowed checks not in CI), L-3, L-4, L-8, L-12, L-13.

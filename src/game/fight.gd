@@ -111,14 +111,16 @@ func _build_bodies() -> void:
 
 
 func _placeholder(u: Dictionary) -> Node3D:
-	var mi := MeshInstance3D.new()
 	if u.kind == "player" and ResourceLoader.exists("res://src/game/anim/player_body.gd"):
 		var s: GDScript = load("res://src/game/anim/player_body.gd")      # Lane B: the rigged player
 		var body: Node3D = s.new()
 		if body.has_method("build"):
 			body.build(str(u.weapon))
+		if body.has_method("bind"):
+			body.bind(sim, u.id)
 		player_body = body
 		return body
+	var mi := MeshInstance3D.new()
 	if u.kind == "player":
 		var cm := CapsuleMesh.new()
 		cm.radius = 0.35
