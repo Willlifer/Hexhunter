@@ -9,9 +9,15 @@ extends Node3D
 ##   1-7            (sandbox) pick the element to paint
 ##   Shift          hold to walk (you run by default, H37);  Space  stop
 ##   T              drink a potion (H40)
-##   F1             tune panel;  Esc  quit
+##   F1             tune panel;  Esc / F10  abort back to the lobby (H48)
 ## `autoplay` runs a scripted walk, paint, attack and cast sequence for the
 ## smoke run and the capture tool, then quits.
+## `setup_cfg(cfg)` builds the fight from the launch config (guide/02, H48)
+## and `finished` fires once with { result: "win"|"fallen"|"abort", cfg,
+## ticks, hp, monster_hp } when the sim ends (after `fight_end_hold_s`, so
+## the VICTORY / FALLEN text shows) or on Esc / F10.
+
+signal finished(result: Dictionary)
 
 const ELEMENT_KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7]
 const NO_HEX := Vector2i(-9999, -9999)
@@ -26,6 +32,10 @@ var sfx: HHSfx
 var debug: Label
 var player_id := "p1"
 var weapon := "lance"        # --weapon lance | daggers | bow
+var element := "fire"        # the hunter's active element (the lobby's pick, L-15)
+var backup := "water"        # ... and backup
+var cfg: Dictionary = {}     # the launch config this fight came from (setup_cfg)
+var headless := false        # cfg.headless: no view, camera, bodies or HUD (tests)
 var monster_id := ""
 var bodies := {}             # unit id -> Node3D
 var monster_bodies := {}     # unit id -> Lane E body (duck-typed)
@@ -39,18 +49,51 @@ var _pending := {}
 var _script: Array = []
 var _elapsed := 0.0
 var _log := PackedStringArray()
+var _over_for := -1.0        # seconds since sim.over was set; -1 while the fight runs
+var _finished := false
+
+
+## Build the fight from a launch config (guide/02 "Launch config"). Keys
+## beyond the contract that the flags pass through: sandbox, autoplay,
+## autoplay_seconds, headless.
+func setup_cfg(p_cfg: Dictionary) -> void:
+	cfg = p_cfg.duplicate(true)
+	var seed := int(cfg.get("seed", 1))
+	weapon = str(cfg.get("weapon", "lance"))
+	element = str(cfg.get("element", "fire"))
+	backup = str(cfg.get("backup", "water"))
+	sandbox = bool(cfg.get("sandbox", false))
+	autoplay = bool(cfg.get("autoplay", false))
+	autoplay_seconds = float(cfg.get("autoplay_seconds", autoplay_seconds))
+	headless = bool(cfg.get("headless", false))
+	var loaded := HHRegistry.load_arena(str(cfg.get("arena", "round")), seed)
+	setup(loaded.arena, seed, str(cfg.get("monster", "")), loaded.asset)
+	var cp := str(cfg.get("cam", "")).split(",")
+	if camera != null and cp.size() == 2:
+		camera.dist = float(cp[0])
+		camera.pitch = deg_to_rad(float(cp[1]))
+
+
+## Feel numbers the fight scene owns, registered under "fight_" so the F1
+## panel edits them live (HHTune.value("fight_end_hold_s")).
+const TUNE := {
+	"end_hold_s": 2.0,       # seconds the VICTORY / FALLEN text holds before `finished` fires
+}
 
 
 func setup(p_arena: HHArena, seed: int, monster: String = "", p_asset: GKAsset = null) -> void:
+	HHTune.register("fight", TUNE)
 	arena = p_arena
 	asset = p_asset
 	sim = HHSim.new(arena, seed)
 	sim.sandbox = sandbox or autoplay
 	var start: Vector2i = arena.spawns.player[0]
-	sim.add_player(player_id, start, "fire", "water", weapon)
+	sim.add_player(player_id, start, element, backup, weapon)
 	if monster != "":
 		monster_id = monster
 		_add_monster(monster)
+	if headless:
+		return
 	view = HHArenaView.new()
 	view.name = "ArenaView"
 	add_child(view)
@@ -186,11 +229,34 @@ func _process(delta: float) -> void:
 				sfx.on_event(e, sim)
 		steps += 1
 	_draw(delta)
+	_watch_over(delta)
 	if autoplay and _elapsed >= autoplay_seconds:
 		_finish_autoplay()
 
 
+## Once the sim is over, hold `fight_end_hold_s` (the VICTORY / FALLEN text
+## shows), then emit `finished` once. Autoplay runs keep quitting on their own.
+func _watch_over(delta: float) -> void:
+	if _finished or sim.over == "" or autoplay:
+		return
+	_over_for = maxf(_over_for, 0.0) + delta
+	if _over_for >= HHTune.value("fight_end_hold_s"):
+		_finish("win" if sim.over == "win" else "fallen")
+
+
+func _finish(result: String) -> void:
+	if _finished:
+		return
+	_finished = true
+	var p := sim.unit(player_id)
+	var m := sim.unit(monster_id) if monster_id != "" else {}
+	finished.emit({ "result": result, "cfg": cfg, "ticks": sim.tick,
+		"hp": float(p.get("hp", 0.0)), "monster_hp": float(m.get("hp", 0.0)) })
+
+
 func _draw(delta: float) -> void:
+	if headless:
+		return
 	for id in bodies:
 		var u: Dictionary = sim.units[id]
 		var node: Node3D = bodies[id]
@@ -224,12 +290,13 @@ func _note(e: Dictionary) -> void:
 		"gale": _log.append("t%d gale %s" % [e.tick, e.hex])
 		"strike":
 			_log.append("t%d %s hits %s %d%s" % [e.tick, e.id, e.target, int(e.amount), " REAR" if bool(e.rear) else ""])
-			camera.shake(0.08 + 0.12 * clampf(float(e.amount) / 200.0, 0.0, 1.0))   # impact (H34)
+			if camera != null:
+				camera.shake(0.08 + 0.12 * clampf(float(e.amount) / 200.0, 0.0, 1.0))   # impact (H34)
 			_body_react(str(e.target), "hit_react")
 		"hurt":
 			if e.id == player_id:
 				_log.append("t%d you -%d (%s)" % [e.tick, int(e.amount), e.cause])
-				if not str(e.cause) in ["fire", "burn", "poison", "dark", "fire_cross"]:
+				if camera != null and not str(e.cause) in ["fire", "burn", "poison", "dark", "fire_cross"]:
 					camera.shake(0.25)
 		"stagger":
 			if e.id == player_id:
@@ -352,7 +419,9 @@ func _unhandled_input(ev: InputEvent) -> void:
 			KEY_Q, KEY_E, KEY_R:
 				var aim := _hex_under(get_viewport().get_mouse_position())
 				_order({ "cast": { "skill": OS.get_keycode_string(ev.keycode).to_lower(), "aim": aim if aim != NO_HEX else sim.unit(player_id).hex } })
-			KEY_ESCAPE: get_tree().quit(0)
+			KEY_ESCAPE, KEY_F10:
+				get_viewport().set_input_as_handled()
+				_finish("abort")                     # the shell returns to the lobby (H48)
 	if ev is InputEventKey and ev.keycode == KEY_SHIFT:
 		_order({ "run": not ev.pressed })              # H37: run by default, Shift walks
 
