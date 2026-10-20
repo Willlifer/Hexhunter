@@ -19,7 +19,9 @@ var rng := RandomNumberGenerator.new()
 var rings: Array = []             # [{ mi, t, life, size }]
 var _ring_pool: Array = []
 var _acc := 0.0
-var _flash_t := 0.0
+var numbers: Array = []           # [{ label, t, life, from }] floating damage numbers
+var _num_pool: Array = []
+const NUMBER_S := 1.1
 
 static var _ring_mat: ShaderMaterial
 static var _plane: PlaneMesh
@@ -81,6 +83,7 @@ func update(sim: HHSim, player_id: String, delta: float) -> void:
 					"y": h.y + rng.randf_range(-0.4, 0.4), "life": 0.3, "size": 0.05, "color": Color(col.lerp(Color.WHITE, 0.4), 1.0),
 					"shape": HHFxParticles.STREAK, "streak": 0.03 })
 	_step_rings(delta)
+	_step_numbers(delta)
 	add.step(delta)
 	mix.step(delta)
 
@@ -131,6 +134,29 @@ func on_event(e: Dictionary, sim: HHSim, player_id: String) -> void:
 		"knifedance":
 			if str(e.get("phase", "")) == "pulse" and not u.is_empty():
 				ring(u.pos, col, _radius(sim, e.get("hexes", []), u.pos), 0.3)
+		"reaction":
+			# H50: once per unit per cast, after the blasts: the big hit on the body
+			if u.is_empty():
+				return
+			var big := str(u.get("kind", "")) == "monster"
+			var h := 3.2 if big else 1.6
+			var at2: Vector3 = (u.pos as Vector3) + Vector3(0, h, 0)
+			var c3 := Color(1.0, 0.8, 0.35)
+			var blasts := int(e.get("blasts", 1))
+			ring(u.pos, c3, (float(u.get("size", 0)) + 1.5) * 1.3, 0.45)
+			burst(at2, c3, 18 + 4 * mini(blasts, 6), 1.6)
+			flash(at2, c3, 2.0 if big else 1.2)
+			var txt := "%d" % int(round(float(e.amount)))
+			if blasts > 1:
+				txt += "  x%d" % blasts
+			number(at2 + Vector3(0, 0.8, 0), txt, Color(1.0, 0.86, 0.3) if big else Color(1.0, 0.45, 0.35), 1.0 if big else 0.75)
+		"detonate":
+			if e.has("hex") and sim.arena.exists(e.hex):
+				var q2 := sim.arena.surface(e.hex) + Vector3(0, 0.6, 0)
+				burst(q2, Color(1.0, 0.9, 0.6), 6, 0.7)
+				var mult := float(e.get("mult", e.get("pct", 0.0)))
+				if mult > 0.0:
+					number(q2 + Vector3(0, 0.4, 0), "x%.1f" % mult, Color(1.0, 0.95, 0.75), 0.45)
 		"upgrade":
 			var hs2: Array = e.get("hexes", [])
 			if not hs2.is_empty():
@@ -252,3 +278,47 @@ static func _ring_mat_get() -> ShaderMaterial:
 		_ring_mat = ShaderMaterial.new()
 		_ring_mat.shader = load("res://shaders/fx_ring.gdshader")
 	return _ring_mat
+
+
+## A floating number (H50 reactions, detonation multipliers): rises and fades,
+## always on top, outlined so it reads on any ground.
+func number(at: Vector3, text: String, col: Color, scale: float) -> void:
+	var l: Label3D = _num_pool.pop_back() if not _num_pool.is_empty() else null
+	if l == null:
+		l = Label3D.new()
+		l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		l.no_depth_test = true
+		l.fixed_size = true
+		l.font_size = 64
+		l.outline_size = 14
+		l.outline_modulate = Color(0.05, 0.03, 0.02, 1.0)
+		l.render_priority = 10
+		l.outline_render_priority = 9
+		add_child(l)
+	l.visible = true
+	l.text = text
+	l.modulate = col
+	l.pixel_size = 0.0006 * scale
+	l.position = at
+	numbers.append({ "label": l, "t": 0.0, "from": at, "scale": scale })
+
+
+func _step_numbers(delta: float) -> void:
+	var keep: Array = []
+	for n in numbers:
+		n.t = float(n.t) + delta
+		var k := clampf(float(n.t) / NUMBER_S, 0.0, 1.0)
+		var l: Label3D = n.label
+		l.position = (n.from as Vector3) + Vector3(0, 1.4 * (1.0 - pow(1.0 - k, 2.0)), 0)
+		var pop := 1.0 + 0.5 * (1.0 - clampf(float(n.t) / 0.12, 0.0, 1.0))
+		l.pixel_size = 0.0006 * float(n.scale) * pop
+		var c := l.modulate
+		c.a = 1.0 - smoothstep(0.6, 1.0, k)
+		l.modulate = c
+		l.outline_modulate.a = c.a
+		if k >= 1.0:
+			l.visible = false
+			_num_pool.append(l)
+		else:
+			keep.append(n)
+	numbers = keep

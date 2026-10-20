@@ -33,6 +33,11 @@ var proj_pool: Array = []                   # R-U3: MeshInstance3D markers for s
 var flashes: Array = []                     # R-U3: [{ mi, t }] launch / hit / end flashes, fading
 var _proj_seen := {}                        # projectile id -> last hex (hits / ends found by disappearance)
 const PLAYER_TG := Color(1.0, 0.85, 0.3)    # gold: the hunter's own shapes
+## Lane FX (H713): the arena's own telegraphs (H51, owner "env") hit everyone,
+## so they are not monster red: a biome colour per event.
+const ENV_TG := { "env_swell": Color(0.3, 0.85, 0.95), "env_vent": Color(1.0, 0.68, 0.22),
+	"env_rockfall": Color(0.85, 0.78, 0.62), "env_sunbreak": Color(1.0, 0.95, 0.55), "env_gust": Color(0.65, 1.0, 0.75) }
+var _tg_env_mats := {}
 const PROJ_LIFT := 0.7
 const FLASH_SECONDS := 0.35
 
@@ -208,11 +213,27 @@ static func is_player_telegraph(tg: Dictionary, player_id: String) -> bool:
 	return str((tg.get("payload", {}) as Dictionary).get("name", "")) in ["aftershock", "bomblet"]
 
 
+## H51: the arena's own events (owner "env", payload env: true).
+static func is_env_telegraph(tg: Dictionary) -> bool:
+	return str(tg.get("owner", "")) == "env" or bool((tg.get("payload", {}) as Dictionary).get("env", false))
+
+
+func _env_mat(name: String) -> ShaderMaterial:
+	if not _tg_env_mats.has(name):
+		var m := ShaderMaterial.new()
+		m.shader = _tg_mat.shader
+		m.set_shader_parameter("glow", ENV_TG.get(name, Color(0.85, 0.85, 0.8)))
+		_tg_env_mats[name] = m
+	return _tg_env_mats[name]
+
+
 func _sync_telegraphs(sim: HHSim, player_id: String = "") -> void:
 	var n := 0
 	for tg in sim.telegraphs:
 		var prog := 1.0 - float(tg.left) / maxf(1.0, float(tg.total))
 		var mat := _tg_player_mat if is_player_telegraph(tg, player_id) else _tg_mat
+		if is_env_telegraph(tg):
+			mat = _env_mat(str((tg.payload as Dictionary).get("name", "")))
 		for h in tg.hexes:
 			if not arena.exists(h):
 				continue

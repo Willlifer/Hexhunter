@@ -49,13 +49,25 @@ const ATTACKS := [
 	["spirewalker", "thunder_breath", 6, false, ""],
 	["spirewalker", "dark_breath", 6, false, ""],
 	["spirewalker", "spore_spread", 4, false, ""],
+	# the arena's own events (H51) and a reaction landing (H50)
+	["swampfang", "env_swell", 6, false, ""],
+	["colambros", "env_vent", 6, false, ""],
+	["rimeslithe", "env_rockfall", 6, false, ""],
+	["spirewalker", "env_sunbreak", 6, false, ""],
+	["spirewalker", "env_gust", 6, false, ""],
+	["colambros", "reaction", 6, false, ""],
+	# the hunter's own (lance, fire): Pierce's wind-up and line, Eruption's ring burst
+	["colambros", "player_pierce", 5, false, ""],
+	["colambros", "player_eruption", 3, false, ""],
 ]
 const MARKS := [["00", 0.0], ["50", 0.5], ["90", 0.9], ["contact", -1.0]]
 
 var out_dir := OUT
 var only := ""
 var only_attack := ""
-var shots := {}                   # "<monster>_<attack>_<mark>" -> Image (kept for the composites)
+var shots := {}
+var reaction_pending := {}
+var pending_order := {}                   # "<monster>_<attack>_<mark>" -> Image (kept for the composites)
 
 
 func _initialize() -> void:
@@ -93,6 +105,7 @@ func _run() -> void:
 			if shots.has("rimeslithe_mist_breath_" + m):
 				seq.append(shots["rimeslithe_mist_breath_" + m])
 		_grid(seq, "ice_sequence.png")
+	_sheets()
 	print("fx_preview: done -> ", _abs(out_dir))
 	quit(0)
 
@@ -256,6 +269,30 @@ func _trigger(b: Object, sim: HHSim, u: Dictionary, p: Dictionary, attack: Strin
 		"thunder_breath": b.call("_thunder_breath", sim, u, p)
 		"dark_breath": b.call("_dark_breath", sim, u, p)
 		"spore_spread": b.call("_spore_spread", sim, u)
+		"env_swell": sim.env.call("_pond")
+		"env_vent": sim.env.call("_caldera")
+		"env_rockfall":
+			# drop them where the camera looks: between the monster and the hunter
+			var mid: Vector2i = HHHex.line(u.hex, p.hex)[HHHex.line(u.hex, p.hex).size() / 2]
+			var drops: Array = []
+			for c in [mid, mid + Vector2i(3, 0), mid + Vector2i(-3, 1)]:
+				drops.append_array(sim.arena.area(c, 1))
+			for c in [mid, mid + Vector2i(3, 0), mid + Vector2i(-3, 1)]:
+				sim.env.call("_tg", "env_rockfall", sim.env.call("_inside", sim.arena.area(c, 1)), HHTune.value("env_warn_s"), "dark", 1, HHTune.value("env_cave_dmg_pct"), 0.35)
+		"env_sunbreak":
+			sim.env.count = 1
+			sim.env.call("_glade")
+		"env_gust":
+			sim.env.count = 2
+			sim.env.call("_glade")
+		"player_pierce", "player_eruption":
+			sim.telegraph("p1", [p.hex], 24, { "name": "fx_preview_marker" })
+			pending_order = { "p1": { "cast": { "skill": "q" if attack == "player_pierce" else "r", "aim": u.hex } } }
+		"reaction":
+			# a stand-in telegraph so the capture marks run, and the events the
+			# sim sends when a reaction lands on the monster
+			sim.telegraph("p1", [p.hex], 12, { "name": "fx_preview_marker" })
+			reaction_pending = { "id": u.id, "at": 10 }
 		_:
 			return false
 	return true
@@ -263,7 +300,16 @@ func _trigger(b: Object, sim: HHSim, u: Dictionary, p: Dictionary, attack: Strin
 
 ## One sim tick through the fight's own event handling, then a draw.
 func _tick(f: HHFight, monster: String) -> void:
-	var ev := f.sim.step({})
+	var ev := f.sim.step(pending_order)
+	pending_order = {}
+	if not reaction_pending.is_empty():
+		reaction_pending.at = int(reaction_pending.at) - 1
+		if int(reaction_pending.at) <= 0:
+			var m := f.sim.unit(str(reaction_pending.id))
+			for d in [Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 1)]:
+				ev.append({ "type": "detonate", "hex": (m.hex as Vector2i) + d, "mult": 2.4, "pct": 2.4, "mix": "fire_water", "tick": f.sim.tick })
+			ev.append({ "type": "reaction", "id": m.id, "amount": 1872.0, "blasts": 3, "cause": "overheat", "tick": f.sim.tick })
+			reaction_pending = {}
 	for e in ev:
 		f._note(e)
 		f.view.on_event(e, f.sim)
@@ -303,6 +349,32 @@ func _side_by_side(imgs: Array, name: String, labels: Array) -> void:
 	out.fill_rect(Rect2i(imgs[0].get_width() - 2, 0, 4, h), Color(0, 0, 0))
 	out.save_png(_abs(out_dir).path_join(name))
 	print("fx_preview: ", name, " ", labels)
+
+
+## Review aid: one sheet per monster, a row per attack (0 / 50 / 90 / contact).
+func _sheets() -> void:
+	var tw := 320
+	var th := 200
+	for monster in BIOME:
+		var rows: Array = []
+		for a in ATTACKS:
+			if a[0] == monster and shots.has("%s_%s_00" % [monster, a[1]]):
+				rows.append(a[1])
+		if rows.is_empty():
+			continue
+		var out := Image.create(tw * 4, th * rows.size(), false, Image.FORMAT_RGBA8)
+		for r in rows.size():
+			var c := 0
+			for m in ["00", "50", "90", "contact"]:
+				var key := "%s_%s_%s" % [monster, rows[r], m]
+				if shots.has(key):
+					var src := (shots[key] as Image).duplicate() as Image
+					src.convert(Image.FORMAT_RGBA8)
+					src.resize(tw, th, Image.INTERPOLATE_BILINEAR)
+					out.blit_rect(src, Rect2i(0, 0, tw, th), Vector2i(c * tw, r * th))
+				c += 1
+		out.save_png(_abs(".fxtmp").path_join("sheet_%s.png" % monster))
+		print("fx_preview: sheet ", monster, " ", rows)
 
 
 func _grid(imgs: Array, name: String) -> void:

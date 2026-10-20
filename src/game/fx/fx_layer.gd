@@ -46,6 +46,8 @@ static func group_key(tg: Dictionary, tick: int) -> String:
 	var pl: Dictionary = tg.get("payload", {})
 	var nm := str(pl.get("name", pl.get("clip", "")))
 	var start := tick - (int(tg.total) - int(tg.left))
+	if bool(pl.get("env", false)):
+		return "%s|%s|%d|%d" % [str(tg.owner), nm, start, int(tg.id)]   # the arena's drops / vents land apart: one effect each
 	return "%s|%s|%d" % [str(tg.owner), nm, start]
 
 

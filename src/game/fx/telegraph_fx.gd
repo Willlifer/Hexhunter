@@ -48,12 +48,15 @@ const SPECIAL := {
 	# Spirewalker
 	"leaping_squash": "landing_shadow", "pollen_shake": "pollen_haze", "pollen_spores": "spore_drift",
 	"reed_lash": "reed_sparks", "thunder_breath": "mouth_crackle", "dark_breath": "mouth_smoke",
+	# the arena itself (H51, owner "env")
+	"env_swell": "env_swell", "env_vent": "env_vent", "env_rockfall": "env_rockfall",
 }
 ## Attacks that only need their element's generic layer (listed so the test
 ## can prove coverage; anything unlisted also falls back to its element).
 const GENERIC_ONLY := ["bite", "tail_lash", "back_roll", "quill_scatter", "charge_vent", "thrash_splash",
 	"darkness", "frost_beam_light", "mist_wide", "freeze_pillar", "arm_swipe", "forearm_punch",
-	"tail_drag", "barb_throw", "spore_spread", "pollen_paralysis", "arcing shot", "bomblet", "aftershock"]
+	"tail_drag", "barb_throw", "spore_spread", "pollen_paralysis", "arcing shot", "bomblet", "aftershock",
+	"env_sunbreak", "env_gust"]
 ## What a special keeps of the generic layer: [particles, ground].
 const KEEP := {
 	"breath_fire": [false, true], "charge_lane": [false, false], "landing_shadow": [true, true],
@@ -61,6 +64,7 @@ const KEEP := {
 	"fist_frost": [true, true], "beam_charge": [true, true], "meteor": [true, true], "ice_breath": [true, true],
 	"pollen_haze": [false, true], "spore_drift": [false, false], "reed_sparks": [true, true],
 	"mouth_crackle": [true, true], "mouth_smoke": [true, true],
+	"env_swell": [false, false], "env_vent": [false, true], "env_rockfall": [false, false],
 }
 
 const COL := {
@@ -144,7 +148,7 @@ func _init() -> void:
 	add = HHFxParticles.new(220, true)
 	add.name = "add"
 	add_child(add)
-	mix = HHFxParticles.new(150, false)
+	mix = HHFxParticles.new(320, false)
 	mix.name = "mix"
 	add_child(mix)
 	light = OmniLight3D.new()
@@ -328,7 +332,7 @@ func _frame() -> void:
 	var o := _owner_pos()
 	_dir = _fwd()
 	match special:
-		"surface_ripple", "meteor", "landing_shadow", "pollen_haze":
+		"surface_ripple", "meteor", "landing_shadow", "pollen_haze", "env_swell", "env_vent", "env_rockfall":
 			_origin = ctr
 		"breath_fire":
 			_origin = o
@@ -536,6 +540,9 @@ func _special(k: float, dt: float) -> void:
 		"reed_sparks": _sp_reed_sparks(k, dt)
 		"mouth_crackle": _sp_mouth_crackle(k, dt)
 		"mouth_smoke": _sp_mouth_smoke(k, dt)
+		"env_swell": _sp_swell(k, dt)
+		"env_vent": _sp_vent(k, dt)
+		"env_rockfall": _sp_rockfall(k, dt)
 
 
 func _body_glow(role: String, col: Color, energy: float) -> void:
@@ -735,6 +742,61 @@ func _sp_meteor(k: float, _dt: float) -> void:
 		_set_light(ctr + Vector3(0, 3.0, 0), Color(0.6, 0.9, 1.0), 3.0 * k, 6.0)
 
 
+## The pond's swell (H51, "the water map should pulse water every 15 s or
+## so"): the water rises in a dome where it comes up, rings run out from it,
+## and a crest of spray rolls out to the rim of the disk as it nears.
+func _sp_swell(k: float, dt: float) -> void:
+	var pulse := 0.9 + 0.1 * sin(age * 6.0)
+	add.pin(0, ctr + Vector3(0, 0.1 + 0.5 * k, 0), (0.8 + 2.4 * k) * pulse, Color(0.6, 0.85, 1.0, 0.15 + 0.3 * k), HHFxParticles.DOT)
+	mix.pin(0, ctr + Vector3(0, 0.15 + 0.35 * k, 0), 0.6 + 2.2 * k, Color(0.82, 0.93, 1.0, 0.2 + 0.25 * k), HHFxParticles.PUFF)
+	var crest := _reach * (0.15 + 0.75 * k)
+	for i in _rate("crest", (20.0 + 60.0 * k) * (0.5 + k), dt):
+		var a := rng.randf() * TAU
+		var d := Vector3(cos(a), 0, sin(a))
+		var base := ctr + d * crest
+		add.spawn({ "pos": base + Vector3(0, 0.15, 0), "vel": d * 1.2 + Vector3(0, rng.randf_range(1.2, 2.4) * (0.5 + k), 0), "life": 0.5,
+			"size": 0.09, "color": Color(0.78, 0.94, 1.0, 0.95), "grav": 9.0, "shape": HHFxParticles.FLAKE })
+		if rng.randf() < 0.35:
+			mix.spawn({ "pos": base + Vector3(0, 0.2, 0), "vel": d * 1.5 + Vector3(0, 0.4, 0), "life": 0.7, "size": 0.35, "size_end": 0.8,
+				"color": Color(0.9, 0.97, 1.0, 0.55), "color_end": Color(0.9, 0.97, 1.0, 0.0), "shape": HHFxParticles.PUFF, "drag": 1.0 })
+	for i in _rate("bubble", 10.0 + 30.0 * k, dt):
+		add.spawn({ "pos": ctr + _jit(_reach * 0.5) + Vector3(0, 0.05, 0), "vel": Vector3(0, rng.randf_range(0.5, 1.2), 0), "life": 0.4,
+			"size": rng.randf_range(0.08, 0.16), "color": Color(0.85, 0.95, 1.0, 0.85), "shape": HHFxParticles.RING })
+
+
+## The caldera's vents (H51): the ground rumbles (grit hopping), steam hisses
+## up thicker and thicker, the scorch glows; then it erupts.
+func _sp_vent(k: float, dt: float) -> void:
+	for i in _rate("steam", 6.0 + 30.0 * k, dt):
+		mix.spawn({ "pos": ctr + _jit(0.5) + Vector3(0, 0.2, 0), "vel": Vector3(rng.randf_range(-0.3, 0.3), rng.randf_range(1.5, 3.0) * (0.6 + k), rng.randf_range(-0.3, 0.3)),
+			"life": rng.randf_range(1.0, 1.6), "size": 0.3, "size_end": 1.4 + k, "color": Color(0.92, 0.9, 0.88, 0.5 + 0.3 * k), "color_end": Color(0.8, 0.78, 0.76, 0.0),
+			"shape": HHFxParticles.PUFF, "drag": 0.6 })
+	for i in _rate("grit", (10.0 + 40.0 * k) * _area() * 0.5, dt):
+		mix.spawn({ "pos": _pick() + _jit(0.7) + Vector3(0, 0.05, 0), "vel": Vector3(0, rng.randf_range(0.8, 2.0) * (0.5 + k), 0), "life": 0.35, "size": 0.07,
+			"color": Color(0.2, 0.15, 0.12, 0.95), "grav": 10.0, "shape": HHFxParticles.FLAKE })
+	if k > 0.5:
+		for i in _rate("spit", 20.0 * (k - 0.5), dt):
+			add.spawn({ "pos": ctr + _jit(0.3) + Vector3(0, 0.3, 0), "vel": Vector3(rng.randf_range(-1, 1), rng.randf_range(3, 6), rng.randf_range(-1, 1)), "life": 0.6,
+				"size": 0.1, "color": Color(1.0, 0.75, 0.3, 1.0), "color_end": Color(EMBER_END, 0.0), "grav": 9.0, "shape": HHFxParticles.STREAK, "streak": 0.05 })
+	_set_light(ctr + Vector3(0, 0.8, 0), Color(1.0, 0.45, 0.15), 0.5 + 3.0 * k * (0.85 + 0.15 * sin(age * 30.0)), 5.0)
+
+
+## The cave's rockfall (H51): grit and dust sift down from the ceiling over
+## the spot, its shadow grows, and in the last fifth the rock drops into it.
+func _sp_rockfall(k: float, dt: float) -> void:
+	var top := ctr + Vector3(0, 9.0, 0)
+	for i in _rate("sift", 8.0 + 30.0 * k, dt):
+		mix.spawn({ "pos": top + _jit(1.4), "vel": Vector3(0, -rng.randf_range(6.0, 9.0), 0), "life": 1.1, "size": 0.06,
+			"color": Color(0.3, 0.27, 0.24, 1.0), "grav": 4.0, "shape": HHFxParticles.FLAKE, "streak": 0.02 })
+	for i in _rate("dust", 3.0 + 10.0 * k, dt):
+		mix.spawn({ "pos": top + _jit(1.2) - Vector3(0, rng.randf_range(0.0, 3.0), 0), "vel": Vector3(0, -rng.randf_range(1.5, 3.0), 0), "life": 1.6,
+			"size": 0.4, "size_end": 1.2, "color": Color(0.68, 0.62, 0.55, 0.45), "color_end": Color(0.68, 0.62, 0.55, 0.0), "shape": HHFxParticles.PUFF })
+	var fall := clampf((k - 0.78) / 0.22, 0.0, 1.0)
+	if fall > 0.0:
+		mix.pin(0, ctr + Vector3(0, lerpf(10.0, 0.6, fall * fall), 0), 1.1, Color(0.22, 0.2, 0.19, 1.0), HHFxParticles.SHARD)
+		mix.pin(1, ctr + Vector3(0, lerpf(10.0, 0.6, fall * fall) + 0.2, 0), 0.8, Color(0.36, 0.33, 0.3, 1.0), HHFxParticles.SHARD)
+
+
 ## Rimeslithe's mist breath: cold mist leaks from the mouth before it blows.
 func _sp_ice_breath(k: float, dt: float) -> void:
 	var m := sock("mouth", Vector3(0, 1.7, 5.3))
@@ -747,10 +809,10 @@ func _sp_ice_breath(k: float, dt: float) -> void:
 ## Spirewalker's pollen shake: a yellow-green haze thickening over the cloud,
 ## violet sparks running along the reeds.
 func _sp_pollen(k: float, dt: float) -> void:
-	for i in _rate("haze", (2.0 + 10.0 * k) * _area(), dt):
+	for i in _rate("haze", (3.0 + 18.0 * k) * _area(), dt):
 		var q := _pick() + _jit(0.8) + Vector3(0, rng.randf_range(0.3, 2.2), 0)
 		mix.spawn({ "pos": q, "vel": Vector3(rng.randf_range(-0.3, 0.3), rng.randf_range(-0.05, 0.2), rng.randf_range(-0.3, 0.3)), "life": rng.randf_range(1.6, 2.4),
-			"size": 0.8, "size_end": 1.8, "color": Color(0.85, 0.82, 0.3, 0.12 + 0.28 * k), "color_end": Color(0.75, 0.8, 0.35, 0.0), "shape": HHFxParticles.PUFF })
+			"size": 0.9, "size_end": 2.2, "color": Color(0.9, 0.86, 0.3, 0.16 + 0.4 * k), "color_end": Color(0.75, 0.8, 0.35, 0.0), "shape": HHFxParticles.PUFF })
 	for i in _rate("pollen", (4.0 + 16.0 * k) * _area(), dt):
 		add.spawn({ "pos": _pick() + _jit(0.9) + Vector3(0, rng.randf_range(0.2, 2.0), 0), "vel": Vector3(rng.randf_range(-0.2, 0.2), 0.2, rng.randf_range(-0.2, 0.2)),
 			"life": 1.4, "size": 0.06, "color": Color(1.0, 0.95, 0.4, 0.9), "shape": HHFxParticles.FLAKE })
@@ -806,8 +868,10 @@ func commit() -> void:
 	add.pin(1, Vector3.ZERO, 0.0, Color.TRANSPARENT)
 	add.pin(2, Vector3.ZERO, 0.0, Color.TRANSPARENT)
 	add.pin(3, Vector3.ZERO, 0.0, Color.TRANSPARENT)
-	if keep_particles or special in ["surface_ripple", "vortex"]:
-		_burst(element if special != "vortex" and special != "surface_ripple" else "water")
+	mix.pin(0, Vector3.ZERO, 0.0, Color.TRANSPARENT)
+	mix.pin(1, Vector3.ZERO, 0.0, Color.TRANSPARENT)
+	if keep_particles or special in ["surface_ripple", "vortex", "env_swell", "env_vent", "env_rockfall"]:
+		_burst("water" if special in ["vortex", "surface_ripple", "env_swell"] else ("" if special == "env_rockfall" else element))
 	match special:
 		"breath_fire":
 			var m := sock("mouth", Vector3(0, 2.7, 4.3))
@@ -822,6 +886,27 @@ func commit() -> void:
 			_burst("fire")
 		"charge_lane":
 			pass
+		"env_swell":
+			# the wave breaks: spray thrown up and out from the crest ring
+			for i in 48:
+				var a := TAU * float(i) / 48.0
+				var d := Vector3(cos(a), 0, sin(a))
+				add.spawn({ "pos": ctr + d * _reach * 0.7 + Vector3(0, 0.4, 0), "vel": d * rng.randf_range(2.0, 4.0) + Vector3(0, rng.randf_range(3.0, 6.0), 0),
+					"life": 0.8, "size": 0.12, "color": Color(0.75, 0.92, 1.0, 1.0), "grav": 12.0, "shape": HHFxParticles.FLAKE })
+			add.spawn({ "pos": ctr + Vector3(0, 0.3, 0), "life": 0.4, "size": 1.0, "size_end": _reach * 1.4, "color": Color(0.8, 0.95, 1.0, 0.9), "color_end": Color(0.5, 0.8, 1.0, 0.0), "shape": HHFxParticles.RING })
+		"env_vent":
+			# the eruption: a column of fire and embers straight up
+			for i in 26:
+				add.spawn({ "pos": ctr + _jit(0.5) + Vector3(0, 0.3, 0), "vel": Vector3(rng.randf_range(-1.2, 1.2), rng.randf_range(7.0, 13.0), rng.randf_range(-1.2, 1.2)),
+					"life": rng.randf_range(0.6, 1.0), "size": 0.14, "size_end": 0.06, "color": Color(1.0, 0.8, 0.35, 1.0), "color_end": Color(EMBER_END, 0.0),
+					"grav": 9.0, "shape": HHFxParticles.STREAK, "streak": 0.05 })
+			for i in 8:
+				add.spawn({ "pos": ctr + Vector3(0, 0.6 + 0.6 * i, 0), "vel": Vector3(0, 3.0, 0), "life": 0.5, "size": 1.1 - 0.08 * i, "size_end": 1.5,
+					"color": Color(1.0, 0.6, 0.15, 0.8), "color_end": Color(0.9, 0.2, 0.05, 0.0), "shape": HHFxParticles.PUFF })
+		"env_rockfall":
+			for i in 14:
+				mix.spawn({ "pos": ctr + _jit(1.0) + Vector3(0, 0.3, 0), "vel": Vector3(rng.randf_range(-3, 3), rng.randf_range(1.5, 3.5), rng.randf_range(-3, 3)),
+					"life": 0.8, "size": 0.12, "color": Color(0.25, 0.22, 0.2, 1.0), "grav": 14.0, "shape": HHFxParticles.SHARD })
 		"meteor":
 			for i in 40:
 				var d := Vector3(rng.randf_range(-1, 1), rng.randf_range(0.4, 1.4), rng.randf_range(-1, 1)).normalized()
@@ -933,9 +1018,10 @@ func _build_ground() -> void:
 	_modes = []
 	match special:
 		"charge_lane": _modes = ["lane_fire" if element == "fire" else "lane"]
-		"surface_ripple", "vortex": _modes = ["water"]
+		"surface_ripple", "vortex", "env_swell": _modes = ["water"]
 		"meteor", "landing_shadow": _modes = ["shadow"]
-	if keep_ground and special != "surface_ripple" and special != "vortex":
+		"env_rockfall": _modes = ["shadow", ""]
+	if keep_ground and not special in ["surface_ripple", "vortex", "env_swell", "env_rockfall"]:
 		_modes.append(element)
 	var have := {}
 	for g in _ground:
@@ -1059,9 +1145,9 @@ func _push_shards() -> void:
 		mm.set_instance_transform(k, inv * Transform3D((d.basis as Basis).scaled(Vector3(s, s, s)), (d.pos as Vector3) - Vector3(0, sink, 0)))
 		k += 1
 	if _meteor and not committed:
-		var fall := clampf((p - 0.72) / 0.28, 0.0, 1.0)
+		var fall := clampf((p - 0.5) / 0.5, 0.0, 1.0)
 		if fall > 0.0:
-			var y := lerpf(26.0, 0.6, fall * fall)
+			var y := lerpf(14.0, 0.6, fall * fall)
 			var b := Basis(Vector3(1, 0, 0.3).normalized(), age * 3.0) * Basis.from_scale(Vector3(3.2, 3.2, 3.2))
 			mm.set_instance_transform(k, inv * Transform3D(b, ctr + Vector3(0, y, 0)))
 			k += 1

@@ -204,8 +204,9 @@ void fragment() {
 		float rad = reach * (0.35 + 0.75 * p);
 		float soft = mix(1.6, 0.25, p);
 		float s = 1.0 - smoothstep(rad - soft, rad, r);
+		float core = 1.0 - smoothstep(0.0, rad * 0.6, r);
 		c = vec3(0.0, 0.0, 0.02);
-		a = s * (0.25 + 0.5 * p) * edge;
+		a = s * (0.4 + 0.5 * p) * edge + core * 0.15 * p;
 		a *= 1.0 - smoothstep(0.0, 0.35, k);
 	} else {
 		// lane: chevrons pointing down the lane, running forward, faster as the
