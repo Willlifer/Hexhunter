@@ -8,11 +8,27 @@ extends RefCounted
 ## dim 0, tier 3, seed 4, frost 5, crack 6, age 7.
 
 const FACE := { "fire": "tile_fire", "water": "tile_water", "light": "tile_light", "dark": "tile_dark" }
+## L-4 (Lane FX): the standing-card layer per element (water hugs the tile)
+## and the tier above which it stands (Black | White's board_view floors:
+## fire smoke from ~0.3, light motes from 1, the abyss tendrils from 2).
+const CARDS := { "fire": "tile_flame", "light": "tile_beam", "dark": "tile_tendril" }
+const CARD_FLOOR := { "fire": 0.3, "light": 1.0, "dark": 2.0 }
+const CARD_ELEMENT := { "tile_flame": "fire", "tile_beam": "light", "tile_tendril": "dark" }
+## Card cluster: [radius, angle deg, width, height scale, ring] (BWTileFX).
+const CARD_LAYOUT := [
+	[0.0, 0.0, 0.62, 1.2, 0],
+	[0.36, 30.0, 0.5, 1.0, 1], [0.36, 150.0, 0.5, 1.0, 1], [0.36, 270.0, 0.5, 1.0, 1],
+	[0.66, 0.0, 0.42, 0.8, 2], [0.66, 60.0, 0.42, 0.8, 2], [0.66, 120.0, 0.42, 0.8, 2],
+	[0.66, 180.0, 0.42, 0.8, 2], [0.66, 240.0, 0.42, 0.8, 2], [0.66, 300.0, 0.42, 0.8, 2],
+]
+## Culling box for a card cluster (the light column is the tallest at 3.2).
+const CARD_AABB := AABB(Vector3(-1.1, -0.05, -1.1), Vector3(2.2, 3.4, 2.2))
 const MARKER_INK := { "fuse": Color(0.2, 0.04, 0.38), "gale": Color(0.02, 0.24, 0.08), "stasis": Color(0.04, 0.38, 0.5) }
 const MARKER_MODE := { "fuse": 0, "gale": 1, "stasis": 2 }
 
 static var _mats := {}
 static var _hex_mesh: ArrayMesh
+static var _card_mesh: ArrayMesh
 
 
 ## The layers one entry draws. Pure.
@@ -49,6 +65,9 @@ static func material(kind: String) -> ShaderMaterial:
 		"tile_fire", "tile_water", "tile_light", "tile_dark":
 			m.shader = load("res://shaders/%s.gdshader" % kind)
 			m.set_shader_parameter("glow", HHLook.glow_color(kind.trim_prefix("tile_")))
+		"tile_flame", "tile_beam", "tile_tendril":
+			m.shader = load("res://shaders/%s.gdshader" % kind)
+			m.set_shader_parameter("glow", HHLook.glow_color(str(CARD_ELEMENT[kind])))
 		"fuse", "gale", "stasis":
 			m.shader = load("res://shaders/tile_marker.gdshader")
 			m.set_shader_parameter("mode", MARKER_MODE[kind])
@@ -82,3 +101,25 @@ static func hex_mesh() -> ArrayMesh:
 			st.add_vertex(v[(i + 1) % 6])
 		_hex_mesh = st.commit()
 	return _hex_mesh
+
+
+## L-4: the billboard card cluster (tile_cards.gdshaderinc): ten cards, all
+## four corners of a card on its pivot, UV the corner, CUSTOM0 = (width,
+## height scale, card seed, ring). Black | White's BWTileFX.card_mesh.
+static func card_mesh() -> ArrayMesh:
+	if _card_mesh == null:
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		st.set_custom_format(0, SurfaceTool.CUSTOM_RGBA_FLOAT)
+		var k := 0
+		for c in CARD_LAYOUT:
+			var a := deg_to_rad(float(c[1]))
+			var pivot := Vector3(cos(a) * float(c[0]), 0.0, sin(a) * float(c[0]))
+			var data := Color(float(c[2]), float(c[3]), float(k) * 0.137 + 0.05, float(c[4]))
+			for uv in [Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 0), Vector2(1, 1), Vector2(0, 1)]:
+				st.set_uv(uv)
+				st.set_custom(0, data)
+				st.add_vertex(pivot)
+			k += 1
+		_card_mesh = st.commit()
+	return _card_mesh

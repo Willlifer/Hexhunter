@@ -4,6 +4,11 @@ extends Node3D
 ## heightfield floor from GKMesh), lighting, the painted-hex FX layers over
 ## the charge grid, the telegraph danger hexes, and the true-hex outlines.
 ## Reads the sim; never writes it.
+## Lane FX: `fxl` (HHFxLayer) draws the telegraph wind-up effects, the
+## hunter's skill build-ups and impacts and the monsters' standing state
+## effects; one-shots arrive through `on_event` (the fight's event loop), or,
+## until the fight calls it, relayed from HHSfx.relayed. The painted hexes
+## carry L-4's standing cards (flames, the light column, abyss tendrils).
 
 const FX_LIFT := 0.04        # painted faces sit this far above the ground
 const TG_LIFT := 0.07        # telegraphs above the paint
@@ -13,7 +18,11 @@ const TIER_RATE := 6.0       # tier fade in/out, per second
 var arena: HHArena
 var asset: GKAsset
 var floor_mi: MeshInstance3D
-var fx := {}                 # hex -> { face_h, face_v, mark, tier_h, tier_v, tier_m }
+var fx := {}                 # hex -> { face_h, face_v, cards_h, cards_v, mark, tier_h, tier_v, tier_m }
+var fxl: HHFxLayer           # Lane FX: wind-ups, impacts, state effects
+var _player_id := ""
+var _relay_hooked := false
+var _direct_events := false  # true once the fight feeds on_event itself
 var tg_pool: Array = []      # MeshInstance3D for telegraph hexes
 var true_hex: MeshInstance3D
 var dest_hex: MeshInstance3D
@@ -53,6 +62,11 @@ func build(a: HHArena, p_asset: GKAsset = null) -> void:
 	proj_pool = []
 	flashes = []
 	_proj_seen = {}
+	fxl = HHFxLayer.new()
+	fxl.name = "Fx"
+	add_child(fxl)
+	fxl.setup(arena)
+	_relay_hooked = false
 
 
 func _build_floor() -> void:
@@ -154,6 +168,35 @@ func sync(sim: HHSim, player_id: String, delta: float) -> void:
 	_sync_fx(sim.charge, delta)
 	_sync_telegraphs(sim, player_id)
 	_sync_projectiles(sim, delta)
+	_player_id = player_id
+	_hook_relay()
+	if fxl != null:
+		fxl.sync(sim, player_id, delta)
+
+
+## One sim event for the one-shot effects (strike, cast, pierce, eruption,
+## arrowstorm ...). The fight's event loop should call this beside
+## sfx.on_event (Lane FX request); once it does, the HHSfx relay is ignored.
+func on_event(e: Dictionary, sim: HHSim) -> void:
+	_direct_events = true
+	if fxl != null:
+		fxl.on_event(e, sim, _player_id)
+
+
+func _on_relay(e: Dictionary, sim: HHSim) -> void:
+	if not _direct_events and fxl != null:
+		fxl.on_event(e, sim, _player_id)
+
+
+## Until the fight feeds on_event, listen to the sound relay (HHSfx sees
+## every event the fight steps).
+func _hook_relay() -> void:
+	if _relay_hooked or get_parent() == null:
+		return
+	var s: Variant = get_parent().get("sfx")
+	if s is HHSfx:
+		(s as HHSfx).relayed.connect(_on_relay)
+		_relay_hooked = true
 
 
 ## R-U3: the hunter's own telegraphs (its id as owner, or the upgrade shapes
@@ -282,6 +325,8 @@ func _sync_fx(charge: HHCharge, delta: float) -> void:
 		_set_face(node, "h", L.h, delta)
 		_set_face(node, "v", L.v, delta)
 		_set_mark(node, L, delta)
+		_set_cards(node, "h")
+		_set_cards(node, "v")
 	for hex in fx.keys():
 		if live.has(hex):
 			continue
@@ -293,8 +338,10 @@ func _sync_fx(charge: HHCharge, delta: float) -> void:
 		_push_tier(node.face_h, float(node.tier_h))
 		_push_tier(node.face_v, float(node.tier_v))
 		_push_tier(node.mark, float(node.tier_m))
+		_set_cards(node, "h")
+		_set_cards(node, "v")
 		if not any:
-			for k in ["face_h", "face_v", "mark"]:
+			for k in ["face_h", "face_v", "mark", "cards_h", "cards_v"]:
 				(node[k] as Node).queue_free()
 			fx.erase(hex)
 
@@ -312,7 +359,36 @@ func _make_fx(hex: Vector2i) -> Dictionary:
 		mi.visible = false
 		add_child(mi)
 		node[k] = mi
+	for k in ["cards_h", "cards_v"]:
+		var mi := MeshInstance3D.new()
+		mi.mesh = HHTileFX.card_mesh()
+		mi.custom_aabb = HHTileFX.CARD_AABB
+		mi.position = w + Vector3(0, FX_LIFT + 0.005, 0)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.set_instance_shader_parameter("seed", HHTileFX.seed_for(hex, 1))
+		mi.set_instance_shader_parameter("tier", 0.0)
+		mi.visible = false
+		add_child(mi)
+		node[k] = mi
 	return node
+
+
+## L-4: the standing cards of an axis (fire flames / smoke, the light
+## column and motes, abyss tendrils), shown above the element's floor tier
+## (HHTileFX.CARD_FLOOR), tracking the face's tier and glaze.
+func _set_cards(node: Dictionary, axis: String) -> void:
+	var mi: MeshInstance3D = node["cards_" + axis]
+	var el := str(node["el_" + axis])
+	var t := float(node["tier_" + axis])
+	var floor_t := float(HHTileFX.CARD_FLOOR.get(el, 99.0))
+	mi.visible = t > floor_t and HHTileFX.CARDS.has(el)
+	if not mi.visible:
+		return
+	var m := HHTileFX.material(HHTileFX.CARDS[el])
+	if mi.material_override != m:
+		mi.material_override = m
+	mi.set_instance_shader_parameter("tier", t)
+	mi.set_instance_shader_parameter("frost", 1.0 if str(node.kind_m) == "glaze" and float(node.tier_m) > 0.5 else 0.0)
 
 
 func _set_face(node: Dictionary, axis: String, layer: Dictionary, delta: float) -> void:
