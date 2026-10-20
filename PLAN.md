@@ -1,7 +1,7 @@
 # PLAN — Hexhunt
 
 Phases with gates. The author checks each gate before the next phase starts.
-Status: **Phase 3 built 2026-10-19: lobby, hunt loop, twelve upgrades with drops and a save, monster state visuals; all four lanes merged and wired (H612-H613), 227/227. Awaiting the author's Phase 3 gate** (LEDGER L-16).
+Status: **Phase 3 gate passed 2026-10-19. Phase 3.5 visual pass running as five lanes (MA, MB, FX, ENV, UI), brief in design/visual_pass/BRIEF.md (H49). Then Phase 4 co-op.**
 
 ## 0. Interview record
 
@@ -119,3 +119,13 @@ Merge rule: lane branch → `dev` by the integrator after that lane's suite and 
 | H Hunt loop | `src/game/hunt/**`, `tests/test_hunt*.gd`, `design/hunt/**` | H500-H549 | world map with four biome sites, disturbance marker, approach -> ambush cutscene, prep via the lobby (locked arena/monster), results screen with drops, back to the map |
 | U Upgrades | `src/progress/**`, `src/weapons/**`, `tests/test_upgrade*.gd`, `tests/test_play_daggers/bow/lance` (extend), small `src/core/sim.gd` hooks (logged) | H550-H599 | `HHUpgrades` table with the six kickoff examples implemented, three slots per skill, `HHDrops` per monster, `HHSave` |
 | V Visuals | `src/monster/monster_body.gd`, `src/monster/*_clips.gd` view hooks, `src/game/anim/player_body.gd`, `src/game/hud.gd`, `src/game/arena_view.gd` (status/state only), `tests/test_visual*.gd` | H600-H649 | L-12 (quill glow, crystal tint, reed arcs, HUD status icons), L-13 (hood, coloured weapon glbs on the body), L-4 tile cards if cheap |
+
+### Phase 3.5 — Visual pass (2026-10-19)
+
+| Lane | Owns | Block | Delivers |
+|------|------|-------|----------|
+| MA Monsters A | Colambros + Rimeslithe: `tools/blender/build_monster_{colambros,rimeslithe}.py`, `tools/blender/monster_rig/ext_{colambros,rimeslithe}.py`, new `monster_rig/shapes_ma.py`, `art/monsters/{colambros,rimeslithe}.*` + their monsters.json rows, `src/monster/{colambros,rimeslithe}_clips.gd`, their previews, design docs, tests | H650-H674 | gauntlet-tested models + clips |
+| MB Monsters B | Swampfang + Spirewalker: same set for those two, new `monster_rig/shapes_mb.py` | H675-H699 | gauntlet-tested models + clips |
+| FX Effects | new `src/game/fx/**`, `src/monster/monster_body.gd`, `src/game/arena_view.gd`, `src/game/tile_fx.gd`, `shaders/**`, `tests/test_fx*.gd` | H700-H749 | wind-up effects for every monster attack (body + air + ground), breath vs charge, player skill wind-ups and impacts, L-4 standing cards, L-18 readability |
+| ENV Environment | `src/arena/**`, `arenas/*.json`, `src/kit/gk_materials.gd`, `src/game/hunt/world_map.gd`, `tests/test_arena_*.gd` | H750-H799 | arenas gauntlet-tested against `ref/arena_*.jpg`, world map landmarks and paths (L-20) |
+| UI Interface | `src/game/hud.gd`, `src/game/lobby/**`, `src/game/hunt/results.gd`, `src/game/hunt/ambush.gd` (title card only), `art/ui/**`, `tools/ui_*.gd`, `tests/test_lobby*.gd`, `tests/test_ui*.gd` | H800-H849 | HUD gauntlet-tested against `ref/ui_hud.jpg`, lobby thumbnails + element hint + run history (L-19), results polish |
