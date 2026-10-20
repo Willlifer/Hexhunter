@@ -19,6 +19,13 @@ var true_hex: MeshInstance3D
 var dest_hex: MeshInstance3D
 var sun: DirectionalLight3D
 var _tg_mat: ShaderMaterial
+var _tg_player_mat: ShaderMaterial          # R-U3: the hunter's own telegraphs (aftershock, bomblet)
+var proj_pool: Array = []                   # R-U3: MeshInstance3D markers for sim.projectiles
+var flashes: Array = []                     # R-U3: [{ mi, t }] launch / hit / end flashes, fading
+var _proj_seen := {}                        # projectile id -> last hex (hits / ends found by disappearance)
+const PLAYER_TG := Color(1.0, 0.85, 0.3)    # gold: the hunter's own shapes
+const PROJ_LIFT := 0.7
+const FLASH_SECONDS := 0.35
 
 
 func build(a: HHArena, p_asset: GKAsset = null) -> void:
@@ -40,6 +47,12 @@ func build(a: HHArena, p_asset: GKAsset = null) -> void:
 	dest_hex.visible = false
 	_tg_mat = ShaderMaterial.new()
 	_tg_mat.shader = load("res://shaders/telegraph.gdshader")
+	_tg_player_mat = ShaderMaterial.new()
+	_tg_player_mat.shader = _tg_mat.shader
+	_tg_player_mat.set_shader_parameter("glow", PLAYER_TG)
+	proj_pool = []
+	flashes = []
+	_proj_seen = {}
 
 
 func _build_floor() -> void:
@@ -139,13 +152,24 @@ func sync(sim: HHSim, player_id: String, delta: float) -> void:
 		else:
 			_draw_outline(dest_hex, path[-1])
 	_sync_fx(sim.charge, delta)
-	_sync_telegraphs(sim)
+	_sync_telegraphs(sim, player_id)
+	_sync_projectiles(sim, delta)
 
 
-func _sync_telegraphs(sim: HHSim) -> void:
+## R-U3: the hunter's own telegraphs (its id as owner, or the upgrade shapes
+## named aftershock / bomblet) draw in the player tint, everything else in
+## the monster's red.
+static func is_player_telegraph(tg: Dictionary, player_id: String) -> bool:
+	if player_id != "" and str(tg.get("owner", "")) == player_id:
+		return true
+	return str((tg.get("payload", {}) as Dictionary).get("name", "")) in ["aftershock", "bomblet"]
+
+
+func _sync_telegraphs(sim: HHSim, player_id: String = "") -> void:
 	var n := 0
 	for tg in sim.telegraphs:
 		var prog := 1.0 - float(tg.left) / maxf(1.0, float(tg.total))
+		var mat := _tg_player_mat if is_player_telegraph(tg, player_id) else _tg_mat
 		for h in tg.hexes:
 			if not arena.exists(h):
 				continue
@@ -155,10 +179,10 @@ func _sync_telegraphs(sim: HHSim) -> void:
 			else:
 				mi = MeshInstance3D.new()
 				mi.mesh = HHTileFX.hex_mesh()
-				mi.material_override = _tg_mat
 				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				add_child(mi)
 				tg_pool.append(mi)
+			mi.material_override = mat
 			mi.position = arena.surface(h) + Vector3(0, TG_LIFT, 0)
 			var ripple := bool((tg.payload as Dictionary).get("ripple", false))
 			mi.set_instance_shader_parameter("progress", 0.0 if ripple else prog)
@@ -167,6 +191,83 @@ func _sync_telegraphs(sim: HHSim) -> void:
 			n += 1
 	for i in range(n, tg_pool.size()):
 		(tg_pool[i] as MeshInstance3D).visible = false
+
+
+## R-U3: sim.projectiles as small glowing markers over their hex (element
+## colour, a hop that peaks between steps), with flashes on launch and on
+## every disappearance (a hit or an end), found by comparing ids between
+## frames so no event wiring in fight.gd is needed.
+func _sync_projectiles(sim: HHSim, delta: float) -> void:
+	var n := 0
+	var seen := {}
+	for p in sim.projectiles:
+		var h: Vector2i = p.hex
+		if not arena.exists(h):
+			continue
+		seen[p.id] = h
+		var mi: MeshInstance3D
+		if n < proj_pool.size():
+			mi = proj_pool[n]
+		else:
+			mi = MeshInstance3D.new()
+			var sm := SphereMesh.new()
+			sm.radius = 0.32
+			sm.height = 0.64
+			sm.radial_segments = 10
+			sm.rings = 5
+			mi.mesh = sm
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			add_child(mi)
+			proj_pool.append(mi)
+		var el := str(p.get("element", ""))
+		mi.material_override = HHLook.flat(HHLook.glow_color(el) if el != "" else Color(0.95, 0.9, 0.7))
+		var every := maxf(1.0, float(p.get("every", 2)))
+		var phase := 1.0 - float(p.get("left", every)) / every          # 0 just after a step, 1 just before the next
+		mi.position = arena.surface(h) + Vector3(0, PROJ_LIFT + 0.35 * sin(phase * PI), 0)
+		mi.scale = Vector3.ONE * (1.0 + 0.3 * (1.0 - phase))
+		mi.visible = true
+		if not _proj_seen.has(p.id):
+			_flash(arena.surface(h), HHLook.glow_color(el) if el != "" else Color(1, 1, 0.8), 0.9)   # launch
+		n += 1
+	for i in range(n, proj_pool.size()):
+		(proj_pool[i] as MeshInstance3D).visible = false
+	for id in _proj_seen:
+		if not seen.has(id):
+			var last: Vector2i = _proj_seen[id]
+			if arena.exists(last):
+				_flash(arena.surface(last), Color(1.0, 0.95, 0.8), 1.6)                                # hit or end
+	_proj_seen = seen
+	var keep: Array = []
+	for f in flashes:
+		f.t = float(f.t) + delta
+		var k := clampf(float(f.t) / FLASH_SECONDS, 0.0, 1.0)
+		var mi: MeshInstance3D = f.mi
+		mi.scale = Vector3.ONE * float(f.size) * (0.6 + 1.2 * k)
+		var m := mi.material_override as StandardMaterial3D
+		m.albedo_color.a = 0.85 * (1.0 - k)
+		if k >= 1.0:
+			mi.queue_free()
+		else:
+			keep.append(f)
+	flashes = keep
+
+
+func _flash(at: Vector3, col: Color, size: float) -> void:
+	var mi := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.5
+	sm.height = 1.0
+	sm.radial_segments = 10
+	sm.rings = 5
+	mi.mesh = sm
+	var c := col
+	c.a = 0.85
+	mi.material_override = HHLook.flat(c, true)
+	(mi.material_override as StandardMaterial3D).blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mi.position = at + Vector3(0, PROJ_LIFT, 0)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	flashes.append({ "mi": mi, "t": 0.0, "size": size })
 
 
 func _sync_fx(charge: HHCharge, delta: float) -> void:

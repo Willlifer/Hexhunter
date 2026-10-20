@@ -44,8 +44,15 @@ extends Node3D
 
 const RIG_PATH := "res://art/characters/base_rig.glb"
 const RIG_JSON := "res://art/characters/rig.json"
-const WEAPON_DIR := "res://art/weapons/bw_temp/"       ## Lane A's set: "res://art/weapons/"
+const WEAPON_DIR := "res://art/weapons/"              ## Lane A's coloured set (L-13; bw_temp retired)
 const WEAPON_JSON := WEAPON_DIR + "weapons.json"
+## Weapon id (the sim's `weapon`, the clip set) -> Lane A's manifest row.
+## The manifest keys rows by model (karambit); the arrow is a row of class
+## "projectile" in the same table.
+const WEAPON_ROWS := { "lance": "lance", "daggers": "karambit", "bow": "bow" }
+## Per-role look for the weapon glbs (vertex COLOR carries the palette).
+const WEAPON_ROUGHNESS := { "steel": 0.32, "wood": 0.75, "wrap": 0.85, "feather": 0.7, "gem": 0.2, "string": 0.6 }
+const WEAPON_METALLIC := { "steel": 0.55, "gem": 0.1 }
 const CLIP_SETS := {
 	"lance": "res://src/game/anim/clips_lance.gd",
 	"daggers": "res://src/game/anim/clips_daggers.gd",
@@ -75,6 +82,8 @@ var meshes: Array[MeshInstance3D] = []
 var weapon_main: Node3D = null       ## on the main-hand socket (bow: the left hand)
 var weapon_off: Node3D = null        ## the pair's second blade
 var arrow: Node3D = null             ## nocked only while a draw clip asks for it
+var _string: MeshInstance3D = null   ## the drawn bowstring (model space), while nocked
+var _string_surfaces: Array = []     # [MeshInstance3D, surface] of the bow's straight string
 var clip := ""
 var time := 0.0
 var loop := true
@@ -125,7 +134,17 @@ static func weapon_json() -> Dictionary:
 
 static func weapon_row(weapon: String) -> Dictionary:
 	var w: Dictionary = weapon_json().get("weapons", {})
-	return w.get(weapon, {})
+	return w.get(WEAPON_ROWS.get(weapon, weapon), {})
+
+
+## A projectile row (the arrow): Lane A keeps it in the weapons table as
+## class "projectile"; an older manifest kept a "projectiles" table.
+static func projectile_row(id: String) -> Dictionary:
+	var w: Dictionary = weapon_json().get("weapons", {})
+	if w.has(id):
+		return w[id]
+	var pr: Dictionary = weapon_json().get("projectiles", {})
+	return pr.get(id, {})
 
 
 static func clip_set(weapon: String) -> GDScript:
@@ -189,12 +208,14 @@ func build(weapon: String) -> bool:
 
 ## Swap the weapon (and its clip set). The rig stays.
 func equip(weapon: String) -> bool:
-	for n in [weapon_main, weapon_off, arrow]:
+	for n in [weapon_main, weapon_off, arrow, _string]:
 		if n != null:
 			n.queue_free()
 	weapon_main = null
 	weapon_off = null
 	arrow = null
+	_string = null
+	_string_surfaces = []
 	weapon_id = weapon
 	row = weapon_row(weapon)
 	_set = clip_set(weapon)
@@ -209,7 +230,7 @@ func equip(weapon: String) -> bool:
 		if hands == "pair" and row.get("offhand_socket") != null:
 			weapon_off = _attach(str(row.get("offhand_glb", row.get("glb", ""))), str(row.offhand_socket), row.get("mount", {}), "weapon_off")
 		if hands == "bow":
-			var pr: Dictionary = (weapon_json().get("projectiles", {}) as Dictionary).get(str(row.get("projectile", "arrow")), {})
+			var pr: Dictionary = projectile_row(str(row.get("projectile", "arrow")))
 			if not pr.is_empty():
 				arrow = _instance(str(pr.get("glb", "")), "arrow")
 				if arrow != null:
@@ -237,17 +258,25 @@ func _instance(path: String, node_name: String) -> Node3D:
 		var m3 := mi as MeshInstance3D
 		m3.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		for i in m3.mesh.get_surface_count():
-			# the weapon glbs bake their palette into COLOR_0 (Black | White's
-			# builders); the imported emission material ignores it, so swap in
-			# a lit vertex-colour material
+			# the weapon glbs bake their palette into COLOR_0 (one surface per
+			# role, named by role); swap in a lit vertex-colour material with
+			# the role's roughness / metallic
 			var src := m3.mesh.surface_get_material(i)
+			var role := src.resource_name if src else ""
 			var m := StandardMaterial3D.new()
 			m.vertex_color_use_as_albedo = true
 			m.albedo_color = (src as BaseMaterial3D).albedo_color if src is BaseMaterial3D else Color.WHITE
 			if m.albedo_color.get_luminance() < 0.05:
 				m.albedo_color = Color.WHITE
-			m.roughness = 0.45
-			m.metallic = 0.1
+			m.roughness = float(WEAPON_ROUGHNESS.get(role, 0.45))
+			m.metallic = float(WEAPON_METALLIC.get(role, 0.0))
+			if role == "gem":
+				m.emission_enabled = true
+				m.emission = Color(0.6, 0.2, 0.9)
+				m.emission_energy_multiplier = 0.35
+			if role == "feather" or role == "string":
+				m.cull_mode = BaseMaterial3D.CULL_DISABLED
+			m.resource_name = "hh_" + role
 			m3.set_surface_override_material(i, m)
 	return n
 
@@ -289,6 +318,61 @@ func _apply_materials(mi: MeshInstance3D) -> void:
 func bind(p_sim: HHSim, id: String) -> void:
 	sim = p_sim
 	unit_id = id
+
+
+## R-U3: the ward. While the bound unit's `immune` ticks are above zero (H552)
+## a pale gold ring and dome spin round the hunter; `ward_on` for tests.
+var ward_on := false
+var _ward: Node3D = null
+var _ward_t := 0.0
+
+
+func _draw_ward(delta: float) -> void:
+	var on := sim != null and unit_id != "" and int(sim.unit(unit_id).get("immune", 0)) > 0
+	ward_on = on
+	if _ward == null:
+		if not on:
+			return
+		_ward = Node3D.new()
+		_ward.name = "ward"
+		var ring := MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = 0.95
+		tm.outer_radius = 1.08
+		tm.rings = 24
+		tm.ring_segments = 8
+		ring.mesh = tm
+		ring.position.y = 0.12
+		ring.material_override = _ward_material(Color(1.0, 0.86, 0.35, 0.9))
+		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_ward.add_child(ring)
+		var dome := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 1.25
+		sm.height = 2.5
+		sm.radial_segments = 16
+		sm.rings = 8
+		dome.mesh = sm
+		dome.position.y = 1.15
+		dome.material_override = _ward_material(Color(1.0, 0.9, 0.5, 0.22))
+		dome.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_ward.add_child(dome)
+		add_child(_ward)
+	_ward.visible = on
+	if on:
+		_ward_t += delta
+		_ward.rotation.y = _ward_t * 2.2
+		_ward.scale = Vector3.ONE * (1.0 + 0.04 * sin(_ward_t * 9.0))
+
+
+static func _ward_material(c: Color) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.albedo_color = c
+	return m
 
 
 # ------------------------------------------------------------------ lookup
@@ -526,6 +610,7 @@ func update(delta: float) -> void:
 		if _fade <= 0.0:
 			_prev_clip = ""
 	_apply(cur)
+	_draw_ward(delta)
 
 
 ## Ground speed from the body's own position delta (HHFight moves the node).
@@ -789,12 +874,62 @@ func _apply(s: Dictionary) -> void:
 	if arrow != null:
 		arrow.visible = bool(s.nock)
 		if arrow.visible:
+			# the arrow's nock sits in the draw hand, its head toward the bow
+			# hand; Lane A's arrow has its origin at the shaft's middle with +Y
+			# to the head (manifest trail_base = the nock), so the origin is
+			# pushed up the shaft by the nock's distance
 			var a := socket_pos("socket_weapon_r")
 			var b := socket_pos("socket_offhand_l")
 			var dir := (b - a)
 			if dir.length_squared() > 1e-4:
 				dir = dir.normalized()
-				arrow.transform = Transform3D(Basis.looking_at(-dir, Vector3.UP), a + dir * 0.9)
+				var pr := projectile_row(str(row.get("projectile", "arrow")))
+				var nock_y := -0.42
+				if pr.has("trail_base"):
+					var tb: Array = pr.trail_base
+					nock_y = float(tb[1])
+				var basis := Basis.looking_at(dir, Vector3.UP) * Basis(Vector3.RIGHT, -PI * 0.5)   # +Y along dir
+				arrow.transform = Transform3D(basis, a - dir * nock_y)
+	_draw_string(bool(s.nock))
+
+
+## The bowstring: the bow's own straight "string" surface is hidden while an
+## arrow is nocked and a drawn string is drawn from the string's two ends
+## (manifest `string`, bow-local) to the draw hand.
+func _draw_string(nocked: bool) -> void:
+	if weapon_main == null or not row.has("string"):
+		return
+	if _string == null:
+		_string = MeshInstance3D.new()
+		_string.name = "drawn_string"
+		_string.mesh = ImmediateMesh.new()
+		_string.material_override = HHLook.flat(Color(0.92, 0.9, 0.82))
+		_string.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(_string)
+		for mi in weapon_main.find_children("*", "MeshInstance3D", true, false):
+			var m3 := mi as MeshInstance3D
+			for i in m3.mesh.get_surface_count():
+				var src := m3.mesh.surface_get_material(i)
+				if src != null and src.resource_name == "string":
+					_string_surfaces.append([m3, i])
+	for sf in _string_surfaces:
+		var mat := (sf[0] as MeshInstance3D).get_surface_override_material(int(sf[1])) as StandardMaterial3D
+		if mat != null:
+			mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA if nocked else BaseMaterial3D.TRANSPARENCY_DISABLED
+			mat.albedo_color.a = 0.0 if nocked else 1.0
+	_string.visible = nocked
+	if not nocked:
+		return
+	var im: ImmediateMesh = _string.mesh
+	im.clear_surfaces()
+	var bow_xf := socket_xform(str(row.get("socket", "socket_offhand_l"))) * weapon_main.transform
+	var hand := socket_pos("socket_weapon_r")
+	var ends: Array = row.string
+	im.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
+	im.surface_add_vertex(bow_xf * Vector3(float(ends[0][0]), float(ends[0][1]), float(ends[0][2])))
+	im.surface_add_vertex(hand)
+	im.surface_add_vertex(bow_xf * Vector3(float(ends[1][0]), float(ends[1][1]), float(ends[1][2])))
+	im.surface_end()
 
 
 func _write(sample: Dictionary) -> void:

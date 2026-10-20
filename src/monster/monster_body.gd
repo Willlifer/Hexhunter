@@ -12,6 +12,17 @@ extends Node3D
 ##   b.play("aggravated_idle")          # loops
 ##   b.play("frill_roar", false)        # one-shot, then back to the loop it interrupted
 ##   b.update(delta)                    # every frame
+##   b.bind(sim, "swampfang")           # optional: the body reads its unit each frame
+##   b.set_state(sim.unit(id))          # or the fight feeds the unit dictionary itself
+##
+## REACTIVE STATE (L-12): set_state(u) reads the brain's view-facing fields
+## (`smoulder`, `cold`, `charge`, `reeds_burnt`) and update() drives the
+## role materials: Colambros' quills glow when smouldering, Rimeslithe's
+## crystals tint and brighten with the cold meter, Spirewalker's arc beads
+## and reed tips glow violet by charge with crackling arcs over the bed
+## (gone while the reeds are burnt), Swampfang's eyes and frill flash violet
+## through a darkness telegraph (`cue("darkness")`, or seen in the bound
+## sim's telegraphs). `glow` is the current 0..1 intensity for tests and HUD.
 ##
 ## Model space (manifest "space"): origin on the ground under the hips, +Y up,
 ## +Z forward (the fight sets rotation.y = unit.facing), +X the monster's left.
@@ -60,6 +71,22 @@ var _prev_time := 0.0
 var _prev_loop := true
 var _fade := 0.0                   # seconds left in the cross-fade
 var _resume := ""                  # loop to go back to after a one-shot
+
+# reactive state (L-12)
+var sim: HHSim = null              ## bound sim (optional; update() reads unit_id from it)
+var unit_id := ""
+var state := {}                    ## the last unit dictionary fed to set_state
+var glow := 0.0                    ## current readable intensity 0..1 (smoulder / cold / charge / cue)
+var state_name := ""               ## "smouldering" | "cold" | "charged" | "reeds_burnt" | "darkness" | ""
+var _role_mats := {}               # role -> StandardMaterial3D shared by that role's surfaces
+var _state_t := 0.0                # seconds, for pulses
+var _cue := 0.0                    # seconds left on a one-shot cue (Swampfang's darkness)
+var _cue_name := ""
+var _beads: Array = []             # Spirewalker: [{ pos: Vector3 (mesh space), bone: int }] per arc bead
+var _bead_xform := Transform3D.IDENTITY
+var _arcs: MeshInstance3D = null   # Spirewalker's crackle ribbons
+var _arc_t := 0.0
+var _arc_rng := RandomNumberGenerator.new()
 
 
 # ------------------------------------------------------------------ manifest
@@ -141,7 +168,15 @@ func _apply_materials(mi: MeshInstance3D) -> void:
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	for i in mi.mesh.get_surface_count():
 		var role := surface_role(mi.mesh, i)
-		mi.set_surface_override_material(i, material_for(role))
+		mi.set_surface_override_material(i, role_material(role))
+
+
+## This body's material for a role (one per role, shared by every surface of
+## that role, so a state change edits one material).
+func role_material(role: String) -> StandardMaterial3D:
+	if not _role_mats.has(role):
+		_role_mats[role] = material_for(role)
+	return _role_mats[role]
 
 
 ## The role of a surface: its material's name (rigkit names materials by role).
@@ -320,7 +355,12 @@ func duration(clip_name: String) -> float:
 
 
 func update(delta: float) -> void:
-	if skeleton == null or clip == "":
+	if skeleton == null:
+		return
+	if sim != null and unit_id != "":
+		set_state(sim.unit(unit_id))
+	_drive_state(delta)
+	if clip == "":
 		return
 	var d := duration(clip)
 	time += delta * speed
@@ -349,6 +389,247 @@ func update(delta: float) -> void:
 		if _fade <= 0.0:
 			_prev_clip = ""
 	_write(cur)
+
+
+# ------------------------------------------------------------------ reactive state (L-12)
+
+const SMOULDER_COLOR := Color(1.0, 0.32, 0.06)       ## quill ember (HHLook fire glow, warmer)
+const COLD_COLOR := Color(0.42, 0.85, 1.0)           ## crystal cold (saturated cyan; white-out at 30 m otherwise)
+const CHARGE_COLOR := Color(0.72, 0.42, 1.0)         ## arc violet
+const DARK_COLOR := Color(0.42, 0.12, 0.95)          ## Swampfang's darkness call (eyes, frill): deep violet, not pink
+const ARC_EVERY := 0.07                              ## seconds between arc re-rolls
+const CUE_SECONDS := 1.5                             ## the darkness telegraph window (45 ticks)
+
+
+## Bind to the sim: update() then reads sim.unit(id) itself every frame
+## (the fight may call set_state directly instead).
+func bind(p_sim: HHSim, p_id: String) -> void:
+	sim = p_sim
+	unit_id = p_id
+
+
+## Feed the unit dictionary (a no-op until called). The brain's view-facing
+## fields: smoulder (bool), cold (0..1), charge (0..1), reeds_burnt (bool).
+func set_state(u: Dictionary) -> void:
+	if u.is_empty():
+		return
+	state = u
+	if sim != null and unit_id != "":
+		for tg in sim.telegraphs:
+			if str(tg.get("owner", "")) == unit_id and str((tg.get("payload", {}) as Dictionary).get("name", "")) == "darkness":
+				cue("darkness", float(tg.get("left", 0)) / 30.0)
+
+
+## A one-shot visual cue by name for `seconds` (Swampfang: "darkness").
+func cue(cue_name: String, seconds: float = CUE_SECONDS) -> void:
+	_cue_name = cue_name
+	_cue = maxf(_cue, seconds)
+
+
+func _drive_state(delta: float) -> void:
+	_state_t += delta
+	if _cue > 0.0:
+		_cue -= delta
+		if _cue <= 0.0:
+			_cue_name = ""
+	match id:
+		"colambros": _drive_smoulder()
+		"rimeslithe": _drive_cold()
+		"spirewalker": _drive_charge(delta)
+		"swampfang": _drive_darkness()
+		_:
+			glow = 0.0
+			state_name = ""
+
+
+func _drive_smoulder() -> void:
+	var on := bool(state.get("smoulder", false))
+	var pulse := 0.72 + 0.28 * sin(_state_t * 7.5)          # a slow breathing ember
+	glow = pulse if on else 0.0
+	state_name = "smouldering" if on else ""
+	_emit("quill", SMOULDER_COLOR, 4.5 * glow, Color(1.0, 0.5, 0.25) if on else Color.WHITE, glow)
+	_emit("eye", SMOULDER_COLOR, 2.5 * glow, Color.WHITE, 0.0)
+
+
+func _drive_cold() -> void:
+	var cold := clampf(float(state.get("cold", 0.0)), 0.0, 1.0)
+	glow = cold
+	state_name = "cold" if cold > 0.5 else ""
+	# the crystals: smoky grey -> pale cyan, and brighter with the meter;
+	# a shimmer above 0.7 (the weak-point band, H335)
+	var shimmer := 1.0 + (0.18 * sin(_state_t * 9.0) if cold > 0.7 else 0.0)
+	_emit("crystal", COLD_COLOR, 1.9 * cold * cold * shimmer, Color(0.6, 0.95, 1.2), cold)
+	_emit("eye", COLD_COLOR, 2.0 * cold, Color.WHITE, 0.0)
+
+
+func _drive_charge(delta: float) -> void:
+	var charge := clampf(float(state.get("charge", 0.0)), 0.0, 1.0)
+	var burnt := bool(state.get("reeds_burnt", false))
+	var charged := charge > 0.6 and not burnt
+	glow = 0.0 if burnt else charge
+	state_name = "reeds_burnt" if burnt else ("charged" if charged else "")
+	var flicker := 1.0 + (0.3 * sin(_state_t * 23.0) * sin(_state_t * 5.3) if charged else 0.0)
+	var live := 0.0 if burnt else 1.0
+	_emit("arc", CHARGE_COLOR, (1.2 + 3.0 * charge) * flicker * live, Color(0.3, 0.26, 0.24) if burnt else Color.WHITE, 1.0 if burnt else 0.0)
+	# the reed tips take the violet with the charge; cut reeds go to charcoal
+	_emit("reed", CHARGE_COLOR, 1.6 * charge * flicker * live, Color(0.3, 0.26, 0.24) if burnt else Color.WHITE, 1.0 if burnt else 0.0)
+	if _arcs == null:
+		_build_arcs()
+	if _arcs == null:
+		return
+	_arcs.visible = charged
+	if charged:
+		_arc_t -= delta
+		if _arc_t <= 0.0:
+			_arc_t = ARC_EVERY
+			_draw_arcs(charge)
+
+
+func _drive_darkness() -> void:
+	var on := _cue > 0.0 and _cue_name == "darkness"
+	var pulse := 0.6 + 0.4 * sin(_state_t * 14.0)
+	glow = pulse if on else 0.0
+	state_name = "darkness" if on else ""
+	_emit("eye", DARK_COLOR, 4.0 * glow, Color.WHITE, 0.0)
+	_emit("frill", DARK_COLOR, 2.2 * glow, Color(0.75, 0.45, 1.0) if on else Color.WHITE, glow)
+
+
+## Drive one role's material: emission (colour x energy) and an albedo tint
+## (lerped from white by `tint_w`). Energy 0 switches emission off.
+func _emit(role: String, color: Color, energy: float, tint: Color, tint_w: float) -> void:
+	if not _role_mats.has(role):
+		return
+	var m: StandardMaterial3D = _role_mats[role]
+	m.emission_enabled = energy > 0.001
+	m.emission = color
+	m.emission_energy_multiplier = maxf(0.0, energy)
+	m.albedo_color = Color.WHITE.lerp(tint, clampf(tint_w, 0.0, 1.0))
+
+
+## Spirewalker: the nine arc beads (role `arc`) are small spheres in the glb;
+## cluster the mesh's vertices into bead centres, each with its heaviest bone,
+## so the arcs follow the reed bed's pose.
+func _build_arcs() -> void:
+	var bead_mi: MeshInstance3D = null
+	for mi in meshes:
+		if str(mi.name) == "body_arc":
+			bead_mi = mi
+	if bead_mi == null or bead_mi.mesh.get_surface_count() == 0:
+		return
+	var arrays := bead_mi.mesh.surface_get_arrays(0)
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var bones: Variant = arrays[Mesh.ARRAY_BONES]
+	var weights: Variant = arrays[Mesh.ARRAY_WEIGHTS]
+	var per := 0
+	if bones is PackedInt32Array and verts.size() > 0:
+		per = (bones as PackedInt32Array).size() / verts.size()
+	var clusters: Array = []
+	for vi in verts.size():
+		var v := verts[vi]
+		var found := false
+		for cl in clusters:
+			var centre: Vector3 = (cl.sum as Vector3) / float(cl.n)
+			if centre.distance_to(v) < 0.22:
+				cl.sum = (cl.sum as Vector3) + v
+				cl.n = int(cl.n) + 1
+				found = true
+				break
+		if not found:
+			var bone := -1
+			if per > 0:
+				var best := -1.0
+				for k in per:
+					var w := float((weights as PackedFloat32Array)[vi * per + k])
+					if w > best:
+						best = w
+						bone = int((bones as PackedInt32Array)[vi * per + k])
+			clusters.append({ "sum": v, "n": 1, "bone": bone })
+	_beads = []
+	for cl in clusters:
+		_beads.append({ "pos": (cl.sum as Vector3) / float(cl.n), "bone": int(cl.bone) })
+	_bead_xform = bead_mi.transform
+	_arcs = MeshInstance3D.new()
+	_arcs.name = "arcs"
+	_arcs.mesh = ImmediateMesh.new()
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.vertex_color_use_as_albedo = true
+	m.albedo_color = Color.WHITE
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_arcs.material_override = m
+	_arcs.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_arcs.visible = false
+	skeleton.add_child(_arcs)
+
+
+func bead_count() -> int:
+	return _beads.size()
+
+
+## A bead's posed position in skeleton space.
+func bead_pos(i: int) -> Vector3:
+	var b: Dictionary = _beads[i]
+	var p: Vector3 = _bead_xform * (b.pos as Vector3)
+	var bone := int(b.bone)
+	if bone < 0:
+		return p
+	return global_pose(bone) * skeleton.get_bone_global_rest(bone).affine_inverse() * p
+
+
+## Re-roll the crackle: ribbons between bead pairs (jittered, camera-faced
+## when a camera exists) plus short sparks up off the beads.
+func _draw_arcs(charge: float) -> void:
+	var im: ImmediateMesh = _arcs.mesh
+	im.clear_surfaces()
+	if _beads.size() < 2:
+		return
+	var cam: Camera3D = get_viewport().get_camera_3d() if is_inside_tree() else null
+	var to_cam := Vector3(0.3, 1.0, 0.3).normalized()
+	if cam != null:
+		to_cam = (skeleton.global_transform.affine_inverse() * cam.global_position - bead_pos(0)).normalized()
+	var pts: Array[Vector3] = []
+	for i in _beads.size():
+		pts.append(bead_pos(i))
+	var n_arcs := 3 + int(round(3.0 * charge))
+	var width := 0.09 + 0.06 * charge
+	var col := CHARGE_COLOR
+	col.a = 0.85
+	im.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	for a in n_arcs:
+		var i := _arc_rng.randi_range(0, pts.size() - 1)
+		var j := i
+		var tries := 0
+		while (j == i or pts[i].distance_to(pts[j]) > 2.6) and tries < 8:
+			j = _arc_rng.randi_range(0, pts.size() - 1)
+			tries += 1
+		if j == i:
+			continue
+		var prev := pts[i]
+		var segs := 5
+		for k in range(1, segs + 1):
+			var t := float(k) / float(segs)
+			var p := pts[i].lerp(pts[j], t)
+			if k < segs:
+				p += Vector3(_arc_rng.randf_range(-1, 1), _arc_rng.randf_range(-0.6, 1.2), _arc_rng.randf_range(-1, 1)) * 0.16
+			_ribbon(im, prev, p, to_cam, width, col)
+			prev = p
+	for s in 2 + int(round(2.0 * charge)):
+		var i := _arc_rng.randi_range(0, pts.size() - 1)
+		var up := Vector3(_arc_rng.randf_range(-0.4, 0.4), 1.0, _arc_rng.randf_range(-0.4, 0.4)).normalized()
+		_ribbon(im, pts[i], pts[i] + up * _arc_rng.randf_range(0.25, 0.6), to_cam, width * 0.7, Color(0.95, 0.8, 1.0, 0.9))
+	im.surface_end()
+
+
+func _ribbon(im: ImmediateMesh, a: Vector3, b: Vector3, to_cam: Vector3, w: float, col: Color) -> void:
+	var d := b - a
+	if d.length_squared() < 1e-6:
+		return
+	var side := d.cross(to_cam).normalized() * (w * 0.5)
+	for v in [a - side, a + side, b + side, a - side, b + side, b - side]:
+		im.surface_set_color(col)
+		im.surface_add_vertex(v)
 
 
 func _sample_clip(clip_name: String, t: float) -> Dictionary:
