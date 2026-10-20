@@ -64,6 +64,7 @@ static func run() -> Dictionary:
 				if not mname.begins_with("test_"):
 					continue
 				var c := HHCheck.new()
+				_scratch_user_files()                  # H613: tests never write the player's save or last lobby pick
 				inst.call(mname, c)
 				var passed := c.failures.is_empty() and c.count > 0
 				var t := { "name": mname, "passed": passed, "checks": c.count, "failures": Array(c.failures) }
@@ -75,6 +76,7 @@ static func run() -> Dictionary:
 		if not suite.passed:
 			failed += 1
 		suites.append(suite)
+	_restore_user_files()
 	var total := 0
 	var total_failed := 0
 	for s in suites:
@@ -91,6 +93,23 @@ static func run() -> Dictionary:
 		"ms": Time.get_ticks_msec() - started,
 		"results": suites,
 	}
+
+
+const SCRATCH_SAVE := "user://selftest_hunter.json"
+const SCRATCH_LAST := "user://selftest_last.json"
+
+
+static func _scratch_user_files() -> void:
+	HHSave.path = SCRATCH_SAVE
+	HHLobbyState.last_path = SCRATCH_LAST
+
+
+static func _restore_user_files() -> void:
+	HHSave.path = HHSave.DEFAULT_PATH
+	HHLobbyState.last_path = HHLobbyState.LAST_PATH
+	for p in [SCRATCH_SAVE, SCRATCH_LAST]:
+		if FileAccess.file_exists(p):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
 
 
 static func summary(report: Dictionary) -> String:

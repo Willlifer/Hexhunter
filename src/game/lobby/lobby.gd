@@ -35,6 +35,7 @@ const ROW_NAMES := ["ARENA", "MONSTER", "WEAPON", "ELEMENTS   first click = acti
 
 var state := HHLobbyState.new()
 var _hunt_btn: Button = null
+var _own_all: Button = null
 var can_replay := false          # the shell sets this once a fight has run
 var result_text := ""            # the last fight's result line for the ticker
 var rng := RandomNumberGenerator.new()
@@ -208,6 +209,15 @@ func _build_card() -> void:
 	ul.text = "Upgrades (drops; tick to slot)"
 	ul.add_theme_color_override("font_color", DIM)
 	v.add_child(ul)
+	_own_all = Button.new()                               # R-L1 (H613): try every upgrade before any hunt
+	_own_all.text = "Unlock all upgrades (testing)"
+	_own_all.tooltip_text = "Owns every upgrade in your save so you can slot and try them in any fight"
+	_own_all.add_theme_font_size_override("font_size", 13)
+	_own_all.pressed.connect(func():
+		var n := state.own_all()
+		_refresh()
+		_ticker.text = "Unlocked %d upgrade(s): tick them to slot (3 per skill)" % n)
+	v.add_child(_own_all)
 	_ups_box = VBoxContainer.new()
 	_ups_box.add_theme_constant_override("separation", 2)
 	v.add_child(_ups_box)
@@ -321,6 +331,8 @@ func _refresh() -> void:
 		HHRegistry.name_of("element", str(state.cfg.element)), HHRegistry.name_of("element", str(state.cfg.backup))]
 	if _hunt_btn != null:
 		_hunt_btn.visible = not _in_hunt()
+	if _own_all != null:
+		_own_all.visible = not _in_hunt()
 	_replay.disabled = not can_replay
 	_new_seed.disabled = not can_replay
 	_refresh_upgrades()

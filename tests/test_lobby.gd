@@ -200,3 +200,21 @@ func test_shell_routes_fight_to_lobby(c: HHSelfTest.HHCheck) -> void:
 	c.ok(shell.screen is HHFight, "new seed fights again")
 	c.eq((shell.screen as HHFight).sim.seed, 6, "with the seed bumped")
 	shell.free()
+
+
+## R-L1 (H613): the testing aid owns every upgrade, and refuses inside a hunt.
+func test_lobby_own_all(c: HHSelfTest.HHCheck) -> void:
+	HHSave.path = "user://test_lobby_ownall.json"
+	var s := HHLobbyState.new()
+	s.save = HHSave.new()
+	s.setup({ "weapon": "bow" })
+	c.eq(s.own_all(), HHUpgrades.TABLE.size(), "owns the whole table")
+	for id in HHUpgrades.TABLE:
+		c.ok(s.save.owns(str(id)), "%s owned" % id)
+	c.ok(s.toggle_upgrade("arrowstorm_glaze"), "and it slots")
+	var h := HHLobbyState.new()
+	h.save = HHSave.new()
+	h.setup({ "weapon": "bow", "locked": ["arena", "monster"] })
+	c.eq(h.own_all(), 0, "refused during a hunt")
+	HHSave.wipe()
+	HHSave.path = HHSave.DEFAULT_PATH

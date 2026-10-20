@@ -9,6 +9,7 @@ extends RefCounted
 ## and prefills from it next boot.
 
 const LAST_PATH := "user://hexhunt_last.json"
+static var last_path := LAST_PATH   ## the self-test points this at a scratch file (H613)
 const SAVED_KEYS := ["arena", "monster", "weapon", "element", "backup", "seed", "cam"]
 const ROWS := ["arena", "monster", "weapon"]     # keys 1-3 jump these rows, 4 the elements
 
@@ -38,6 +39,19 @@ func setup(given: Dictionary) -> void:
 	if save == null:
 		save = HHSave.load_or_new()
 	_sync_upgrades()
+
+
+## R-L1 (H613): testing aid: own every upgrade in the table, saved. Refused
+## during a hunt (anything locked), so drops still mean something there.
+func own_all() -> int:
+	if save == null or not (cfg.get("locked", []) as Array).is_empty():
+		return 0
+	var n := 0
+	for id in HHUpgrades.TABLE:
+		if save.own(str(id)):
+			n += 1
+	save.save()
+	return n
 
 
 ## cfg.upgrades follows the save's slots for the picked weapon (R-U1).
@@ -151,16 +165,16 @@ func save_last() -> void:
 	var out := {}
 	for k in SAVED_KEYS:
 		out[k] = cfg[k]
-	var f := FileAccess.open(LAST_PATH, FileAccess.WRITE)
+	var f := FileAccess.open(last_path, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(out, "  "))
 		f.close()
 
 
 static func load_last() -> Dictionary:
-	if not FileAccess.file_exists(LAST_PATH):
+	if not FileAccess.file_exists(last_path):
 		return {}
-	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(LAST_PATH))
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(last_path))
 	return parsed if parsed is Dictionary else {}
 
 
