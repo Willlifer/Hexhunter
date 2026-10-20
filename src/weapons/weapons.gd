@@ -110,10 +110,11 @@ static func has_combo(weapon: String) -> bool:
 
 
 ## One hit of a basic string: { windup, recovery, mult, steps, stagger, splash }.
-## Hit 1 (and every bow basic) is the plain basic with the shared recovery.
+## Hit 1 (and every bow basic) is the plain basic with its own short recovery (H59).
 static func combo_hit(weapon: String, step: int) -> Dictionary:
 	var s := script(weapon)
-	var base := { "windup": basic_windup(weapon), "recovery": int(HHTune.value("recovery_ticks")), "mult": 1.0, "steps": 1,
+	var rec := int(HHTune.value("basic_recovery_bow_ticks" if weapon == "bow" else "basic_recovery_melee_ticks"))   # H59
+	var base := { "windup": basic_windup(weapon), "recovery": rec, "mult": 1.0, "steps": 1,
 		"stagger": HHTune.value("basic_stagger"), "splash": 0 }
 	if s != null and s.has_method("combo") and step >= 2:
 		base.merge(s.combo(step), true)

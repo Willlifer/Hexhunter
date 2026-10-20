@@ -21,7 +21,9 @@ const DEFAULTS := {
 	"dash_recover_ticks": 9.0,   # after a dash lands: this long before the next dash (no instant chain)
 	"dash_iframe_ticks": 5.0,    # from the dash's start: hits in this window are dodged (0.17 s)
 	# commit feel (H57, H58, Lane W)
-	"recovery_ticks": 9.0,       # 0.3 s rooted after every hunter action (basics, Q/E/R, W, the potion throw); combo hits carry their own
+	"recovery_ticks": 9.0,
+	"basic_recovery_melee_ticks": 5.0, # H59: lance / daggers string hit 1 (0.15 s asked; 5 ticks = 0.17 s at 30 Hz)
+	"basic_recovery_bow_ticks": 6.0,   # H59: every bow basic, 0.2 s       # 0.3 s rooted after every hunter action (basics, Q/E/R, W, the potion throw); combo hits carry their own
 	"recovery_turn_dps": 180.0,  # turning speed during a recovery (none during a wind-up: aim is fixed at its start)
 	"exchange_windup": 5.0,      # W gets a very short wind-up so you can see it go off
 	"combo_window_ticks": 20.0,  # lance / daggers: the next basic continues the string if it starts within this long after the last hit's recovery
@@ -34,7 +36,7 @@ const DEFAULTS := {
 	"charge_l2_s": 1.5,          # held this long: level 2
 	"charge_l3_s": 3.0,          # held this long: level 3, which fires on its own
 	"charge_move_mult": 0.5,     # bow and daggers move at this fraction of their speed while charging
-	"lance_charge_guard": 0.4,   # the lance braces while charging: damage taken is cut by this fraction (it cannot move)
+	"lance_charge_guard": 0.4,   # H59: and a charging lance is never interrupted or staggered (super armour)   # the lance braces while charging: damage taken is cut by this fraction (it cannot move)
 	# charge grid (Black | White's cycles mapped onto ticks)
 	"charge_step_ticks": 810.0,  # one step of axis decay every 27 s (author: 3x longer again, H35)
 	"charge_mark_ticks": 1350.0, # an unfired marker lasts 45 s

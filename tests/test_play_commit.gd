@@ -57,11 +57,14 @@ func test_recovery_after_every_action(c: HHSelfTest.HHCheck) -> void:
 		var at: Vector3 = p.pos
 		s.step({ "p1": { "move": Vector2i(6, 4), "move_pos": s.arena.stand(Vector2i(6, 4)) } })
 		c.ok((p.pos as Vector3).distance_to(at) < 0.01, "%s: rooted during the recovery" % cs[3])
-	# basics: hit 1 recovers recovery_ticks, a vault landing too
+	# basics (H59): a bow basic recovers basic_recovery_bow_ticks, a vault landing recovery_ticks
 	var s := _sim("bow", Vector2i(0, 4))
 	var p := s.unit("p1")
 	var ev := _steps(s, 60, { "p1": { "target": "m", "attack": true } })
-	c.ok(_of(ev, "recovery").any(func(e): return int(e.ticks) == _rec()), "a bow basic recovers recovery_ticks")
+	c.ok(_of(ev, "recovery").any(func(e): return int(e.ticks) == int(HHTune.value("basic_recovery_bow_ticks"))), "a bow basic recovers 0.2 s (H59)")
+	var d := _sim("daggers", Vector2i(0, 4))
+	var evd := _steps(d, 60, { "p1": { "target": "m", "attack": true } })
+	c.ok(_of(evd, "recovery").any(func(e): return int(e.ticks) == int(HHTune.value("basic_recovery_melee_ticks"))), "string hit 1 recovers 0.15 s (H59)")
 	var t := _sim("lance", Vector2i(0, 6))
 	var ev2 := _steps(t, int(HHTune.value("lance_r_air_ticks")) + 1, { "p1": { "cast": { "skill": "r", "aim": Vector2i(3, 5) } } })
 	c.ok(not _of(ev2, "land").is_empty() and not _of(ev2, "recovery").is_empty(), "a vault's landing recovers")
@@ -313,14 +316,17 @@ func test_monster_hit_interrupts_charge_combo_recovery(c: HHSelfTest.HHCheck) ->
 	c.ok(_of(u.events, "interrupted").any(func(e): return str(e.what).contains("recovery")), "interrupted { what: recovery }")
 
 
-func test_lance_charge_interrupted_but_braced(c: HHSelfTest.HHCheck) -> void:
+func test_lance_charge_braced_not_interrupted(c: HHSelfTest.HHCheck) -> void:
 	var s := _sim("lance", Vector2i(0, 6))
 	var p := s.unit("p1")
 	_steps(s, 20, { "p1": { "charge": { "skill": "q", "aim": Vector2i(0, 0) } } })
 	var hp := float(p.hp)
 	s.strike(s.unit("m"), p, 1000.0, p.hex, "bite")
-	c.near(hp - float(p.hp), 1000.0 * (1.0 - HHTune.value("lance_charge_guard")), 0.5, "the brace still cuts the interrupting hit")
-	c.ok(not s.charging(p), "the lance charge is interrupted")
+	c.near(hp - float(p.hp), 1000.0 * (1.0 - HHTune.value("lance_charge_guard")), 0.5, "the brace cuts the hit")
+	c.ok(s.charging(p), "the lance charge holds through a monster hit (H59 super armour)")
+	c.eq(int(p.flinch), 0, "no flinch while braced")
+	s.hurt(p, 100.0, "slam", 5.0, "m")
+	c.ok(s.charging(p) and int(p.stagger) == 0, "a staggering blow does not break the brace either")
 
 
 func test_what_does_not_interrupt(c: HHSelfTest.HHCheck) -> void:

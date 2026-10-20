@@ -1542,7 +1542,8 @@ func hurt(u: Dictionary, amount: float, cause: String, stagger: float = 0.0, by:
 	if int(u.get("dash_iframes", 0)) > 0:               # H56: the first ticks of a dash dodge
 		_emit({ "type": "dodge", "id": u.id, "amount": amount, "cause": cause })
 		return
-	if rooted(u):
+	var braced := rooted(u)                              # H59: a charging lance: super armour
+	if braced:
 		amount *= 1.0 - HHTune.value("lance_charge_guard")   # H56: the lance braces while it charges
 	var by_kind := str(unit(by).get("kind", "")) if by != "" else ""
 	if u.kind == "monster" and int(u.get("exposed", 0)) > 0 and by_kind == "player":
@@ -1552,7 +1553,7 @@ func hurt(u: Dictionary, amount: float, cause: String, stagger: float = 0.0, by:
 		u.aggro_id = by
 		u.aggro_tick = tick
 	u.hp = maxf(0.0, float(u.hp) - amount)
-	if stagger > 0.0:
+	if stagger > 0.0 and not braced:
 		var st := int(HHFormulas.stagger_ticks(stagger).value)
 		if u.kind == "monster":
 			st = int(float(st) * HHTune.value("monster_stagger_mult"))
@@ -1563,7 +1564,7 @@ func hurt(u: Dictionary, amount: float, cause: String, stagger: float = 0.0, by:
 			if charging(u):
 				cancel_charge(u, "stagger")
 	_emit({ "type": "hurt", "id": u.id, "amount": amount, "cause": cause, "hp": u.hp })
-	if interrupt and u.kind == "player" and by_kind == "monster" and float(u.hp) > 0.0:
+	if interrupt and not braced and u.kind == "player" and by_kind == "monster" and float(u.hp) > 0.0:
 		_interrupt(u, cause)                             # H58: a landed monster attack interrupts
 	if float(u.hp) <= 0.0:
 		_stop(u)
