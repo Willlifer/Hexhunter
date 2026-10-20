@@ -50,6 +50,7 @@ var _pending := {}
 var _script: Array = []
 var _elapsed := 0.0
 var _log := PackedStringArray()
+var dmg_by_cause := {}       ## damage dealt to the monster, by cause (the autoplay summary; tuning)
 var _over_for := -1.0        # seconds since sim.over was set; -1 while the fight runs
 var _finished := false
 
@@ -288,7 +289,8 @@ func _note(e: Dictionary) -> void:
 	if player_body != null and player_body.has_method("on_event") and str(e.get("id", "")) == player_id:
 		player_body.on_event(e, sim)
 	match str(e.type):
-		"detonate": _log.append("t%d detonate %s %.0f%%" % [e.tick, e.hex, e.pct])
+		"detonate": _log.append("t%d detonate %s x%.1f" % [e.tick, e.hex, float(e.get("mult", e.pct))])
+		"reaction": _log.append("t%d REACTION on %s: %d (%d blast%s)" % [e.tick, e.id, int(e.amount), int(e.blasts), "" if int(e.blasts) == 1 else "s"])
 		"overheat": _log.append("t%d OVERHEAT %s" % [e.tick, e.hex])
 		"overfreeze": _log.append("t%d OVERFREEZE %s" % [e.tick, e.hex])
 		"douse": _log.append("t%d douse %s" % [e.tick, e.hex])
@@ -299,6 +301,8 @@ func _note(e: Dictionary) -> void:
 				camera.shake(0.08 + 0.12 * clampf(float(e.amount) / 200.0, 0.0, 1.0))   # impact (H34)
 			_body_react(str(e.target), "hit_react")
 		"hurt":
+			if e.id == monster_id:
+				dmg_by_cause[str(e.cause)] = float(dmg_by_cause.get(str(e.cause), 0.0)) + float(e.amount)
 			if e.id == player_id:
 				_log.append("t%d you -%d (%s)" % [e.tick, int(e.amount), e.cause])
 				if camera != null and not str(e.cause) in ["fire", "burn", "poison", "dark", "fire_cross"]:
@@ -497,6 +501,10 @@ func _finish_autoplay() -> void:
 	if monster_id != "":
 		var m := sim.unit(monster_id)
 		print("  %s hp %d / %d" % [monster_id, int(m.hp), int(m.max_hp)])
+		var causes := dmg_by_cause.keys()
+		causes.sort_custom(func(a, b): return float(dmg_by_cause[a]) > float(dmg_by_cause[b]))
+		for c in causes:
+			print("  dealt by %s: %d" % [c, int(dmg_by_cause[c])])
 	for l in _log:
 		print("  ", l)
 	get_tree().quit(0)

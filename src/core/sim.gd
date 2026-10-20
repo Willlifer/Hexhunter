@@ -36,6 +36,7 @@ var charge: HHCharge
 var units := {}
 var order: Array = []
 var brains := {}
+var env: HHEnv = null           # H51: swells, vents, rockfalls, sunbreaks and gusts
 var hooks := {}                # unit id -> Object with tick(sim, u): a weapon's per-tick work (Knifedance), H42
 var projectiles: Array = []    # generic moving hexes, stepped per tick (H553): see launch()
 var telegraphs: Array = []
@@ -51,6 +52,7 @@ func _init(p_arena: HHArena, p_seed: int = 1) -> void:
 	rng.seed = p_seed
 	charge = HHCharge.new(arena)
 	charge.author_rows(arena.authored_rows())            # H43: the biome's permanent charge
+	env = HHEnv.new(self)                                # H51: the arena's own recurring events
 
 
 # ------------------------------------------------------------------ setup
@@ -196,6 +198,8 @@ func step(orders: Dictionary = {}) -> Array:
 		if not u.is_empty() and alive(u):
 			hooks[id].tick(self, u)
 	_projectiles()
+	if env != null:
+		env.tick()
 	for id in order:
 		var u: Dictionary = units[id]
 		if alive(u):
@@ -777,17 +781,21 @@ func paint(hexes: Array, element: String, caster: String, steps: int = 1, fresh:
 			damage_cells(hexes, HHTune.value("pillar_paint_dmg") * float(steps))
 	var r := charge.apply(hexes, element, caster, steps, fresh)
 	_emit({ "type": "paint", "id": caster, "element": element, "hexes": hexes.duplicate(), "changed": r.changed.duplicate() })
+	var hits := {}                                       # H50: unit id -> [{ amount, cause, stagger }] from this paint
 	for d in r.detonations:
-		_blast(d.hex, float(d.pct), HHFormulas.detonation_ring_pct(float(d.pct)).value, "detonate", d.mix, str(d.source))
+		_blast(hits, d.hex, float(d.mult), "detonate", d.mix, str(d.source))
 	for o in r.overheat:
 		_emit({ "type": "overheat", "hex": o.hex, "ring": o.ring })
+		var unit_o := reaction_unit(str(o.source))
 		for u in units_in(o.ring, str(o.source)):
-			hurt(u, HHFormulas.tile_damage(u.max_hp, float(o.pct), resist_of(u, "fire")).value, "overheat")
+			_react(hits, u, unit_o * float(o.mult) * (1.0 - resist_of(u, "fire") / 100.0), "overheat", 0.0)
 	for o in r.overfreeze:
 		_emit({ "type": "overfreeze", "hex": o.hex, "ring": o.ring })
+		var unit_f := reaction_unit(str(o.source))
 		for u in units_in([o.hex] + o.ring, str(o.source)):
-			hurt(u, HHFormulas.tile_damage(u.max_hp, float(o.pct), resist_of(u, "ice")).value, "overfreeze")
+			_react(hits, u, unit_f * float(o.mult) * (1.0 - resist_of(u, "ice") / 100.0), "overfreeze", 0.0)
 			apply_status(u, "slow", int(HHTune.value("overfreeze_slow_ticks")))
+	_land_reactions(hits)
 	for g in r.gales:
 		_emit({ "type": "gale", "hex": g.origin, "copies": g.copies })
 	for h in r.doused:
@@ -795,19 +803,59 @@ func paint(hexes: Array, element: String, caster: String, steps: int = 1, fresh:
 	return r
 
 
-func _blast(hex: Vector2i, pct: float, ring_pct: float, cause: String, mix: Dictionary, source: String) -> void:
-	_emit({ "type": "detonate", "hex": hex, "pct": pct, "mix": mix })
-	var hit := {}
+## H50: one reaction's "auto attack": the caster's basic damage at the lance's
+## cadence (daggers hit half as hard twice as often; their reactions match the
+## lance's), or reaction_unit_other when a monster or the arena set it off.
+func reaction_unit(source: String) -> float:
+	var u := unit(source)
+	if u.is_empty() or u.kind != "player":
+		return HHTune.value("reaction_unit_other")
+	var w := str(u.weapon)
+	return HHWeapons.basic_damage(w) * HHTune.value("lance_basic_ticks") / maxf(1.0, float(HHWeapons.basic_ticks(w)))
+
+
+func _blast(hits: Dictionary, hex: Vector2i, mult: float, cause: String, mix: Dictionary, source: String) -> void:
+	_emit({ "type": "detonate", "hex": hex, "mult": mult, "pct": mult, "mix": mix, "source": source })
+	var unit_d := reaction_unit(source)
+	var seen := {}
 	for u in unit_at(hex):
 		if not targetable(u) or u.id == source:
 			continue
-		hit[u.id] = true
-		hurt(u, HHFormulas.tile_damage(u.max_hp, pct, resist_of(u, "thunder")).value, cause, HHTune.value("detonate_stagger"))
+		seen[u.id] = true
+		_react(hits, u, unit_d * mult * (1.0 - resist_of(u, "thunder") / 100.0), cause, HHTune.value("detonate_stagger"))
+	var ring_mult: float = HHFormulas.detonation_ring_pct(mult).value
 	for n in arena.ring(hex, 1):
 		for u in unit_at(n):
-			if not hit.has(u.id) and targetable(u) and u.id != source:
-				hit[u.id] = true
-				hurt(u, HHFormulas.tile_damage(u.max_hp, ring_pct, resist_of(u, "thunder")).value, cause)
+			if not seen.has(u.id) and targetable(u) and u.id != source:
+				seen[u.id] = true
+				_react(hits, u, unit_d * ring_mult * (1.0 - resist_of(u, "thunder") / 100.0), cause, 0.0)
+
+
+func _react(hits: Dictionary, u: Dictionary, amount: float, cause: String, stagger: float) -> void:
+	if not hits.has(u.id):
+		hits[u.id] = []
+	(hits[u.id] as Array).append({ "amount": amount, "cause": cause, "stagger": stagger })
+
+
+## Every unit a paint's reactions caught takes its strongest blast in full plus
+## reaction_chain_frac of each other one (a big body standing on a dozen
+## detonating hexes is hit by a chain, not a dozen full blasts). Emits
+## `reaction` with the total for the view and the log.
+func _land_reactions(hits: Dictionary) -> void:
+	var ids := hits.keys()
+	ids.sort()
+	for id in ids:
+		var u := unit(str(id))
+		if u.is_empty():
+			continue
+		var list: Array = hits[id]
+		list.sort_custom(func(x, y): return float(x.amount) > float(y.amount))
+		var top: Dictionary = list[0]
+		var total := float(top.amount)
+		for i in range(1, list.size()):
+			total += float(list[i].amount) * HHTune.value("reaction_chain_frac")
+		_emit({ "type": "reaction", "id": u.id, "amount": total, "blasts": list.size(), "cause": top.cause })
+		hurt(u, total, str(top.cause), float(top.stagger))
 
 
 func hurt(u: Dictionary, amount: float, cause: String, stagger: float = 0.0) -> void:
@@ -876,6 +924,8 @@ func state_hash() -> int:
 		parts.append("%s:%d:%d:%s:%d:%d" % [h, int(e.h), int(e.v), e.marker, int(e.glaze), int(e.timer)])
 	for tg in telegraphs:
 		parts.append("tg%d:%d" % [int(tg.id), int(tg.left)])
+	if env != null:
+		parts.append("env%d:%d" % [env.next_tick, env.count])
 	for p in projectiles:
 		parts.append("pr%d:%s:%d:%d" % [int(p.id), p.hex, int(p.left), int(p.travelled)])
 	return hash("|".join(parts))

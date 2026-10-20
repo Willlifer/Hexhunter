@@ -25,7 +25,7 @@ static func _t(key: String) -> float:
 const TUNE := {
 	# basics
 	"reach": 7,                 # hexes to the target's footprint
-	"basic_dmg": 55.0,
+	"basic_dmg": 130.0,         # H50: was 55
 	"basic_ticks": 30,          # one arrow a second
 	"basic_windup": 8,          # the draw
 	# Q Energized shot
