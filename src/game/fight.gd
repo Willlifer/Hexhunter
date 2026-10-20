@@ -232,6 +232,8 @@ func _process(delta: float) -> void:
 		_pending = {}
 		for e in ev:
 			_note(e)
+			if view != null:
+				view.on_event(e, sim)                      # R-FX1: the effects layer
 			if sfx != null:
 				sfx.on_event(e, sim)
 		steps += 1

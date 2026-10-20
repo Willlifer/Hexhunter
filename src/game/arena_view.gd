@@ -6,8 +6,8 @@ extends Node3D
 ## Reads the sim; never writes it.
 ## Lane FX: `fxl` (HHFxLayer) draws the telegraph wind-up effects, the
 ## hunter's skill build-ups and impacts and the monsters' standing state
-## effects; one-shots arrive through `on_event` (the fight's event loop), or,
-## until the fight calls it, relayed from HHSfx.relayed. The painted hexes
+## effects; one-shots arrive through `on_event` (the fight's event loop),
+## called by the fight beside sfx.on_event (R-FX1). The painted hexes
 ## carry L-4's standing cards (flames, the light column, abyss tendrils).
 
 const FX_LIFT := 0.04        # painted faces sit this far above the ground
@@ -21,8 +21,6 @@ var floor_mi: MeshInstance3D
 var fx := {}                 # hex -> { face_h, face_v, cards_h, cards_v, mark, tier_h, tier_v, tier_m }
 var fxl: HHFxLayer           # Lane FX: wind-ups, impacts, state effects
 var _player_id := ""
-var _relay_hooked := false
-var _direct_events := false  # true once the fight feeds on_event itself
 var tg_pool: Array = []      # MeshInstance3D for telegraph hexes
 var true_hex: MeshInstance3D
 var dest_hex: MeshInstance3D
@@ -71,7 +69,6 @@ func build(a: HHArena, p_asset: GKAsset = null) -> void:
 	fxl.name = "Fx"
 	add_child(fxl)
 	fxl.setup(arena)
-	_relay_hooked = false
 
 
 func _build_floor() -> void:
@@ -177,34 +174,16 @@ func sync(sim: HHSim, player_id: String, delta: float) -> void:
 	_sync_telegraphs(sim, player_id)
 	_sync_projectiles(sim, delta)
 	_player_id = player_id
-	_hook_relay()
 	if fxl != null:
 		fxl.sync(sim, player_id, delta)
 
 
 ## One sim event for the one-shot effects (strike, cast, pierce, eruption,
-## arrowstorm ...). The fight's event loop should call this beside
-## sfx.on_event (Lane FX request); once it does, the HHSfx relay is ignored.
+## arrowstorm, reactions ...). The fight's event loop calls this beside
+## sfx.on_event (R-FX1).
 func on_event(e: Dictionary, sim: HHSim) -> void:
-	_direct_events = true
 	if fxl != null:
 		fxl.on_event(e, sim, _player_id)
-
-
-func _on_relay(e: Dictionary, sim: HHSim) -> void:
-	if not _direct_events and fxl != null:
-		fxl.on_event(e, sim, _player_id)
-
-
-## Until the fight feeds on_event, listen to the sound relay (HHSfx sees
-## every event the fight steps).
-func _hook_relay() -> void:
-	if _relay_hooked or get_parent() == null:
-		return
-	var s: Variant = get_parent().get("sfx")
-	if s is HHSfx:
-		(s as HHSfx).relayed.connect(_on_relay)
-		_relay_hooked = true
 
 
 ## R-U3: the hunter's own telegraphs (its id as owner, or the upgrade shapes

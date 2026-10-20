@@ -79,13 +79,9 @@ func play_use(use: String, at: Vector3 = Vector3.INF, volume_db: float = 0.0) ->
 
 
 ## The sim event -> sound mapping, in one place.
-## Lane FX: every event the fight hands the sounds is relayed to the view's
-## effects layer until the fight feeds HHArenaView.on_event itself.
-signal relayed(e: Dictionary, sim: HHSim)
 
 
 func on_event(e: Dictionary, sim: HHSim) -> void:
-	relayed.emit(e, sim)
 	var t := str(e.type)
 	match t:
 		"paint":
