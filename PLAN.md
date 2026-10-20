@@ -1,7 +1,7 @@
 # PLAN — Hexhunt
 
 Phases with gates. The author checks each gate before the next phase starts.
-Status: **Phase 2 gate passed 2026-10-19 ("loved all of the fights"; fire tuned down, H46). Phase 3 running as four worktree lanes (L lobby, H hunt loop, U upgrades, V visual hooks), contract in guide/02 (H48).**
+Status: **Phase 3 built 2026-10-19: lobby, hunt loop, twelve upgrades with drops and a save, monster state visuals; all four lanes merged and wired (H612-H613), 227/227. Awaiting the author's Phase 3 gate** (LEDGER L-16).
 
 ## 0. Interview record
 
