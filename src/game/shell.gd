@@ -22,7 +22,7 @@ static func default_cfg() -> Dictionary:
 	return {
 		"arena": "pond", "monster": "swampfang", "weapon": "lance",
 		"element": "fire", "backup": "water", "seed": 1,
-		"upgrades": { "q": [], "w": [], "e": [], "r": [] },
+		"upgrades": { "q": [], "w": [], "e": [], "r": [], "t": [] },   # t = the potion (Lane U)
 		"locked": [], "cam": "30,44",
 	}
 

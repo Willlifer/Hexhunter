@@ -115,6 +115,7 @@ func test_lobby_element_pair(c: HHSelfTest.HHCheck) -> void:
 
 func test_locked_keys_refuse_picks(c: HHSelfTest.HHCheck) -> void:
 	var s := HHLobbyState.new()
+	s.save = HHSave.new()
 	s.setup({ "arena": "cave", "monster": "rimeslithe", "locked": ["arena", "monster"] })
 	c.eq(str(s.cfg.arena), "cave", "prefilled arena")
 	c.eq(str(s.cfg.monster), "rimeslithe", "prefilled monster")
@@ -129,6 +130,7 @@ func test_locked_keys_refuse_picks(c: HHSelfTest.HHCheck) -> void:
 	c.eq(str(s.cfg.arena), "cave", "the arrow keys respect the lock")
 	c.ok(s.is_locked("arena") and not s.is_locked("weapon"), "is_locked")
 	var s2 := HHLobbyState.new()
+	s2.save = HHSave.new()
 	s2.setup({ "locked": ["element", "seed"] })
 	c.ok(not s2.pick_element("dark"), "locked elements refused")
 	c.ok(not s2.set_seed(9), "locked seed refused")
@@ -139,3 +141,62 @@ func test_result_line(c: HHSelfTest.HHCheck) -> void:
 	c.eq(HHShell.result_line({ "result": "fallen", "ticks": 130 * 30 }), "FALLEN at 2:10", "fallen line")
 	c.eq(HHShell.result_line({ "result": "abort", "ticks": 31 * 30 }), "aborted at 0:31", "abort line")
 	c.eq(HHShell.result_line({}), "", "no result")
+
+
+func test_setup_cfg_passes_upgrades_to_the_player(c: HHSelfTest.HHCheck) -> void:
+	var ups := HHUpgrades.empty_slots()
+	ups.e = ["guard_stagger"]
+	var f := HHFight.new()
+	f.setup_cfg({ "arena": "round", "monster": "", "weapon": "lance", "seed": 1, "headless": true, "upgrades": ups })
+	var p := f.sim.unit("p1")
+	c.ok(HHUpgrades.has(p, "guard_stagger"), "R-U1: cfg.upgrades reach sim.add_player")
+	c.ok(not HHUpgrades.has(p, "pierce_wide"), "only the slotted ones")
+	f.free()
+
+
+func test_lobby_slots_owned_upgrades(c: HHSelfTest.HHCheck) -> void:
+	var s := HHLobbyState.new()
+	s.save = HHSave.new()
+	HHSave.path = "user://test_lobby_hunter.json"
+	s.setup({ "weapon": "lance" })
+	c.ok(not s.toggle_upgrade("guard_stagger"), "unowned: refused")
+	s.save.own("guard_stagger")
+	s.save.own("exchange_immune")
+	c.ok(s.toggle_upgrade("guard_stagger"), "owned: slotted")
+	c.ok(s.is_slotted("guard_stagger"), "cfg.upgrades carries it")
+	c.ok((s.cfg.upgrades as Dictionary).e.has("guard_stagger"), "under its skill")
+	c.ok(s.toggle_upgrade("exchange_immune"), "an any-weapon upgrade slots too")
+	c.ok(s.pick("weapon", "bow"), "weapon switch")
+	c.ok(not s.is_slotted("guard_stagger"), "the lance's slots stay with the lance")
+	c.ok(not s.toggle_upgrade("guard_stagger"), "a lance upgrade refuses the bow")
+	c.ok(s.pick("weapon", "lance"), "back to the lance")
+	c.ok(s.is_slotted("guard_stagger"), "its slots come back")
+	c.ok(s.toggle_upgrade("guard_stagger"), "toggle again unslots")
+	c.ok(not s.is_slotted("guard_stagger"), "unslotted")
+	HHSave.wipe()
+	HHSave.path = HHSave.DEFAULT_PATH
+
+
+func test_shell_routes_fight_to_lobby(c: HHSelfTest.HHCheck) -> void:
+	var shell := HHShell.new()
+	var cfg := HHShell.default_cfg()
+	cfg.arena = "round"
+	cfg.headless = true
+	cfg.element = "wind"
+	cfg.seed = 5
+	shell.play(cfg)
+	c.ok(shell.screen is HHFight, "play shows a fight")
+	c.eq(int(shell.last_cfg.seed), 5, "last_cfg kept")
+	var f: HHFight = shell.screen
+	c.eq(str(f.sim.unit("p1").element), "wind", "the fight took the cfg")
+	f._finish("abort")
+	c.ok(shell.screen is HHLobby, "a finished fight routes to the lobby")
+	c.eq(str(shell.last_result.result), "abort", "with the result")
+	c.eq(shell.fights_run, 1, "fights counted")
+	var lobby: HHLobby = shell.screen
+	c.ok(lobby.can_replay, "replay enabled after a fight")
+	c.eq(str(lobby.state.cfg.element), "wind", "the lobby is prefilled from the cfg")
+	shell.new_seed()
+	c.ok(shell.screen is HHFight, "new seed fights again")
+	c.eq((shell.screen as HHFight).sim.seed, 6, "with the seed bumped")
+	shell.free()

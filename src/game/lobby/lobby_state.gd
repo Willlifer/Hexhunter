@@ -14,6 +14,7 @@ const ROWS := ["arena", "monster", "weapon"]     # keys 1-3 jump these rows, 4 t
 
 var cfg: Dictionary = HHShell.default_cfg()
 var locked: Array = []
+var save: HHSave = null          # the hunter's save (owned + slotted upgrades, Lane U); null in bare tests
 var arena_picked_after_monster := false
 var element_phase := 0            # 0: the next element click sets active; 1: sets backup
 var row := 0                      # the row the keyboard cursor sits on (0-3)
@@ -34,6 +35,42 @@ func setup(given: Dictionary) -> void:
 		arena_picked_after_monster = true     # a locked arena is never dragged by a monster pick
 	element_phase = 0
 	_sane()
+	if save == null:
+		save = HHSave.load_or_new()
+	_sync_upgrades()
+
+
+## cfg.upgrades follows the save's slots for the picked weapon (R-U1).
+func _sync_upgrades() -> void:
+	if save != null:
+		cfg.upgrades = save.upgrades_for(str(cfg.weapon))
+
+
+## Slot an owned upgrade into its skill for the picked weapon, or unslot it
+## when it is there; saves the hunter. False when refused (unowned, full,
+## wrong weapon, locked upgrades).
+func toggle_upgrade(id: String) -> bool:
+	if save == null or is_locked("upgrades"):
+		return false
+	var skill := str((HHUpgrades.TABLE.get(id, {}) as Dictionary).get("skill", ""))
+	var weapon := str(cfg.weapon)
+	var ok: bool
+	if is_slotted(id):
+		ok = save.unslot(weapon, skill, id)
+	else:
+		ok = save.slot(weapon, skill, id)
+	if ok:
+		save.save()
+		_sync_upgrades()
+	return ok
+
+
+func is_slotted(id: String) -> bool:
+	var ups: Dictionary = cfg.get("upgrades", {})
+	for skill in ups:
+		if id in (ups[skill] as Array):
+			return true
+	return false
 
 
 func is_locked(key: String) -> bool:
@@ -53,6 +90,8 @@ func pick(kind: String, id: String) -> bool:
 			if not arena_picked_after_monster and not is_locked("arena") and biome != "":
 				cfg.arena = biome
 			arena_picked_after_monster = false
+		"weapon":
+			_sync_upgrades()
 	return true
 
 

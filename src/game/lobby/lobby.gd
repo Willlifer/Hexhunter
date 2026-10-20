@@ -25,7 +25,7 @@ const ELEM_Y := 620.0                 # the element discs' top
 const ELEM_R := 34.0
 const ELEM_STEP := 120.0
 const CARD := Rect2(1212, 96, 364, 624)   # the right card: seed, buttons
-const TICKER := Rect2(24, 745, 1552, 64)
+const TICKER := Rect2(24, 745, 1168, 64)     # ends before the card, which may grow with the upgrade list
 const HINT_Y := 822.0
 const LABEL_SIZE := 18
 const BG := Color(0.05, 0.06, 0.08)
@@ -46,6 +46,7 @@ var _seed: SpinBox
 var _pair: Label
 var _replay: Button
 var _new_seed: Button
+var _ups_box: VBoxContainer
 var _tune: HHTunePanel
 var _font: Font
 
@@ -136,7 +137,7 @@ func _build_card() -> void:
 	p.size = CARD.size
 	add_child(p)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 12)
+	v.add_theme_constant_override("separation", 8)
 	p.add_child(v)
 	var head := HBoxContainer.new()
 	v.add_child(head)
@@ -151,7 +152,7 @@ func _build_card() -> void:
 	gear.pressed.connect(func(): _tune.open())
 	head.add_child(gear)
 	_pair = Label.new()
-	_pair.add_theme_font_size_override("font_size", 18)
+	_pair.add_theme_font_size_override("font_size", 16)
 	_pair.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(_pair)
 	var sl := Label.new()
@@ -179,27 +180,60 @@ func _build_card() -> void:
 	sh.add_child(dice)
 	var fight := Button.new()
 	fight.text = "FIGHT   (Enter)"
-	fight.custom_minimum_size = Vector2(0, 72)
-	fight.add_theme_font_size_override("font_size", 28)
+	fight.custom_minimum_size = Vector2(0, 60)
+	fight.add_theme_font_size_override("font_size", 26)
 	fight.pressed.connect(_fight)
 	v.add_child(fight)
 	_replay = Button.new()
 	_replay.text = "Replay last fight"
-	_replay.custom_minimum_size = Vector2(0, 44)
+	_replay.custom_minimum_size = Vector2(0, 38)
 	_replay.pressed.connect(_fight)
 	v.add_child(_replay)
 	_new_seed = Button.new()
 	_new_seed.text = "New seed, same setup"
-	_new_seed.custom_minimum_size = Vector2(0, 44)
+	_new_seed.custom_minimum_size = Vector2(0, 38)
 	_new_seed.pressed.connect(func():
 		if state.set_seed(int(state.cfg.seed) + 1):
 			_fight())
 	v.add_child(_new_seed)
+	var ul := Label.new()
+	ul.text = "Upgrades (drops; tick to slot)"
+	ul.add_theme_color_override("font_color", DIM)
+	v.add_child(ul)
+	_ups_box = VBoxContainer.new()
+	_ups_box.add_theme_constant_override("separation", 2)
+	v.add_child(_ups_box)
 	var keys := Label.new()
-	keys.text = "In the fight:\nright-click  move / attack\nQ E R  cast at the cursor\nW  swap element   T  potion\nShift  walk   Space  stop\nEsc / F10  back here"
-	keys.add_theme_font_size_override("font_size", 14)
+	keys.text = "In the fight: right-click moves / attacks, Q E R cast, W swaps, T potion, Esc back here"
+	keys.add_theme_font_size_override("font_size", 12)
 	keys.add_theme_color_override("font_color", DIM)
+	keys.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(keys)
+
+
+## One CheckBox per upgrade that fits the picked weapon (Lane U's table):
+## ticked = slotted, greyed = not owned yet (the hover says who drops it).
+func _refresh_upgrades() -> void:
+	for ch in _ups_box.get_children():
+		ch.queue_free()
+	if state.save == null:
+		return
+	for id in HHUpgrades.for_weapon(str(state.cfg.weapon)):
+		var row: Dictionary = HHUpgrades.TABLE[id]
+		var cb := CheckBox.new()
+		cb.text = "%s  %s" % [str(row.skill).to_upper(), HHUpgrades.name_of(id)]
+		cb.add_theme_font_size_override("font_size", 13)
+		cb.button_pressed = state.is_slotted(id)
+		cb.disabled = not state.save.owns(id) or state.is_locked("upgrades")
+		var drops := ", ".join((row.get("drops_from", []) as Array).map(func(m): return HHRegistry.name_of("monster", str(m))))
+		var line := "%s: %s%s" % [HHUpgrades.name_of(id), HHUpgrades.blurb_of(id), "" if state.save.owns(id) else "   (drops from %s)" % drops]
+		cb.mouse_entered.connect(func(): _ticker.text = line)
+		cb.mouse_exited.connect(_ticker_rest)
+		cb.toggled.connect(func(_on: bool):
+			if not state.toggle_upgrade(id):
+				_ticker.text = "%s: slots full for %s (max %d)" % [HHUpgrades.name_of(id), str(row.skill).to_upper(), HHUpgrades.MAX_PER_SKILL]
+			_refresh())
+		_ups_box.add_child(cb)
 
 
 func _build_ticker() -> void:
@@ -270,6 +304,7 @@ func _refresh() -> void:
 		HHRegistry.name_of("element", str(state.cfg.element)), HHRegistry.name_of("element", str(state.cfg.backup))]
 	_replay.disabled = not can_replay
 	_new_seed.disabled = not can_replay
+	_refresh_upgrades()
 	_ticker_rest()
 
 

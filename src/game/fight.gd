@@ -34,6 +34,7 @@ var player_id := "p1"
 var weapon := "lance"        # --weapon lance | daggers | bow
 var element := "fire"        # the hunter's active element (the lobby's pick, L-15)
 var backup := "water"        # ... and backup
+var upgrades: Dictionary = {}    # slotted upgrade ids per skill (cfg.upgrades, Lane U's R-U1)
 var cfg: Dictionary = {}     # the launch config this fight came from (setup_cfg)
 var headless := false        # cfg.headless: no view, camera, bodies or HUD (tests)
 var monster_id := ""
@@ -62,6 +63,7 @@ func setup_cfg(p_cfg: Dictionary) -> void:
 	weapon = str(cfg.get("weapon", "lance"))
 	element = str(cfg.get("element", "fire"))
 	backup = str(cfg.get("backup", "water"))
+	upgrades = (cfg.get("upgrades", {}) as Dictionary).duplicate(true)
 	sandbox = bool(cfg.get("sandbox", false))
 	autoplay = bool(cfg.get("autoplay", false))
 	autoplay_seconds = float(cfg.get("autoplay_seconds", autoplay_seconds))
@@ -88,7 +90,7 @@ func setup(p_arena: HHArena, seed: int, monster: String = "", p_asset: GKAsset =
 	sim = HHSim.new(arena, seed)
 	sim.sandbox = sandbox or autoplay
 	var start: Vector2i = arena.spawns.player[0]
-	sim.add_player(player_id, start, element, backup, weapon)
+	sim.add_player(player_id, start, element, backup, weapon, upgrades)
 	if monster != "":
 		monster_id = monster
 		_add_monster(monster)
