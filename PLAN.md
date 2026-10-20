@@ -1,7 +1,7 @@
 # PLAN — Hexhunt
 
 Phases with gates. The author checks each gate before the next phase starts.
-Status: **Phase 4 co-op built 2026-10-20: lanes N, S, C merged and wired (H52-H55), 288/288; host and client proven as two processes and from the exported exe. Awaiting the author's co-op gate (LEDGER L-27). Then Phase 5 web.**
+Status: **Phase 4 co-op built; combat-feel pass merged 2026-10-20 (H56-H58: charged Q, dash, thrown potion, range rings, recovery, escapes, combos, facing lock, hit-stop, exposed windows, interrupts), 327/327. Awaiting the author's play (LEDGER L-27, L-31). Then Phase 5 web.**
 
 ## 0. Interview record
 

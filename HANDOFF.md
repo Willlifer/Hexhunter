@@ -5,7 +5,8 @@
 
 ## Where it stands (2026-10-20, co-op)
 Phases 0-3 and the visual pass passed. Phase 4 co-op merged: host-authoritative state streaming over ENet (src/net: HHNet, HHSession, HHSnapshot, HHReplicator; 11.7 KB/s per client with four hunters), sim co-op rules (four spawns, monster HP x1.6 per extra hunter, downed + revive, aggro with a 2 s commit; H53, H54), the game side (party fight with nameplates, rings and party frames, lobby "Play together" panel, co-op hunt loop, --host / --join / --name / --port / --peers, Host.bat / Join.bat), the host leaving ends the fight for all (H55). Self-test 288/288 in 39 suites. Two real processes and the exported exe agree as host and client.
-Waiting on the author's co-op gate (LEDGER L-27).
+Then the combat-feel pass (H56-H58, Lane W, H950-H970): charged Q on all weapons, Shift dash (2 charges), thrown heal-zone potion, range rings, run 6 m/s, 0.3 s recovery, dash/movement-skill escapes, lance/dagger 3-hit strings, facing lock, hit-stop, exposed windows, monster hits interrupt. 327/327 in 41 suites; solo and co-op smoke clean from the exported exe.
+Waiting on the author's play (LEDGER L-27 co-op, L-31 combat feel).
 
 ## Do this first
 1. Author plays co-op on a LAN (Host.bat / Join.bat). Notes -> DECISIONS Author rows.
