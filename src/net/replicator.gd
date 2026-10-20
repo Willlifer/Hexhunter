@@ -150,6 +150,18 @@ func publish(tick: int, events: Array) -> void:
 	_prev = cur
 
 
+## H55: the host's last word when it leaves a fight: one more tick (so no
+## client drops it as stale) sent as a full snapshot on the reliable channel
+## to every peer, carrying sim.over and the closing events.
+func publish_final(events: Array) -> void:
+	if role != "host":
+		return
+	sim.tick += 1
+	for peer in net.peers():
+		_need_full[peer] = true
+	publish(sim.tick, events)
+
+
 func _on_peer_left(peer: int) -> void:
 	_orders.erase(peer)
 	_need_full.erase(peer)

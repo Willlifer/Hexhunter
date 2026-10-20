@@ -409,6 +409,9 @@ func _consume(e: Dictionary) -> void:
 ## Once the sim is over, hold `fight_end_hold_s` (the VICTORY / FALLEN text
 ## shows), then emit `finished` once. Autoplay runs keep quitting on their own.
 func _watch_over(delta: float) -> void:
+	if not _finished and net_mode == "client" and sim.over == "abort":    # H55: the host left the fight
+		_finish("host_left")
+		return
 	if _finished or sim.over == "" or autoplay:
 		return
 	_over_for = maxf(_over_for, 0.0) + delta
@@ -420,6 +423,10 @@ func _finish(result: String) -> void:
 	if _finished:
 		return
 	_finished = true
+	if net_mode == "host" and replicator != null and sim.over == "":            # H55: tell the party before leaving
+		sim.over = "abort"
+		if replicator.has_method("publish_final"):
+			replicator.publish_final([{ "type": "over", "result": "abort", "tick": sim.tick + 1 }])
 	finished.emit(payload(result))
 
 

@@ -215,6 +215,11 @@ func test_loopback_fight_hash_agreement(c: HHSelfTest.HHCheck) -> void:
 	c.ok((hs.unit("p2").pos as Vector3).distance_to(p2_start) > 2.0, "the client's order moved its hunter on the host")
 	c.eq(hs.unit("p2").hex, goal, "... to the hex it asked for")
 	c.ok(events.any(func(e): return str(e.type) == "telegraph") and events.any(func(e): return str(e.type) == "move"), "events arrive (%d)" % events.size())
+	# H55: the host leaves the fight: its last word arrives reliably and ends the client's fight
+	hs.over = "abort"
+	hr.publish_final([{ "type": "over", "result": "abort", "tick": hs.tick + 1 }])
+	c.ok(_poll([h, k], func(): kr.pump(); return ms.over == "abort", 2000), "the host leaving reaches the client mirror (over = %s)" % ms.over)
+	c.ok(events.any(func(e): return str(e.type) == "over" and str(e.result) == "abort"), "with the closing event")
 	hr.free()
 	kr.free()
 	k.leave()
