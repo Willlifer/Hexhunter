@@ -12,7 +12,10 @@ extends RefCounted
 
 const OWNER := "env"
 
-var sim: HHSim
+var _sim_ref: WeakRef = null     # the sim owns this object; a strong ref back would be a leak cycle
+var sim: HHSim:
+	get:
+		return _sim_ref.get_ref() as HHSim if _sim_ref != null else null
 var rng := RandomNumberGenerator.new()
 var next_tick := 0
 var count := 0                    ## pulses fired so far (glade alternates on this)
@@ -20,16 +23,16 @@ var by_kind := {}                 ## kind -> Array[Vector2i]
 
 
 func _init(p_sim: HHSim) -> void:
-	sim = p_sim
-	rng.seed = int(sim.seed) * 7919 + 101
-	for h in sim.arena.cells:
-		var k := sim.arena.kind(h)
+	_sim_ref = weakref(p_sim)
+	rng.seed = int(p_sim.seed) * 7919 + 101
+	for h in p_sim.arena.cells:
+		var k := p_sim.arena.kind(h)
 		if not by_kind.has(k):
 			by_kind[k] = []
 		(by_kind[k] as Array).append(h)
 	for k in by_kind:
 		(by_kind[k] as Array).sort()
-	next_tick = _period()
+	next_tick = _period_for(str(p_sim.arena.id))
 
 
 func biome() -> String:
@@ -41,9 +44,13 @@ func active() -> bool:
 
 
 func _period() -> int:
-	if not biome() in ["pond", "cave", "glade", "caldera"]:
+	return _period_for(biome())
+
+
+static func _period_for(b: String) -> int:
+	if not b in ["pond", "cave", "glade", "caldera"]:
 		return 1 << 30
-	return int(HHTune.value("env_%s_every" % biome()) * 30.0)
+	return int(HHTune.value("env_%s_every" % b) * 30.0)
 
 
 func tick() -> void:
