@@ -230,12 +230,12 @@ func _apply(_delta: float) -> void:
 	for i in _rings.size():
 		var r: MeshInstance3D = _rings[i]
 		var ph := fmod(time / period + float(i) / 3.0, 1.0)
-		var sc := maxf(0.2, ph * 6.0)
+		var sc := maxf(0.3, ph * 7.0)
 		r.scale = Vector3(sc, 1.0, sc)
 		var m: StandardMaterial3D = r.material_override
 		var base: Color = HHHuntKit.disturbance(biome).ring
 		var fade := 1.0 - clampf((time - burst_at) / 0.5, 0.0, 1.0)
-		m.albedo_color = Color(base.r, base.g, base.b, base.a * (1.0 - ph) * (1.0 - ph) * fade)
+		m.albedo_color = Color(base.r, base.g, base.b, base.a * (1.0 - ph) * fade)
 	# the camera: on the hunter, then a swing onto the monster
 	var sw := smoothstep(0.0, 1.0, clampf((time - burst_at + 0.1) / (burst_s + 0.5), 0.0, 1.0))
 	var yaw_h := _yaw_from_to(_monster_pos, _hunter_pos)         # behind the hunter, looking at the spawn

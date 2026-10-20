@@ -24,13 +24,19 @@ func setup(p_cfg: Dictionary) -> void:
 	_setup_done = true
 	cfg = p_cfg.duplicate(true)
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	var layer := CanvasLayer.new()                  # fills the viewport whatever the parent is
+	layer.layer = 20
+	add_child(layer)
+	var root := Control.new()
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(root)
 	var dim := ColorRect.new()
 	dim.color = Color(0.05, 0.06, 0.08, 1.0)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(dim)
+	root.add_child(dim)
 	var centre := CenterContainer.new()
 	centre.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(centre)
+	root.add_child(centre)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 16)
 	centre.add_child(col)
@@ -87,19 +93,6 @@ func setup(p_cfg: Dictionary) -> void:
 	hunt.pressed.connect(func() -> void: _finish({ "result": "play", "cfg": cfg.duplicate(true) }))
 	brow.add_child(hunt)
 	col.add_child(HHHuntKit.label("Enter: hunt    Esc: back", 14, Color(0.55, 0.55, 0.55)))
-
-
-## Under a plain Node parent a Control has no size: fill the viewport ourselves.
-func _ready() -> void:
-	_fit()
-	get_viewport().size_changed.connect(_fit)
-
-
-func _fit() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
-	if get_parent() is not Control:
-		position = Vector2.ZERO
-		size = get_viewport().get_visible_rect().size
 
 
 func _pick(table: Dictionary, key: String, value: String) -> void:

@@ -10,6 +10,7 @@ extends SceneTree
 var out_dir := "design/hunt/shots"
 var seeds: PackedStringArray = ["1", "2"]
 var monsters: PackedStringArray = ["swampfang", "colambros", "rimeslithe", "spirewalker"]
+var lurk_t := 0.45
 var shell: HHHuntShellStub
 
 
@@ -24,6 +25,9 @@ func _initialize() -> void:
 	i = args.find("--monsters")
 	if i >= 0 and i + 1 < args.size():
 		monsters = args[i + 1].split(",")
+	i = args.find("--lurk")
+	if i >= 0 and i + 1 < args.size():
+		lurk_t = float(args[i + 1])
 	root.size = Vector2i(1600, 900)
 	shell = HHHuntShellStub.new()
 	shell.name = "Shell"
@@ -45,7 +49,8 @@ func _run() -> void:
 		var am := HHAmbush.new()
 		shell.show_screen(am, { "monster": m, "arena": arena, "seed": 1, "weapon": "lance" })
 		am.paused = true
-		am.scrub(0.45)
+		am.scrub(lurk_t)
+		print("ambush %s: hunter %s monster %s surface %s" % [m, am._hunter_pos, am._monster_pos, am.arena.surface(am.arena.spawns.monster)])
 		await _frames(12)
 		await _save("ambush_%s_lurk.png" % m)
 		am.paused = false
@@ -56,7 +61,7 @@ func _run() -> void:
 		await _frames(2)
 		await _save("ambush_%s_peak.png" % m)
 	var r := HHResults.new()
-	r.inject(null, null)
+	r.inject(HHHuntFlow.script_named("HHDrops"), null)      # real drops when Lane U is in; no save written
 	shell.show_screen(r, { "cfg": { "monster": "swampfang", "arena": "pond", "seed": 1, "weapon": "lance" },
 		"fight": { "result": "win", "ticks": 2460, "hp": 1240.0, "monster_hp": 0.0 } })
 	await _frames(6)

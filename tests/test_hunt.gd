@@ -9,11 +9,16 @@ extends RefCounted
 class FakeDrops:
 	extends RefCounted
 	var calls := 0
-	func roll(monster: String, rng: RandomNumberGenerator) -> Array:
+	var last_owned: Array = []
+	var last_weapon := ""
+	func roll(monster: String, rng: RandomNumberGenerator, weapon: String = "", owned: Array = []) -> Array:
 		calls += 1
+		last_owned = owned.duplicate()
+		last_weapon = weapon
 		return ["%s_hide" % monster, "sharp_%d" % rng.randi_range(1, 3)]
 
 
+## A plain save (arrays only): the screen appends to owned / hunts itself.
 class FakeSave:
 	extends RefCounted
 	var owned: Array = []
@@ -23,6 +28,28 @@ class FakeSave:
 		return self
 	func save() -> void:
 		saved += 1
+
+
+## HHSave's surface (R-U2): own(id), record_hunt(...), save(); no disk.
+class ApiSave:
+	extends RefCounted
+	var owned: Array = ["already_had"]
+	var hunts: Array = []
+	var saved := 0
+	func load_or_new() -> ApiSave:
+		return self
+	func own(id: String) -> bool:
+		if id in owned:
+			return false
+		owned.append(id)
+		return true
+	func record_hunt(monster: String, arena: String, weapon: String, result: String, seconds: float) -> Dictionary:
+		var row := { "monster": monster, "arena": arena, "weapon": weapon, "result": result, "seconds": seconds }
+		hunts.append(row)
+		return row
+	func save() -> bool:
+		saved += 1
+		return true
 
 
 class NoPlayShell:
@@ -238,6 +265,34 @@ func test_results_with_drops_and_save(c: HHSelfTest.HHCheck) -> void:
 	r.free()
 	r2.free()
 	r3.free()
+
+
+func test_results_uses_the_save_api(c: HHSelfTest.HHCheck) -> void:
+	# R-U2: roll(monster, rng, weapon, save.owned), then own(id), record_hunt(...), save()
+	var drops := FakeDrops.new()
+	var save := ApiSave.new()
+	var r := HHResults.new()
+	r.inject(drops, save)
+	r.setup({ "cfg": { "monster": "rimeslithe", "arena": "cave", "seed": 9, "weapon": "bow" }, "fight": { "result": "win", "ticks": 3000, "hp": 10.0, "monster_hp": 0.0 } })
+	c.eq(drops.last_weapon, "bow", "the weapon reaches the roll")
+	c.eq(drops.last_owned, ["already_had"], "the save's owned list reaches the roll")
+	c.ok("rimeslithe_hide" in save.owned, "own(id) was called per drop")
+	c.eq(save.hunts.size(), 1, "record_hunt was called")
+	if save.hunts.size() == 1:
+		c.eq(save.hunts[0].result, "win", "with the verdict")
+		c.near(float(save.hunts[0].seconds), 100.0, 0.01, "and the seconds")
+	c.eq(save.saved, 1, "save() once")
+	r.free()
+	# the real HHDrops and HHUpgrades, when Lane U has merged: a real roll and real card text
+	var real := HHHuntFlow.script_named("HHDrops")
+	if real != null:
+		var r2 := HHResults.new()
+		r2.inject(real, ApiSave.new())
+		r2.setup({ "cfg": { "monster": "swampfang", "arena": "pond", "seed": 1, "weapon": "lance" }, "fight": { "result": "win", "ticks": 1500, "hp": 500.0, "monster_hp": 0.0 } })
+		c.ok(r2.drops.size() >= 1, "the real HHDrops rolls at least one drop for Swampfang (%s)" % str(r2.drops))
+		for id in r2.drops:
+			c.ok(HHResults.card_text(str(id)).blurb != "", "drop %s has a blurb from HHUpgrades.TABLE" % str(id))
+		r2.free()
 
 
 # ------------------------------------------------------------------ driver

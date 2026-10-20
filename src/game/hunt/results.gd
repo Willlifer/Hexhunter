@@ -69,20 +69,33 @@ func setup(p_cfg: Dictionary) -> void:
 		drops_source = ds
 		var ss := HHHuntFlow.script_named("HHSave")
 		save_source = ss
+	var sv: Variant = _load_save()
 	if summary.won:
-		drops = _roll()
-	_record()
+		drops = _roll(sv)
+	_record(sv)
 	_build()
 
 
-## HHDrops.roll(monster, rng) with a seeded rng (the launch seed + ticks, so
-## a replayed fight rolls the same drops); [] when the class is missing.
-func _roll() -> Array:
+func _load_save() -> Variant:
+	if save_source == null or not (save_source as Object).has_method("load_or_new"):
+		return null
+	return save_source.load_or_new()
+
+
+## R-U2: HHDrops.roll(monster, rng, weapon, save.owned) with a seeded rng
+## (the launch seed + ticks: the fight payload carries no sim rng, and a
+## replayed fight then rolls the same); [] when the class is missing.
+func _roll(sv: Variant) -> Array:
 	if drops_source == null or not (drops_source as Object).has_method("roll"):
 		return []
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("drops-%s-%d-%d" % [str(cfg.get("monster", "")), int(cfg.get("seed", 1)), int(fight.get("ticks", 0))])
-	var got: Variant = drops_source.roll(str(cfg.get("monster", "")), rng)
+	var owned: Array = []
+	if sv != null:
+		var o: Variant = sv.get("owned") if sv is Object else (sv as Dictionary).get("owned")
+		if o is Array:
+			owned = o
+	var got: Variant = drops_source.roll(str(cfg.get("monster", "")), rng, str(cfg.get("weapon", "")), owned)
 	var out: Array = []
 	if got is Array:
 		for id in got:
@@ -90,24 +103,34 @@ func _roll() -> Array:
 	return out
 
 
-## Add the drops to HHSave.owned and the hunt to HHSave.hunts, then save().
-func _record() -> void:
-	if save_source == null or not (save_source as Object).has_method("load_or_new"):
-		return
-	var sv: Variant = save_source.load_or_new()
+## R-U2: save.own(id) per drop, save.record_hunt(...), save.save(). A save
+## object without those methods (or a plain dictionary) gets its `owned` /
+## `hunts` arrays appended to instead.
+func _record(sv: Variant) -> void:
 	if sv == null:
 		return
-	var row := { "monster": str(cfg.get("monster", "")), "arena": str(cfg.get("arena", "")), "seed": int(cfg.get("seed", 1)),
-		"weapon": str(cfg.get("weapon", "")), "result": str(fight.get("result", "")), "ticks": int(fight.get("ticks", 0)), "drops": drops.duplicate() }
-	var owned: Variant = sv.get("owned") if sv is Object else (sv as Dictionary).get("owned")
-	var hunts: Variant = sv.get("hunts") if sv is Object else (sv as Dictionary).get("hunts")
-	if owned is Array:
+	var monster := str(cfg.get("monster", ""))
+	var arena := str(cfg.get("arena", ""))
+	var weapon := str(cfg.get("weapon", ""))
+	var verdict := str(fight.get("result", ""))
+	var is_obj := sv is Object
+	if is_obj and sv.has_method("own"):
 		for id in drops:
-			if not id in owned:
-				owned.append(id)
-	if hunts is Array:
-		hunts.append(row)
-	if sv is Object and sv.has_method("save"):
+			sv.own(str(id))
+	else:
+		var owned: Variant = sv.get("owned") if is_obj else (sv as Dictionary).get("owned")
+		if owned is Array:
+			for id in drops:
+				if not id in owned:
+					owned.append(id)
+	if is_obj and sv.has_method("record_hunt"):
+		sv.record_hunt(monster, arena, weapon, verdict, float(summary.seconds))
+	else:
+		var hunts: Variant = sv.get("hunts") if is_obj else (sv as Dictionary).get("hunts")
+		if hunts is Array:
+			hunts.append({ "monster": monster, "arena": arena, "seed": int(cfg.get("seed", 1)), "weapon": weapon,
+				"result": verdict, "ticks": int(fight.get("ticks", 0)), "drops": drops.duplicate() })
+	if is_obj and sv.has_method("save"):
 		sv.save()
 
 
@@ -124,29 +147,24 @@ static func card_text(id: String) -> Dictionary:
 
 # ------------------------------------------------------------------ build
 
-## Under a plain Node parent a Control has no size: fill the viewport ourselves.
-func _ready() -> void:
-	_fit()
-	get_viewport().size_changed.connect(_fit)
-
-
-func _fit() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
-	if get_parent() is not Control:
-		position = Vector2.ZERO
-		size = get_viewport().get_visible_rect().size
-
-
+## The content lives under a CanvasLayer so it fills the viewport whatever
+## the parent is (a shell Node has no size for anchors to follow).
 func _build() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	var layer := CanvasLayer.new()
+	layer.layer = 20
+	add_child(layer)
+	var root := Control.new()
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(root)
 	var dim := ColorRect.new()
 	dim.color = Color(0.03, 0.03, 0.05, 0.78)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(dim)
+	root.add_child(dim)
 	var centre := CenterContainer.new()
 	centre.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(centre)
+	root.add_child(centre)
 	var panel := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.09, 0.09, 0.11, 0.92)

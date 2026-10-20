@@ -10,9 +10,9 @@ const TUNE := {
 	"run_mps": 8.0,            # the hunter's pace on the map (the fight's run)
 	"approach_m": 4.0,         # within this of the disturbance, the ambush starts
 	"map_span_m": 200.0,       # the region, edge to edge
-	"map_site_r": 62.0,        # sites sit this far from the centre
-	"map_cam_dist": 110.0,     # world metres (the rig runs under a x4 parent, H502)
-	"map_cam_pitch": 58.0,
+	"map_site_r": 50.0,        # sites sit this far from the centre
+	"map_cam_dist": 170.0,     # world metres (the rig runs under a x5 parent, H502): all four sites in frame
+	"map_cam_pitch": 64.0,
 	"pulse_period": 1.6,       # one disturbance ring per this many seconds
 	"pulse_radius_m": 7.0,     # the ring's full size on the map
 	"ambush_seconds": 3.8,     # the whole cutscene
@@ -33,8 +33,8 @@ static func t(key: String) -> float:
 
 ## How each biome's disturbance looks: the ring colour, the motes, the verb.
 const DISTURBANCE := {
-	"pond":    { "ring": Color(0.55, 0.85, 1.0, 0.9), "mote": Color(0.7, 0.9, 1.0), "verb": "ripples", "rise": 0.6, "name": "ripple" },
-	"cave":    { "ring": Color(0.75, 0.65, 0.5, 0.8), "mote": Color(0.6, 0.5, 0.38), "verb": "rumbles", "rise": 1.2, "name": "dust" },
+	"pond":    { "ring": Color(0.95, 0.98, 1.0, 0.95), "mote": Color(0.85, 0.95, 1.0), "verb": "ripples", "rise": 0.6, "name": "ripple" },   # near-white: light blue vanished on the water
+	"cave":    { "ring": Color(0.95, 0.85, 0.65, 0.9), "mote": Color(0.7, 0.6, 0.45), "verb": "rumbles", "rise": 1.2, "name": "dust" },     # pale: it sits on dark rock
 	"glade":   { "ring": Color(1.0, 0.9, 0.4, 0.85), "mote": Color(1.0, 0.85, 0.3), "verb": "shivers", "rise": 1.6, "name": "pollen" },
 	"caldera": { "ring": Color(1.0, 0.45, 0.15, 0.9), "mote": Color(1.0, 0.55, 0.15), "verb": "smoulders", "rise": 2.2, "name": "ember" },
 }

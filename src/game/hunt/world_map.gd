@@ -23,7 +23,8 @@ const HF_STEP := 2.0            ## terrain sample spacing (m)
 const SITE_R := 14.0            ## a site's dressed radius (m)
 const HOVER_PX := 90.0          ## cursor within this of a site shows its name
 const MAX_STEP := 1.0 / 20.0    ## movement integrates at most this long per step
-const CAM_SCALE := 4.0          ## the camera rig's parent scale (H502): rig metres x4 = world metres
+const CAM_SCALE := 5.0          ## the camera rig's parent scale (H502): rig metres x5 = world metres
+const BAKE_MARGIN := 80.0       ## terrain baked this far beyond the playable span, so the frame never shows its edge
 const TOKEN_SCALE := 1.6        ## the hunter is a map token, a little bigger than life
 
 var cfg := {}
@@ -173,7 +174,7 @@ func _ground_blobs_only(x: float, z: float) -> float:
 
 
 func _bake_heights() -> void:
-	var span := HHHuntKit.t("map_span_m")
+	var span := HHHuntKit.t("map_span_m") + BAKE_MARGIN * 2.0
 	_hf_n = int(span / HF_STEP) + 1
 	_hf_origin = -span * 0.5
 	_hf.resize(_hf_n * _hf_n)
