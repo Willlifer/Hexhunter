@@ -9,10 +9,32 @@ class_name HHTune
 const DEFAULTS := {
 	# movement
 	"walk_mps": 5.5,             # players move freely (H31): metres per second walking
-	"run_mps": 8.0,              # ... and running
+	"run_mps": 6.0,              # ... and running (H56, H950: 8.0 -> 6.0, "slow run speed by 25%")
 	"walk_ticks": 10.0,          # legacy hex pace (tests, tools); players no longer use it
 	"run_ticks": 7.0,
 	"max_step_m": 1.0,           # a neighbour more than this much higher or lower is a cliff
+	# dash (H56, Lane W H950-): Shift dashes toward the cursor; charges recharge one at a time
+	"dash_m": 3.5,               # metres covered by one dash (two hexes)
+	"dash_ticks": 6.0,           # ... over this many ticks (0.2 s: 17.5 m/s)
+	"dash_charges": 2.0,         # dashes banked
+	"dash_recharge_s": 3.5,      # one charge comes back every this many seconds (one at a time)
+	"dash_recover_ticks": 9.0,   # after a dash lands: this long before the next dash (no instant chain)
+	"dash_iframe_ticks": 5.0,    # from the dash's start: hits in this window are dodged (0.17 s)
+	# commit feel (H57, H58, Lane W)
+	"recovery_ticks": 9.0,       # 0.3 s rooted after every hunter action (basics, Q/E/R, W, the potion throw); combo hits carry their own
+	"recovery_turn_dps": 180.0,  # turning speed during a recovery (none during a wind-up: aim is fixed at its start)
+	"exchange_windup": 5.0,      # W gets a very short wind-up so you can see it go off
+	"combo_window_ticks": 20.0,  # lance / daggers: the next basic continues the string if it starts within this long after the last hit's recovery
+	"input_buffer_ticks": 9.0,   # a cast / swap / potion pressed during a wind-up or recovery fires when it ends, if within this long
+	"flinch_ticks": 8.0,         # a landed monster attack interrupts the hunter and holds it this long (stagger wins when longer)
+	"exposed_dmg_mult": 1.25,    # a monster recovering from a big attack takes this much more damage from hunters (its own recovery, no added idle)
+	"exposed_min_hexes": 10.0,   # "big": a damaging monster telegraph at least this many hexes ...
+	"exposed_min_stagger": 0.4,  # ... or with at least this stagger
+	# charged Q (H56, Lane W): hold Q to charge, release to fire; "strength" = element steps
+	"charge_l2_s": 1.5,          # held this long: level 2
+	"charge_l3_s": 3.0,          # held this long: level 3, which fires on its own
+	"charge_move_mult": 0.5,     # bow and daggers move at this fraction of their speed while charging
+	"lance_charge_guard": 0.4,   # the lance braces while charging: damage taken is cut by this fraction (it cannot move)
 	# charge grid (Black | White's cycles mapped onto ticks)
 	"charge_step_ticks": 810.0,  # one step of axis decay every 27 s (author: 3x longer again, H35)
 	"charge_mark_ticks": 1350.0, # an unfired marker lasts 45 s
@@ -89,10 +111,12 @@ const DEFAULTS := {
 	"authored_reform_every": 150.0,  # vents / lava / shade re-form every 5 s
 	"pillar_hp": 300.0,
 	"pillar_paint_dmg": 60.0,        # a cast or blow that lands on a pillar hex chips this much per element step
-	# potions (H40): T drinks one; a slow heal the ground can fight
+	# potions (H40, H56): T throws one at the cursor; a heal zone the ground can fight
 	"potion_count": 5.0,
-	"potion_windup": 15.0,       # 0.5 s to drink (a commitment)
-	"potion_heal_pct": 40.0,     # healed over potion_seconds
+	"potion_windup": 12.0,       # 0.4 s throw wind-up (a commitment; was a 0.5 s drink)
+	"potion_range": 8.0,         # hexes: the throw clamps along the line to the cursor
+	"potion_radius": 3.0,        # the heal zone: 37 hexes; every hunter standing in it heals
+	"potion_heal_pct": 40.0,     # healed over potion_seconds by a hunter standing in the zone the whole time
 	"potion_seconds": 6.0,
 	"potion_cd": 240.0,          # 8 s between potions
 	"dark_heal_cut": 0.3,        # each dark tier under you cuts healing by this (dark 3 = 10%)

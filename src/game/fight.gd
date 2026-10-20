@@ -5,10 +5,11 @@ extends Node3D
 ##   right-click    on the monster: target it and auto-attack (H32); on the
 ##                  ground: run to that exact point (free movement, H31)
 ##   left-drag      orbit the camera; a left click (sandbox) paints (H20)
-##   Q / E / R      cast at the hex under the cursor; W swaps elements
+##   Q              hold to charge, release to fire at the cursor (H56; a tap is level 1)
+##   E / R          cast at the hex under the cursor; W swaps elements
 ##   1-7            (sandbox) pick the element to paint
-##   Shift          hold to walk (you run by default, H37);  Space  stop
-##   T              drink a potion (H40)
+##   Shift          dash toward the cursor (H56: 2 charges; the escape from a commit, H57);  Space  stop
+##   T              throw a potion at the cursor: a heal zone (H40, H56)
 ##   F1             tune panel;  Esc / F10  abort back to the lobby (H48)
 ## `autoplay` runs a scripted walk, paint, attack and cast sequence for the
 ## smoke run and the capture tool, then quits (in a party: a small bot that
@@ -86,7 +87,13 @@ var _down_prev := {}         # hunter id -> downed last frame
 var _peer_unit := {}         # peer -> hunter id (host: whose orders go where)
 var _bot_t := 0.0
 var _drawn := {}             # unit id -> the position drawn last frame (client interpolation, H918)
-const INTERP_S := 0.065      ## a client's bodies close this much of the gap to the mirror per e-fold (s): ticks land in bursts
+var hitstop := {}            ## unit id -> seconds its animation stays frozen (H57, view only)
+var _q_held := false         ## H56: the local Q key is down
+var _q_aim := Vector2i(-9999, -9999)
+var _q_aim_tick := 0
+var _bot_charge_until := -1.0    ## the bot's held Q releases at this _elapsed (-1: not holding)
+var _bot_rng := RandomNumberGenerator.new()
+const INTERP_S := 0.065     ## a client's bodies close this much of the gap to the mirror per e-fold (s): ticks land in bursts
 const INTERP_SNAP_M := 4.0   ## farther than this (a leap, a full snapshot after a gap): jump, don't slide
 
 
@@ -123,6 +130,10 @@ const TUNE := {
 	"end_hold_s": 2.0,       # seconds the VICTORY / FALLEN text holds before `finished` fires
 	"revive_fade_s": 0.35,   # a revive ring with no progress event for this long empties (the reviver stepped off)
 	"bot_think_s": 0.5,      # co-op autoplay: how often the bot re-picks fight or revive
+	"charge_aim_every": 3,   # H56: while Q is held, the aim travels to the sim at most every this many ticks (when it changed)
+	"hitstop_s": 0.075,      # H57: heavy hits freeze the attacker's and the target's animation this long (view only)
+	"hitstop_kick": 0.22,    # ... and kick the camera this much
+	"hitstop_heavy_pct": 10.0,  # a monster hit on a hunter of at least this pct of max HP counts as heavy
 }
 
 
@@ -359,6 +370,7 @@ func _process(delta: float) -> void:
 	while _acc >= HHSim.TICK and steps < 6:
 		_acc -= HHSim.TICK
 		steps += 1
+		_charge_aim_tick()
 		if net_mode == "client":                       # H52: a client never steps; snapshots move its mirror
 			_flush_orders()
 			continue
@@ -540,9 +552,47 @@ func follow_id() -> String:
 	return best if best != "" else player_id
 
 
+## H56: while Q is held, the local cursor's hex goes to the sim (at most
+## every fight_charge_aim_every ticks, only when it changed) and to the aim
+## preview every frame.
+func _charge_aim_tick() -> void:
+	if not _q_held or camera == null:
+		return
+	_q_aim_tick += 1
+	var aim := _hex_under(get_viewport().get_mouse_position())
+	if aim == NO_HEX or aim == _q_aim or _q_aim_tick < int(HHTune.value("fight_charge_aim_every")):
+		return
+	_q_aim_tick = 0
+	_q_aim = aim
+	_order({ "charge_aim": aim })
+
+
+## H57: the animation time a body gets this frame (0 while its hit-stop holds).
+func _body_delta(id: String, delta: float) -> float:
+	var h := float(hitstop.get(id, 0.0))
+	if h <= 0.0:
+		return delta
+	return 0.0
+
+
+func _hitstop(ids: Array, kick: bool = true) -> void:
+	var s := HHTune.value("fight_hitstop_s")
+	for id in ids:
+		if str(id) != "":
+			hitstop[str(id)] = maxf(float(hitstop.get(str(id), 0.0)), s)
+	if kick and camera != null:
+		camera.shake(HHTune.value("fight_hitstop_kick"))
+
+
 func _draw(delta: float) -> void:
 	if headless:
 		return
+	for id in hitstop.keys():
+		hitstop[id] = float(hitstop[id]) - delta
+		if float(hitstop[id]) <= -0.5:
+			hitstop.erase(id)
+	if view != null and view.aim != null:
+		view.aim.aim_hex = _hex_under(get_viewport().get_mouse_position()) if _q_held else NO_HEX
 	for id in bodies:
 		var u: Dictionary = sim.units[id]
 		var node: Node3D = bodies[id]
@@ -550,14 +600,14 @@ func _draw(delta: float) -> void:
 		node.rotation.y = float(u.facing)
 		node.visible = sim.alive(u) or u.kind == "monster" or is_downed(u)
 		if monster_bodies.has(id) and (monster_bodies[id] as Node).has_method("update"):
-			monster_bodies[id].update(delta)
+			monster_bodies[id].update(_body_delta(str(id), delta))
 	for id in player_bodies:
 		var body: Node3D = player_bodies[id]
 		var u := sim.unit(str(id))
 		if body.has_method("set_downed"):
 			body.set_downed(is_downed(u))
 		if body.has_method("update"):
-			body.update(delta)
+			body.update(_body_delta(str(id), delta))
 	for id in marks:
 		var u := sim.unit(str(id))
 		var mk: HHHunterMark = marks[id]
@@ -613,13 +663,43 @@ func _note(e: Dictionary) -> void:
 		player_bodies[eid].on_event(e, sim)
 	match str(e.type):
 		"detonate": _log.append("t%d detonate %s x%.1f" % [e.tick, e.hex, float(e.get("mult", e.pct))])
-		"reaction": _log.append("t%d REACTION on %s: %d (%d blast%s)" % [e.tick, e.id, int(e.amount), int(e.blasts), "" if int(e.blasts) == 1 else "s"])
+		"reaction":
+			_log.append("t%d REACTION on %s: %d (%d blast%s)" % [e.tick, e.id, int(e.amount), int(e.blasts), "" if int(e.blasts) == 1 else "s"])
+			_hitstop([str(e.id)])                       # H57: reactions are heavy
+		"telegraph_end":
+			var hit: Array = e.get("hit", [])
+			var owner := sim.unit(str(e.get("owner", "")))
+			if str(owner.get("kind", "")) == "monster" and hit.any(func(h): return HHParty.IDS.has(str(h))):
+				for h in hit:
+					var hu := sim.unit(str(h))
+					if not hu.is_empty() and hu.kind == "player" and int(hu.get("flinch", 0)) + int(hu.stagger) > 0:
+						_hitstop([str(h), str(owner.id)], str(h) == player_id)
+						break
+		"combo":
+			if int(e.step) >= 2:
+				_log.append("t%d %s combo %d" % [e.tick, e.id, int(e.step)])
+		"charge_release":
+			_log.append("t%d %s releases Q at level %d" % [e.tick, e.id, int(e.level)])
+		"dash":
+			_log.append("t%d %s dashes (%d left)" % [e.tick, e.id, int(e.get("left", 0))])
+		"interrupted":
+			_log.append("t%d %s INTERRUPTED (%s)" % [e.tick, e.id, str(e.what)])
+			if hud != null and str(e.id) == player_id:
+				hud.interrupted(str(e.get("skill", "")))
+		"exposed":
+			_log.append("t%d %s EXPOSED %d ticks" % [e.tick, e.id, int(e.ticks)])
 		"overheat": _log.append("t%d OVERHEAT %s" % [e.tick, e.hex])
 		"overfreeze": _log.append("t%d OVERFREEZE %s" % [e.tick, e.hex])
 		"douse": _log.append("t%d douse %s" % [e.tick, e.hex])
 		"gale": _log.append("t%d gale %s" % [e.tick, e.hex])
 		"strike":
-			_log.append("t%d %s hits %s %d%s" % [e.tick, e.id, e.target, int(e.amount), " REAR" if bool(e.rear) else ""])
+			_log.append("t%d %s hits %s %d%s%s" % [e.tick, e.id, e.target, int(e.amount), " REAR" if bool(e.rear) else "",
+				(" combo %d" % int(e.combo)) if int(e.get("combo", 0)) >= 2 else ""])
+			if bool(e.get("heavy", false)):
+				_hitstop([str(e.id), str(e.target)])     # H57: finishers and level-3 releases
+			elif HHParty.IDS.find(str(e.id)) < 0 and str(e.target) != "" and sim.units.has(str(e.target)) \
+					and float(e.amount) >= float(sim.unit(str(e.target)).max_hp) * HHTune.value("fight_hitstop_heavy_pct") / 100.0:
+				_hitstop([str(e.id), str(e.target)])     # a big monster blow
 			if camera != null and (str(e.id) == player_id or str(e.target) == player_id or HHParty.IDS.find(str(e.id)) < 0):
 				camera.shake(0.08 + 0.12 * clampf(float(e.amount) / 200.0, 0.0, 1.0))   # impact (H34)
 			_body_react(str(e.target), "hit_react")
@@ -771,19 +851,33 @@ func _unhandled_input(ev: InputEvent) -> void:
 			paint_element = HHFormulas.ELEMENTS[i]
 		match ev.keycode:
 			KEY_SPACE: _order({ "stop": true })
-			KEY_T: _order({ "potion": true })
+			KEY_T: _order({ "potion": { "aim": _cursor_hex() } })     # H56: thrown at the cursor
 			KEY_F3:
 				if debug != null:
 					debug.visible = not debug.visible
 			KEY_W: _order({ "swap": true })
-			KEY_Q, KEY_E, KEY_R:
-				var aim := _hex_under(get_viewport().get_mouse_position())
-				_order({ "cast": { "skill": OS.get_keycode_string(ev.keycode).to_lower(), "aim": aim if aim != NO_HEX else sim.unit(player_id).hex } })
+			KEY_Q:                                     # H56: hold to charge
+				_q_held = true
+				_q_aim = _cursor_hex()
+				_q_aim_tick = 0
+				_order({ "charge": { "skill": "q", "aim": _q_aim } })
+			KEY_E, KEY_R:
+				_order({ "cast": { "skill": OS.get_keycode_string(ev.keycode).to_lower(), "aim": _cursor_hex() } })
+			KEY_SHIFT:                                 # H56: a dash toward the cursor (H37's walk is gone)
+				var g := _ground_under(get_viewport().get_mouse_position())
+				_order({ "dash": g if g != HHSim.NO_POS else (sim.unit(player_id).pos as Vector3) })
 			KEY_ESCAPE, KEY_F10:
 				get_viewport().set_input_as_handled()
 				_finish("abort")                     # the shell returns to the lobby (H48)
-	if ev is InputEventKey and ev.keycode == KEY_SHIFT:
-		_order({ "run": not ev.pressed })              # H37: run by default, Shift walks
+	if ev is InputEventKey and not ev.pressed and ev.keycode == KEY_Q and _q_held:
+		_q_held = false
+		_order({ "release": { "skill": "q", "aim": _cursor_hex() } })
+
+
+## The hex under the mouse, or the local hunter's own hex off the arena.
+func _cursor_hex() -> Vector2i:
+	var aim := _hex_under(get_viewport().get_mouse_position()) if camera != null else NO_HEX
+	return aim if aim != NO_HEX else sim.unit(player_id).hex
 
 
 ## The hex under a screen point: the camera ray marched onto the heightfield.
@@ -837,11 +931,18 @@ func _autoplay_script() -> Array:
 		{ "at": 8.0, "order": { "swap": true } },
 	]
 	if monster_id != "":
+		var pos_a := arena.stand(a)
 		s.append_array([
 			{ "at": 8.5, "order": { "target": monster_id, "attack": true, "run": true } },
-			{ "at": 11.0, "order": { "cast": { "skill": "q", "aim": m } } },
-			{ "at": 11.5, "order": { "cast": { "skill": "e", "aim": m } } },
-			{ "at": 12.5, "order": { "cast": { "skill": "r", "aim": m + Vector2i(3, 2) } } },
+			{ "at": 9.0, "order": { "dash": pos_a + Vector3(3.0, 0.0, -3.0) } },                     # H56: dash toward the monster side
+			{ "at": 9.4, "order": { "potion": { "aim": start } } },                                  # H56: a thrown zone
+			{ "at": 10.2, "order": { "charge": { "skill": "q", "aim": m }, "release": { "skill": "q", "aim": m } } },   # a tapped Q
+			{ "at": 10.6, "order": { "target": monster_id, "attack": true } },
+			{ "at": 11.4, "order": { "cast": { "skill": "e", "aim": m } } },
+			{ "at": 12.0, "order": { "dash": pos_a } },                                              # an escape from whatever is committed
+			{ "at": 12.4, "order": { "cast": { "skill": "r", "aim": m + Vector2i(3, 2) } } },
+			{ "at": 14.0, "order": { "charge": { "skill": "q", "aim": m } } },                       # a full hold: releases itself at 3 s
+			{ "at": 17.5, "order": { "target": monster_id, "attack": true } },
 		])
 	else:
 		s.append({ "at": 8.5, "order": { "move": start + Vector2i(4, 2), "move_pos": arena.stand(start + Vector2i(4, 2)) } })
@@ -881,11 +982,36 @@ func _drive_bot(delta: float) -> void:
 			return
 	if monster_id == "" or not sim.alive(sim.unit(monster_id)):
 		return
+	var m := sim.unit(monster_id)
+	# H56: a held Q releases when its time is up (a tap or a full hold, picked at the press)
+	if _bot_charge_until >= 0.0:
+		if _elapsed >= _bot_charge_until or not sim.charging(me):
+			if sim.charging(me):
+				_order({ "release": { "skill": "q", "aim": m.hex } })
+			_bot_charge_until = -1.0
+		return
+	# H56/H57: dash out of a monster telegraph about to land (also the escape from a commit)
+	if int(me.get("dash_charges", 0)) > 0:
+		for tg in sim.telegraphs:
+			if str(tg.owner) == monster_id and me.hex in tg.hexes and int(tg.left) <= 20:
+				var away: Vector3 = (me.pos as Vector3) - (m.pos as Vector3)
+				away.y = 0.0
+				_order({ "dash": (me.pos as Vector3) + away.normalized() * 4.0 })
+				return
+	if float(me.hp) < 0.45 * float(me.max_hp) and int(me.get("potions", 0)) > 0 and int(me.cooldowns.get("t", 0)) <= 0:
+		_order({ "potion": { "aim": me.hex } })
+		return
 	if str(me.target) != monster_id:
 		_order({ "target": monster_id, "attack": true, "run": true })
 		return
-	var m := sim.unit(monster_id)
-	for k in ["q", "e", "r"]:
+	if int((me.cooldowns as Dictionary).get("q", 0)) <= 0 and not sim.held(me):
+		_bot_rng.seed = hash(player_id) + sim.tick
+		var holds := [0.0, 0.0, 1.8, 3.2]
+		var hold: float = holds[_bot_rng.randi() % 4]     # sometimes a tap, sometimes a level 2, sometimes full
+		_order({ "charge": { "skill": "q", "aim": m.hex } })
+		_bot_charge_until = _elapsed + hold
+		return
+	for k in ["e", "r"]:
 		if int((me.cooldowns as Dictionary).get(k, 0)) <= 0:
 			_order({ "cast": { "skill": k, "aim": m.hex } })
 			return

@@ -1,6 +1,8 @@
 class_name HHDaggers
 ## Dual daggers: two sword-sized karambits, one per hand (kickoff §6, Lane A).
-##   Q Flourish    spin: damage + the element on a radius-2 area round you. 3 s.
+##   Q Flourish    spin: damage + the element on an area round you. 3 s.
+##                 H56: hold to wind (walk slowed); radius 1 / 2 / 2 by level, full charge
+##                 explodes at strength 2 with strength 3 on the centre ring (flourish_shape).
 ##   W Exchange    throw the daggers up, attune to the backup element. 1 s (HHTune exchange_cd).
 ##   E Daggerleap  leap to the cursor hex (15 ticks), spinning, a trail of the element on every
 ##                 hex crossed; a small spinning strike where you land. 6 s.
@@ -31,10 +33,34 @@ const TUNE := {
 	# Q Flourish
 	"q_cd": 90,                 # 3 s
 	"q_windup": 6,              # the spin gathers for 0.2 s
-	"q_radius": 2,              # "large aoe": 19 hexes
+	"q_radius": 1,              # H56: a tap spins radius 1 (7 hexes); the radius grows with the charge
 	"q_dmg": 120.0,
 	"q_steps": 1,               # element laid on the area
 	"q_stagger": 0.2,
+	# basic string (H57): hit 1 is the plain basic (basic_windup, HHTune recovery_ticks)
+	"combo2_windup": 7,         # hit 2: the reverse spin
+	"combo2_recovery": 11,
+	"combo2_mult": 1.3,         # x basic_dmg
+	"combo2_steps": 1,
+	"combo2_stagger": 0.12,
+	"combo3_windup": 10,        # hit 3: the leaping double stab, the finisher
+	"combo3_recovery": 16,      # ~0.53 s
+	"combo3_mult": 1.9,
+	"combo3_steps": 2,
+	"combo3_splash": 1,
+	"combo3_stagger": 0.4,
+	# Q charged (H56, Lane W H95x): hold to wind the spin; you may walk while winding, slowed (HHTune charge_move_mult)
+	"q_l2_radius": 2,           # level 2 (held 1.5 s): radius 2 (19 hexes) ...
+	"q_l2_steps": 1,            # ... still strength 1 (the level buys reach)
+	"q_l2_mult": 1.6,           # ... x q_dmg
+	"q_l2_stagger": 0.3,
+	"q_l3_radius": 2,           # level 3 (3 s, bursts on its own): radius 2 at strength 2 ...
+	"q_l3_steps": 2,
+	"q_l3_core_radius": 1,      # ... with strength 3 on the centre hex and its ring
+	"q_l3_core_steps": 3,
+	"q_l3_mult": 3.0,           # ... x q_dmg
+	"q_l3_stagger": 0.55,
+	"q_l3_windup": 10,          # the explosion gathers a little longer than q_windup
 	# E Daggerleap
 	"e_cd": 180,                # 6 s
 	"e_range": 6,               # hexes; the aim clamps along the line
@@ -76,10 +102,65 @@ static func skills() -> Dictionary:
 	}
 
 
-static func cast(sim: HHSim, u: Dictionary, key: String, aim: Vector2i) -> bool:
+## H57: hit 2 / 3 of the basic string (HHWeapons.combo_hit).
+static func combo(step: int) -> Dictionary:
+	var k := "combo%d_" % clampi(step, 2, 3)
+	return { "windup": int(_t(k + "windup")), "recovery": int(_t(k + "recovery")), "mult": float(_t(k + "mult")),
+		"steps": int(_t(k + "steps")), "stagger": float(_t(k + "stagger")), "splash": int(_t("combo3_splash")) if step >= 3 else 0 }
+
+
+## H56: the charged Flourish's footprint round `centre`, { hex: strength }.
+##   1 (tap)  radius q_radius (1) at strength 1
+##   2        radius q_l2_radius (2) at strength 1
+##   3        radius q_l3_radius (2) at strength 2, strength 3 within q_l3_core_radius (1)
+static func flourish_shape(sim: HHSim, centre: Vector2i, level: int) -> Dictionary:
+	var out := {}
+	match level:
+		2:
+			for h in sim.arena.area(centre, int(_t("q_l2_radius"))):
+				out[h] = int(_t("q_l2_steps"))
+		3:
+			for h in sim.arena.area(centre, int(_t("q_l3_radius"))):
+				out[h] = int(_t("q_l3_steps"))
+			for h in sim.arena.area(centre, int(_t("q_l3_core_radius"))):
+				out[h] = int(_t("q_l3_core_steps"))
+		_:
+			for h in sim.arena.area(centre, int(_t("q_radius"))):
+				out[h] = int(_t("q_steps"))
+	return out
+
+
+## The view's preview: the spin is centred on the hunter (the aim is ignored).
+static func q_shape(sim: HHSim, u: Dictionary, _aim: Vector2i, level: int) -> Dictionary:
+	return flourish_shape(sim, u.hex, level)
+
+
+static func q_radius(level: int) -> int:
+	match level:
+		2: return int(_t("q_l2_radius"))
+		3: return int(_t("q_l3_radius"))
+	return int(_t("q_radius"))
+
+
+static func q_mult(level: int) -> float:
+	match level:
+		2: return float(_t("q_l2_mult"))
+		3: return float(_t("q_l3_mult"))
+	return 1.0
+
+
+static func q_stagger(level: int) -> float:
+	match level:
+		2: return float(_t("q_l2_stagger"))
+		3: return float(_t("q_l3_stagger"))
+	return float(_t("q_stagger"))
+
+
+static func cast(sim: HHSim, u: Dictionary, key: String, aim: Vector2i, level: int = 1) -> bool:
 	match key:
 		"q":
-			sim.begin_windup(u, "flourish", int(_t("q_windup")), {}, Callable(HHDaggers, "_flourish"))
+			var ticks := int(_t("q_l3_windup")) if level >= 3 else int(_t("q_windup"))
+			sim.begin_windup(u, "flourish", ticks, { "level": level }, Callable(HHDaggers, "_flourish"))
 			return true
 		"w":
 			HHWeapons.exchange(sim, u)
@@ -118,15 +199,20 @@ static func leap_target(sim: HHSim, u: Dictionary, aim: Vector2i, range: int) ->
 	return to
 
 
-static func _flourish(sim: HHSim, u: Dictionary, _data: Dictionary) -> void:
-	var area := sim.arena.area(u.hex, int(_t("q_radius")))
+## The spin lands where the hunter stands now (it may have walked while
+## winding). Twin Flourish's backup ring sits just beyond the level's radius,
+## one step stronger at level 3.
+static func _flourish(sim: HHSim, u: Dictionary, data: Dictionary) -> void:
+	var level := int(data.get("level", 1))
+	var shape := flourish_shape(sim, u.hex, level)
+	var area: Array = shape.keys()
 	for t in sim.units_in(area, u.id):
-		sim.strike(u, t, float(_t("q_dmg")), sim.nearest_hex_of(t, u.hex), "flourish", float(_t("q_stagger")))
-	sim.paint(area, u.element, u.id, int(_t("q_steps")))
-	sim._emit({ "type": "flourish", "id": u.id, "hex": u.hex, "hexes": area, "element": u.element })
+		sim.strike(u, t, float(_t("q_dmg")) * q_mult(level), sim.nearest_hex_of(t, u.hex), "flourish", q_stagger(level), { "heavy": level >= 3, "level": level })
+	HHWeapons.paint_shape(sim, u, shape)
+	sim._emit({ "type": "flourish", "id": u.id, "hex": u.hex, "hexes": area, "element": u.element, "level": level, "shape": shape })
 	if HHUpgrades.has(u, "flourish_twin"):
-		var rim := sim.arena.ring(u.hex, int(_t("q_radius")) + 1)
-		sim.paint(rim, u.backup, u.id, int(_t("up_q_twin_steps")))
+		var rim := sim.arena.ring(u.hex, q_radius(level) + 1)
+		sim.paint(rim, u.backup, u.id, int(_t("up_q_twin_steps")) + (1 if level >= 3 else 0))
 		sim._emit({ "type": "upgrade", "id": u.id, "upgrade": "flourish_twin", "hexes": rim, "element": u.backup })
 
 

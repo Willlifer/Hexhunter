@@ -92,14 +92,25 @@ static func bot_order(sim: HHSim, id: String, tick: int, slot: int) -> Dictionar
 		return { "target": m.id, "attack": true }
 	if m.is_empty():
 		return {}
+	if int(u.get("dash_charges", 0)) > 0 and not sim.held(u) and int(u.get("dash_recover", 0)) <= 0:   # H56: dash out of a landing telegraph
+		for tg in sim.telegraphs:
+			if str(tg.owner) == str(m.id) and u.hex in tg.hexes and int(tg.left) <= 12:
+				var away: Vector3 = (u.pos as Vector3) - (m.pos as Vector3)
+				away.y = 0.0
+				return { "dash": (u.pos as Vector3) + away.normalized() * 4.0 }
 	var aim: Vector2i = m.hex
+	match t % 600:                                       # H56: a tapped Q, then a held one (level 2, ~2 s), aim moving while held
+		60: return { "charge": { "skill": "q", "aim": aim }, "release": { "skill": "q", "aim": aim } }
+		360: return { "charge": { "skill": "q", "aim": aim } }
+		390: return { "charge_aim": aim + Vector2i(1, 0) }
+		420: return { "release": { "skill": "q", "aim": aim } }
 	match t % 300:
-		60: return { "cast": { "skill": "q", "aim": aim } }
 		120: return { "cast": { "skill": "e", "aim": aim } }
 		150: return { "swap": true }
+		200: return { "dash": (u.pos as Vector3) + Vector3(2.0 - slot, 0.0, 1.0) }
 		240: return { "cast": { "skill": "r", "aim": aim + Vector2i(1, 1) } }
 	if t % 600 == 330:
-		return { "potion": true }
+		return { "potion": { "aim": u.hex + Vector2i(1, 0) } }
 	if t % 90 == 45:
 		var els := ["fire", "water", "thunder", "ice", "wind", "light", "dark"]
 		return { "paint": { "element": els[(t / 90 + slot) % els.size()], "hex": u.hex + Vector2i(1, slot % 2), "steps": 2 } }

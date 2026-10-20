@@ -32,7 +32,8 @@ const FULL_EVERY := 30
 const HASH_EVERY := 5
 const GAP_MS := 120
 const REQUEST_EVERY_MS := 400
-const ORDER_KEYS := ["move", "move_pos", "stop", "target", "attack", "run", "swap", "cast", "potion", "paint"]
+const ORDER_KEYS := ["move", "move_pos", "stop", "target", "attack", "run", "swap", "cast", "potion", "paint",
+	"charge", "charge_aim", "release", "dash"]      # H56 (Lane W): charged Q and the dash
 
 var net: HHNet
 var sim: HHSim
@@ -183,9 +184,23 @@ static func clean_order(o: Variant, sandbox: bool) -> Dictionary:
 			"move_pos":
 				if v is Vector3:
 					out.move_pos = v
-			"stop", "attack", "run", "swap", "potion":
+			"stop", "attack", "run", "swap":
 				if v is bool:
 					out[k] = v
+			"potion":                                     # H56: true (at your feet) or { aim } (a throw)
+				if v is bool:
+					out.potion = v
+				elif v is Dictionary and (v as Dictionary).get("aim") is Vector2i:
+					out.potion = { "aim": v.aim }
+			"charge", "release":
+				if v is Dictionary and str((v as Dictionary).get("skill", "")) == "q" and (v as Dictionary).get("aim") is Vector2i:
+					out[k] = { "skill": "q", "aim": v.aim }
+			"charge_aim":
+				if v is Vector2i:
+					out.charge_aim = v
+			"dash":
+				if v is Vector3 and (v as Vector3).is_finite():
+					out.dash = v
 			"target":
 				if v is String or v is StringName:
 					out.target = str(v)

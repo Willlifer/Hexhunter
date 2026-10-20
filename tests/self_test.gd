@@ -48,8 +48,15 @@ static func run() -> Dictionary:
 		if not n in files:
 			files.append(n)
 	files.sort()
+	var only := ""                                       # `-- --self-test --only play_lance,net`: run the suites whose names contain one of these
+	var ua := OS.get_cmdline_user_args()
+	var oi := ua.find("--only")
+	if oi >= 0 and oi + 1 < ua.size():
+		only = ua[oi + 1]
 	for f in files:
 		if not (f.begins_with("test_") and f.ends_with(".gd")):
+			continue
+		if only != "" and not Array(only.split(",")).any(func(w): return w != "" and f.contains(w)):
 			continue
 		HHTune.reset()
 		var script: GDScript = load(TEST_DIR + f)

@@ -33,9 +33,12 @@ const CLIPS := {
 	"stagger":         { "duration": 1.0, "contact_tick": -1, "loop": false, "key": 0.3, "note": "knocked back a step" },
 	"hit_react":       { "duration": 0.45, "contact_tick": -1, "loop": false, "key": 0.08, "note": "flinch" },
 	"death":           { "duration": 1.5, "contact_tick": -1, "loop": false, "key": 1.3, "note": "falls onto the back" },
+	"dash":            { "duration": 0.36, "contact_tick": -1, "loop": false, "key": 0.12, "note": "H56: the dash, a low forward burst, the bow trailing" },
 }
 const SKILL_CLIPS := { "q": "kneel_shot", "w": "swap", "e": "lob", "r": "arrowstorm_leap" }
-const WINDUP_CLIPS := { "basic": "strike", "kneel_shot": "kneel_shot", "lob": "lob" }
+const WINDUP_CLIPS := { "basic": "strike", "kneel_shot": "kneel_shot", "lob": "lob", "energized": "kneel_shot", "exchange": "swap" }
+## H56: the held draw while Q charges (no basic string on the bow, H57).
+const CHARGE_CLIP := "draw"
 const LANDING_CLIPS := { "arrowstorm_leap": "volley", "jump": "jump_attack" }
 
 
@@ -59,6 +62,7 @@ static func pose(clip: String, t: float, b: HHPlayerBody) -> void:
 		"stagger": HHClipsShared.stagger(t, b, wield())
 		"hit_react": HHClipsShared.hit_react(t, b, wield())
 		"death": HHClipsShared.death(t, b, wield())
+		"dash": HHClipsShared.dash(t, b, carry_run())
 
 
 # ------------------------------------------------------------------ poses

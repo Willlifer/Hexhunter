@@ -586,6 +586,16 @@ func contact_time(clip_name: String) -> float:
 	return float(ct) * HHSim.TICK if ct >= 0 else -1.0
 
 
+const RECOVERY_RATE := 0.3          ## H57: a one-shot plays this slow during the sim's recovery (the pose hold)
+
+
+## H57: the bound unit is in its post-action recovery.
+func recovering() -> bool:
+	if sim == null or unit_id == "":
+		return false
+	return int(sim.unit(unit_id).get("recovery", 0)) > 0
+
+
 ## True while a one-shot is playing (held or not).
 func busy() -> bool:
 	return clip != "" and not loop and finished_clip == ""
@@ -605,6 +615,8 @@ func update(delta: float) -> void:
 	var stride := float(clips(weapon_id)[clip].get("stride", 0.0))
 	if loop and stride > 0.0 and d > 0.0:
 		rate = (speed_mps / stride) * d
+	elif not loop and recovering():
+		rate *= RECOVERY_RATE                       # H57: the follow-through holds while the sim's recovery roots the hunter
 	if _hold_at >= 0.0 and time + delta * rate >= _hold_at:
 		time = _hold_at
 		_held = true
@@ -718,14 +730,37 @@ func on_event(e: Dictionary, p_sim: HHSim) -> void:
 		"windup":
 			_wield_timer = 3.0
 			var kind := str(e.get("kind", "basic"))
-			var c := "strike" if kind == "basic" else skill_clip_for_windup(kind)
+			var c := combo_clip(int(e.get("step", 1))) if kind == "basic" else skill_clip_for_windup(kind)
 			if c != "" and clips(weapon_id).has(c):
+				if c == clip and (_held or _hold_at >= 0.0):
+					return                              # H56: the charge pose flows straight into the release
 				var ct := contact_time(c)
 				var ticks := int(e.get("ticks", 0))
 				# the anticipation spans the sim's wind-up exactly, then holds at contact
 				var sp := (ct / (float(ticks) * HHSim.TICK)) if ct > 0.0 and ticks > 0 else 1.0
 				play_held(c, clampf(sp, 0.5, 2.0))
-		"strike", "pierce", "miss":
+		"charge_start":                             # H56: hold the charge pose until the release
+			_wield_timer = 3.0
+			var cc := charge_clip()
+			if cc == "" or not clips(weapon_id).has(cc):
+				return
+			if bool(clips(weapon_id)[cc].get("loop", false)):
+				play(cc, true)
+			else:
+				play_held(cc, 0.6)
+		"charge_cancel":
+			release()
+			if clip == charge_clip() and loop:
+				play(_loco_clip())
+		"interrupted":                              # H58: the action is gone; flinch
+			release()
+			play("hit_react", false)
+		"dash":
+			var dt := maxf(float(int(e.get("ticks", 6))) * HHSim.TICK, HHSim.TICK)
+			if clips(weapon_id).has("dash"):
+				release()
+				play("dash", false, clampf(0.2 / dt, 0.6, 2.0))
+		"strike", "pierce", "miss", "energized_shot", "flourish":
 			if _held or (_hold_at >= 0.0):
 				release()
 				speed = 1.0
@@ -788,6 +823,21 @@ func on_event(e: Dictionary, p_sim: HHSim) -> void:
 
 ## The wind-up kinds Lane P's weapons emit: "basic" is the strike; "pierce"
 ## is the lance plant; other kinds map through the set's WINDUP_CLIPS.
+## H57: the clip of basic-string hit `step` (the set's COMBO_CLIPS; the bow
+## has none: every basic is "strike").
+func combo_clip(step: int) -> String:
+	var m: Variant = _set.get("COMBO_CLIPS") if _set != null else null
+	if m is Dictionary and (m as Dictionary).has(step):
+		return str((m as Dictionary)[step])
+	return "strike"
+
+
+## H56: the pose a held charge holds (the set's CHARGE_CLIP).
+func charge_clip() -> String:
+	var c: Variant = _set.get("CHARGE_CLIP") if _set != null else null
+	return str(c) if c != null else ""
+
+
 func skill_clip_for_windup(kind: String) -> String:
 	var m: Variant = _set.get("WINDUP_CLIPS") if _set != null else null
 	if m is Dictionary and (m as Dictionary).has(kind):

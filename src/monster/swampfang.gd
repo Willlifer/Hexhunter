@@ -287,7 +287,8 @@ func _potion_drinker(sim: HHSim) -> Dictionary:
 func _darkness(sim: HHSim, u: Dictionary, p: Dictionary) -> void:
 	darkness_at = sim.tick
 	var hexes: Array = []
-	for h in HHHex.area(p.hex, int(TUNE.darkness_radius)):
+	var at: Vector2i = p.get("potion_hex", p.hex)       # H56: a thrown potion's zone, not the thrower
+	for h in HHHex.area(at, int(TUNE.darkness_radius)):
 		if sim.arena.exists(h) and sim.charge.can_hold(h):
 			hexes.append(h)
 	var payload := { "dmg_pct": 0.0, "element": "dark", "paint_steps": 2, "status": "", "status_ticks": 0, "stagger": 0.0, "clip": "frill_roar", "name": "darkness" }

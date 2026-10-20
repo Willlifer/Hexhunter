@@ -24,9 +24,13 @@ const CLIPS := {
 	"stagger":     { "duration": 1.0, "contact_tick": -1, "loop": false, "key": 0.3, "note": "knocked back a step" },
 	"hit_react":   { "duration": 0.45, "contact_tick": -1, "loop": false, "key": 0.08, "note": "flinch" },
 	"death":       { "duration": 1.5, "contact_tick": -1, "loop": false, "key": 1.3, "note": "falls onto the back" },
+	"dash":        { "duration": 0.36, "contact_tick": -1, "loop": false, "key": 0.12, "note": "H56: the dash, a low forward burst, the blades trailing" },
 }
-const SKILL_CLIPS := { "q": "dive", "w": "swap", "e": "flourish", "r": "jump" }
-const WINDUP_CLIPS := { "basic": "strike", "dive": "dive" }
+const SKILL_CLIPS := { "q": "flourish", "w": "swap", "e": "dive", "r": "jump" }   # H56: Q is the Flourish, E the Daggerleap (they were crossed)
+const WINDUP_CLIPS := { "basic": "strike", "dive": "dive", "flourish": "flourish", "exchange": "swap" }
+## H57: the basic string (cross slash, reverse spin, leaping double stab); H56: the held charge pose.
+const COMBO_CLIPS := { 1: "strike", 2: "spin", 3: "jump_attack" }
+const CHARGE_CLIP := "flourish"
 const LANDING_CLIPS := { "jump": "jump_attack" }
 
 
@@ -47,6 +51,7 @@ static func pose(clip: String, t: float, b: HHPlayerBody) -> void:
 		"stagger": HHClipsShared.stagger(t, b, wield())
 		"hit_react": HHClipsShared.hit_react(t, b, wield())
 		"death": HHClipsShared.death(t, b, wield())
+		"dash": HHClipsShared.dash(t, b, carry_run())
 
 
 # ------------------------------------------------------------------ poses

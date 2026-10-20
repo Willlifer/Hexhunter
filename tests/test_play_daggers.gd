@@ -23,10 +23,12 @@ func test_basics_fast(c: HHSelfTest.HHCheck) -> void:
 		for e in s.step():
 			if e.type == "strike" and e.cause == "basic":
 				strikes += 1
-				c.near(float(e.amount), float(HHDaggers.TUNE.basic_dmg), 0.5, "a basic does basic_dmg")
+				c.near(float(e.amount), roundf(float(HHDaggers.TUNE.basic_dmg) * float(HHWeapons.combo_hit("daggers", int(e.combo)).mult)), 0.5, "a basic does basic_dmg x its string hit (H57)")
 			if e.type == "windup" and e.kind == "basic":
 				windups += 1
-				c.eq(int(e.ticks), int(HHDaggers.TUNE.basic_windup), "short wind-up")
+				c.eq(int(e.ticks), int(HHWeapons.combo_hit("daggers", int(e.step)).windup), "the string hit's wind-up")
+				if int(e.step) == 1:
+					c.eq(int(e.ticks), int(HHDaggers.TUNE.basic_windup), "hit 1: the short basic wind-up")
 			if e.type == "paint" and e.id == "p1" and e.element == "fire":
 				painted = true
 	c.ok(strikes >= 8, "fast basics: many strikes in 10 s (%d)" % strikes)
@@ -57,11 +59,11 @@ func test_flourish(c: HHSelfTest.HHCheck) -> void:
 		for e in s.step():
 			if e.type == "flourish":
 				fired = true
-				c.eq((e.hexes as Array).size(), 19, "radius-2 area")
+				c.eq((e.hexes as Array).size(), 7, "a tap (level 1, H56): radius-1 area")
 	c.ok(fired, "flourish landed")
 	c.ok(float(m.hp) < hp, "the monster in the area took damage")
 	c.ok(s.charge.intensity(p.hex, "fire") >= 1, "the area carries the element")
-	c.ok(s.charge.intensity(Vector2i(0, 3), "fire") >= 1, "...out to the ring at 2")
+	c.ok(s.charge.intensity(Vector2i(0, 2), "fire") >= 1, "...out to the ring at 1")
 	c.ok(int(p.cooldowns.q) > 0 and int(p.cooldowns.q) <= int(HHDaggers.TUNE.q_cd) - int(HHDaggers.TUNE.q_windup), "cooldown set at cast, counting since")
 	var refused := false
 	for e in s.step({ "p1": { "cast": { "skill": "q", "aim": m.hex } } }):
@@ -118,6 +120,8 @@ func test_knifedance(c: HHSelfTest.HHCheck) -> void:
 	m.element = "water"
 	var before := s.strike(m, p, 100.0, p.hex, "probe")
 	c.near(before, 100.0, 0.5, "100 before the dance")
+	for i in int(HHTune.value("flinch_ticks")) + 1:     # H58: the probe is a monster blow: it flinched the hunter
+		s.step()
 	var started := false
 	for e in s.step({ "p1": { "cast": { "skill": "r", "aim": p.hex } } }):
 		if e.type == "knifedance" and e.phase == "start":
@@ -127,7 +131,7 @@ func test_knifedance(c: HHSelfTest.HHCheck) -> void:
 		c.near(s.resist_of(p, el), -float(HHDaggers.TUNE.r_vuln_pct), 0.01, "resist %s is -25" % el)
 	var during := s.strike(m, p, 100.0, p.hex, "probe")
 	c.near(during, 125.0, 0.5, "takes 25% more while dancing")
-	c.ok(not s.held(p), "free to move while dancing")
+	c.ok((p.windup as Dictionary).is_empty() and (p.leap as Dictionary).is_empty(), "no wind-up or leap: the dance does not hold you")
 	var pulses: Array = []
 	var ended := false
 	for e in s.step():
@@ -152,6 +156,8 @@ func test_knifedance(c: HHSelfTest.HHCheck) -> void:
 	c.near(after, 100.0, 0.5, "back to 100 after")
 	c.ok(not s.brains.has("p1"), "the ticker unhooked itself")
 	c.ok(int(p.cooldowns.r) > 0, "cooldown set")
+	for i in int(HHTune.value("flinch_ticks")) + 1:     # H58: the probe flinched the hunter
+		s.step()
 	var refused := false
 	for e in s.step({ "p1": { "cast": { "skill": "r", "aim": p.hex } } }):
 		if e.type == "cast_refused":
@@ -163,9 +169,15 @@ func test_swap(c: HHSelfTest.HHCheck) -> void:
 	var s := _sim()
 	var p := s.unit("p1")
 	s.step({ "p1": { "swap": true } })
+	for i in int(HHTune.value("exchange_windup")):     # H57: a very short wind-up
+		s.step()
 	c.eq(p.element, "water", "swapped")
 	c.eq(p.backup, "fire", "backup is the old active")
+	for i in int(HHTune.value("recovery_ticks")):
+		s.step()
 	s.step({ "p1": { "swap": true } })
+	for i in int(HHTune.value("exchange_windup")):
+		s.step()
 	c.eq(p.element, "water", "second swap refused on cooldown")
 
 

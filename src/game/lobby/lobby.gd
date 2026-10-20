@@ -656,7 +656,7 @@ func _build_ticker() -> void:
 	_ticker.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.add_child(_ticker)
 	_label("1-4 jump rows  ·  Left / Right change the pick  ·  Enter fights  ·  F1 tune  ·  Esc quits", Vector2(TICKER.position.x, HINT_Y - 14), 14, DIM)
-	_label("In the fight: right-click moves / attacks, Q E R cast, W swaps elements, T potion, Esc back here", Vector2(TICKER.position.x, HINT_Y + 6), 14, DIM)
+	_label("In the fight: right-click moves / attacks, hold Q to charge, E R cast, W swaps, Shift dashes, T throws a potion, Esc back here", Vector2(TICKER.position.x, HINT_Y + 6), 14, DIM)
 
 
 # ------------------------------------------------------------------ state
