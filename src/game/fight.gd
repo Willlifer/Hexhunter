@@ -476,6 +476,9 @@ func _track_downed(delta: float) -> void:
 
 ## Revive progress 0..1 for a downed hunter (0 when nobody is reviving).
 func revive_frac(id: String) -> float:
+	var u: Dictionary = sim.unit(id) if sim != null else {}
+	if bool(u.get("downed", false)) and float(u.get("revive", 0.0)) > 0.0:   # H53: the unit carries it (and replicates); smooth every tick
+		return clampf(float(u.revive) / maxf(1.0, HHTune.value("revive_ticks")), 0.0, 1.0)
 	return float((revive.get(id, {}) as Dictionary).get("frac", 0.0))
 
 
