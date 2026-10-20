@@ -47,6 +47,10 @@ const TAIL := ["tail_0", "tail_1", "tail_2", "tail_3"]
 const ARMS := ["fl", "fr"]
 const HIND := ["hl", "hr"]
 const SIT := -0.3        ## root drop when sitting (m): the legs fold to keep knuckles and toes on the floor
+## The digitigrade hind leg's fold per metre the hips drop (H653): hip, knee, hock
+## pitch; the metatarsus keeps its angle so the ball of the foot stays down.
+const SPLAY_DROP := 0.6   ## how far the splayed hind legs fold (m of hip drop)
+const HIND_FOLD := Vector3(-28.0, 56.0, -28.0)
 
 
 static func clip_list() -> PackedStringArray:
@@ -191,9 +195,17 @@ static func _sit(b: HHMonsterBody, amt: float) -> void:
 		_arm(b, side, Vector3(8.0 * amt, 0.0, s * 10.0 * amt), -12.0 * amt, 8.0 * amt)
 	for leg in HIND:
 		var s := _sign(leg)
-		b.rot("hip_" + leg, Vector3(12.0 * amt, 0.0, s * 18.0 * amt))
-		b.rot("knee_" + leg, Vector3(-18.0 * amt, 0.0, 0.0))
+		_hind_fold(b, leg, -SIT * amt)
+		b.rot("hip_" + leg, Vector3(0.0, 0.0, s * 10.0 * amt))
 	b.bend(TAIL, Vector3(-6.0 * amt, 0.0, 0.0))
+
+
+## Fold one digitigrade hind leg for a hip drop of `drop` metres (H653).
+static func _hind_fold(b: HHMonsterBody, leg: String, drop: float) -> void:
+	var k := drop / 0.3
+	b.rot("hip_" + leg, Vector3(HIND_FOLD.x * k * 0.3, 0.0, 0.0))
+	b.rot("knee_" + leg, Vector3(HIND_FOLD.y * k * 0.3, 0.0, 0.0))
+	b.rot("ankle_" + leg, Vector3(HIND_FOLD.z * k * 0.3, 0.0, 0.0))
 
 
 ## Arms and legs splayed under a fallen body (stagger, collapse).
@@ -204,7 +216,7 @@ static func _splay(b: HHMonsterBody, amt: float) -> void:
 	for leg in HIND:
 		var s := _sign(leg)
 		b.rot("hip_" + leg, Vector3(0.0, 0.0, s * 24.0 * amt))
-		b.rot("knee_" + leg, Vector3(-14.0 * amt, 0.0, 0.0))
+		_hind_fold(b, leg, SPLAY_DROP * amt)
 
 
 # ------------------------------------------------------------------ idles
@@ -318,11 +330,11 @@ static func _collapse(t: float, b: HHMonsterBody) -> void:
 	var bounce := _shake(t, 1.4, 0.6, 2.5) * 0.05
 	b.move("root", Vector3(0.0, -1.1 * d + bounce, 0.0))
 	_splay(b, d)
-	b.bend(SPINE, Vector3(5.0 * d, 0.0, 0.0), 0.8)
-	b.rot("neck", Vector3(14.0 * d, 0.0, 0.0))
-	b.rot("head", Vector3(6.0 * d, 0.0, 0.0))
+	b.bend(SPINE, Vector3(2.0 * d, 0.0, 0.0), 0.8)
+	b.rot("neck", Vector3(-6.0 * d, 0.0, 0.0))
+	b.rot("head", Vector3(-4.0 * d, 0.0, 0.0))
 	_jaw(b, 22.0 * d)
-	b.bend(TAIL, Vector3(-12.0 * d, 0.0, 0.0))
+	b.bend(TAIL, Vector3(16.0 * d, 0.0, 0.0))
 
 
 static func _death(t: float, b: HHMonsterBody) -> void:

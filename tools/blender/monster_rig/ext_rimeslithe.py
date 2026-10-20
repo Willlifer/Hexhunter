@@ -27,8 +27,10 @@ import math
 from mathutils import Matrix, Vector
 
 import rigkit
+import shapes_ma
 
-EXT_VERSION = 1
+EXT_VERSION = 2   # 2 (H652): knuckle-walking fists (rounded fist + knuckle knobs), forearm mass,
+                  # digitigrade hind legs (shapes_ma), muscle masses and swept crest plates
 UP = rigkit.UP
 FORWARD = rigkit.FORWARD
 V = rigkit.V
@@ -52,7 +54,13 @@ def build_arm(mb, spec, leg):
     # wrist ball on the wrist bone
     wrist = pts[2]
     mb.sphere(wrist, radii[2] * 1.1, {names[2]: 1.0}, role, seg=6, rings=3)
-    # the fist: a block from the wrist down onto the knuckles, fingers folded under
+    # the forearm's gorilla bulk (H652)
+    fm = leg.get("forearm_mass")
+    if fm:
+        shapes_ma.mass_along(mb, pts[1], pts[2], float(fm[3]) if len(fm) > 3 else 0.35, fm[0], fm[1], fm[2],
+                             {names[1]: 1.0}, role, seg=8, rings=5)
+    # the fist: a rounded mass from the wrist down onto the knuckles, a row of
+    # knuckle knobs on the ground in front, claws curled under (not a box paw)
     toe = V(leg["toe"])
     fw, fl, fh = leg.get("fist", (0.9, 0.85, 0.6))
     d = toe - wrist
@@ -61,27 +69,30 @@ def build_arm(mb, spec, leg):
         d = FORWARD.copy()
     d = d.normalized()
     side = d.cross(UP).normalized()
-    basis = Matrix((side, d, UP)).transposed()
-    centre = Vector((toe.x, toe.y, 0.0)) - d * (fl * 0.15)
-    centre.z = fh * 0.5 + 0.02
     wfist = {"toe_" + lid: 0.75, "ankle_" + lid: 0.25}
-    mb.box(centre, (fw * 0.5, fl * 0.5, fh * 0.5), basis, wfist, role)
-    # knuckle ridge: a lower, wider slab in front so the fist reads as curled fingers
-    ridge_c = centre + d * (fl * 0.45)
-    ridge_c.z = fh * 0.3 + 0.02
-    mb.box(ridge_c, (fw * 0.46, fl * 0.22, fh * 0.3), basis, {"toe_" + lid: 1.0}, role)
-    # claws curl down and under from the knuckle ridge
+    centre = Vector((toe.x, toe.y, 0.0)) - d * (fl * 0.2)
+    centre.z = fh * 0.55
+    # the fist leans: its long axis runs from the wrist down to the knuckles
+    axis = (Vector((toe.x, toe.y, 0.05)) - wrist)
+    axis = axis.normalized()
+    side2 = axis.cross(UP)
+    side2 = side2.normalized() if side2.length > 1e-6 else side
+    fwd2 = side2.cross(axis).normalized()
+    shapes_ma.ellipsoid(mb, centre, side2 * (fw * 0.5), fwd2 * (fl * 0.5), axis * (fh * 0.62), wfist, role, seg=8, rings=5)
     n = int(leg.get("claws", 4))
+    kr = fw / (n * 2.0) * 1.05
+    front = Vector((toe.x, toe.y, 0.0)) + d * (fl * 0.18)
     cl = float(leg.get("claw_len", 0.3))
-    front = ridge_c + d * (fl * 0.22)
     for i in range(n):
         u = (i + 0.5) / n - 0.5
-        base_c = front + side * (u * fw * 0.8)
-        base_c.z = fh * 0.42
-        hw = fw * 0.36 / n
-        base = [base_c + side * hw - UP * (fh * 0.2), base_c - side * hw - UP * (fh * 0.2),
-                base_c - side * hw + UP * (fh * 0.2), base_c + side * hw + UP * (fh * 0.2)]
-        tip = base_c + d * (cl * 0.75) - UP * (fh * 0.42)
+        kc = front + side * (u * fw * 0.86) - d * (abs(u) * fl * 0.25)
+        kc.z = kr * 0.95
+        mb.sphere(kc, kr, {"toe_" + lid: 1.0}, role, seg=6, rings=3)
+        # a claw curling down from the knuckle's front
+        cb = kc + d * (kr * 0.7)
+        hw = kr * 0.45
+        base = [cb + side * hw - UP * hw, cb - side * hw - UP * hw, cb - side * hw + UP * hw, cb + side * hw + UP * hw]
+        tip = cb + d * (cl * 0.6) - UP * (kc.z * 0.9)
         tip.z = max(tip.z, 0.02)
         mb.pyramid(base, tip, {"toe_" + lid: 1.0}, leg.get("claw_role", "claw"))
 
@@ -155,9 +166,24 @@ def build_crystals(mb, spec):
             crystal(mb, root, direction, length, radius, w, role, tip_color=tip)
 
 
+# ------------------------------------------------------------------ extras (H652)
+def build_extras(mb, spec):
+    """spec["masses"]: [ { a, b, u, r: (side, len, fwd), w, role } ] muscle ellipsoids;
+    spec["plates"]: [ { pts, widths, normal, w (dict or list per point), role, thick,
+    colors } ] swept crest / fin plates (shapes_ma.plate)."""
+    for m in spec.get("masses", []):
+        r = m["r"]
+        shapes_ma.mass_along(mb, m["a"], m["b"], float(m.get("u", 0.5)), r[0], r[1], r[2], m["w"],
+                             m.get("role", "hide"), seg=int(m.get("seg", 10)), rings=int(m.get("rings", 6)))
+    for pl in spec.get("plates", []):
+        shapes_ma.plate(mb, pl["pts"], pl["widths"], pl["normal"], pl["w"], pl.get("role", "crystal"),
+                        thick=float(pl.get("thick", 0.08)), colors=pl.get("colors"))
+
+
 # ------------------------------------------------------------------ install
 def install():
     """Patch rigkit's module-level builders (idempotent)."""
+    shapes_ma.install_normal_fix(rigkit)
     if getattr(rigkit, "_ext_rimeslithe", False):
         return
     orig_leg = rigkit.build_leg
@@ -166,12 +192,15 @@ def install():
     def build_leg(mb, spec, leg):
         if leg.get("kind") == "arm":
             build_arm(mb, spec, leg)
+        elif leg.get("digi"):
+            shapes_ma.digi_leg(mb, spec, leg, rigkit)
         else:
             orig_leg(mb, spec, leg)
 
     def build_eyes(mb, spec):
         orig_eyes(mb, spec)
         build_crystals(mb, spec)
+        build_extras(mb, spec)
 
     rigkit.build_leg = build_leg
     rigkit.build_eyes = build_eyes

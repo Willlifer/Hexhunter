@@ -1,8 +1,9 @@
 class_name HHColambrosClips
 extends RefCounted
 ## Colambros's clips: pose functions of time on an HHMonsterBody (H305, the
-## Swampfang pattern). The REST POSE is the biped stance (kangaroo rear legs,
-## arms hanging off the chest, tail out behind as a counterweight). Clips
+## Swampfang pattern). The REST POSE is the biped stance (H650: brute-wyvern
+## posture, torso up, digitigrade kangaroo rear legs, small arms held at the chest,
+## tail tip on the ground). Clips
 ## that sprint drop it to all fours with `_quad()`: the body pitches nose-down
 ## about the hips, the rear legs crouch, the arms reach the ground.
 ##
@@ -55,9 +56,12 @@ const TAIL := ["tail_0", "tail_1", "tail_2", "tail_3"]
 const REAR := ["hl", "hr"]
 const ARMS := ["fl", "fr"]
 const N_QUILLS := 14
-const HIP_H := 1.75          ## rest height of the hips (m)
-const HIP_Z := -0.55         ## rest z of the hips (m)
+const HIP_H := 1.95          ## rest height of the hips (m)
+const HIP_Z := -0.40         ## rest z of the hips (m)
 const SPRAWL := -1.12        ## root drop when the belly is on the ground (m)
+const SPRAWL_PITCH := 32.0
+const ROLL_PITCH := 40.0     ## back_roll: torso laid level before the flip (deg)
+const ROLL_DROP := 1.1       ## back_roll: root drop on its back (m)   ## the upright torso laid down onto the belly (deg, nose-down)
 
 
 static func clip_list() -> PackedStringArray:
@@ -135,6 +139,17 @@ static func _pitch_hips(b: HHMonsterBody, deg: float) -> void:
 	_pivot(b, Vector3(deg, 0.0, 0.0), Vector3(0.0, HIP_H, HIP_Z))
 
 
+## Pitch the body nose-down first, THEN roll it about the (now level) long
+## axis, then yaw: R = yaw * roll * pitch about the model point `c`. The
+## upright biped has to lie down before it can roll onto its back (H651).
+static func _pitch_then_roll(b: HHMonsterBody, pitch_deg: float, yaw_deg: float, roll_deg: float, c: Vector3) -> void:
+	b.rot("root", Vector3(0.0, yaw_deg, 0.0))
+	b.rot("root", Vector3(0.0, 0.0, roll_deg))
+	b.rot("root", Vector3(pitch_deg, 0.0, 0.0))
+	var r := Basis(Vector3.UP, deg_to_rad(yaw_deg)) * Basis(Vector3.BACK, deg_to_rad(roll_deg)) * Basis(Vector3.RIGHT, deg_to_rad(pitch_deg))
+	b.move("root", c - r * c)
+
+
 static func _roll_about(b: HHMonsterBody, roll_deg: float, h: float) -> void:
 	_pivot(b, Vector3(0.0, 0.0, roll_deg), Vector3(0.0, h, HIP_Z))
 
@@ -198,25 +213,36 @@ static func _rear_leg(b: HHMonsterBody, leg: String, ph: float, stride_deg: floa
 		b.rot("ankle_" + leg, Vector3(lift_deg * 0.5 * arc, 0.0, 0.0))
 
 
-## The quadruped stance, 0..1: pitch nose-down about the hips, drop, rear
-## legs crouch (flexes sum to zero so the foot stays flat), arms reach the
-## ground, the head comes back up level.
+## The quadruped stance, 0..1 (H651): the upright torso pitches nose-down
+## about the hips until the back is level, the body drops, the rear legs crouch
+## with the metatarsus kept at its rest angle (the ball of the foot stays on the
+## ground), the small arms straighten down to paw the ground, the head comes
+## back up level and the tail swings out level behind as the counterweight.
+const Q_PITCH := 36.0
+const Q_DROP := -0.45
+const Q_REAR := Vector3(-50.0, 30.0, -16.0)      ## hip, knee, ankle pitch
+const Q_ARM := Vector3(-8.0, 36.0, -10.0)       ## shoulder, elbow, wrist pitch
+const Q_SPINE := 0.0
+const Q_TAIL := -36.0
+
+
 static func _quad(b: HHMonsterBody, k: float) -> void:
 	if k <= 0.0:
 		return
-	_pitch_hips(b, 32.0 * k)
-	b.move("root", Vector3(0.0, -0.36 * k, 0.0))
+	_pitch_hips(b, Q_PITCH * k)
+	b.move("root", Vector3(0.0, Q_DROP * k, 0.0))
+	b.bend(SPINE, Vector3(Q_SPINE * k, 0.0, 0.0), 1.0)
 	for leg in REAR:
-		b.rot("hip_" + leg, Vector3(-16.0 * k, 0.0, 0.0))
-		b.rot("knee_" + leg, Vector3(28.0 * k, 0.0, 0.0))
-		b.rot("ankle_" + leg, Vector3(-12.0 * k, 0.0, 0.0))
+		b.rot("hip_" + leg, Vector3(Q_REAR.x * k, 0.0, 0.0))
+		b.rot("knee_" + leg, Vector3(Q_REAR.y * k, 0.0, 0.0))
+		b.rot("ankle_" + leg, Vector3(Q_REAR.z * k, 0.0, 0.0))
 	for a in ARMS:
-		b.rot("hip_" + a, Vector3(-38.0 * k, 0.0, 0.0))
-		b.rot("knee_" + a, Vector3(48.0 * k, 0.0, 0.0))
-		b.rot("ankle_" + a, Vector3(-10.0 * k, 0.0, 0.0))
-	b.rot("neck", Vector3(-22.0 * k, 0.0, 0.0))
-	b.rot("head", Vector3(-14.0 * k, 0.0, 0.0))
-	b.bend(TAIL, Vector3(14.0 * k, 0.0, 0.0), 0.8)
+		b.rot("hip_" + a, Vector3(Q_ARM.x * k, 0.0, 0.0))
+		b.rot("knee_" + a, Vector3(Q_ARM.y * k, 0.0, 0.0))
+		b.rot("ankle_" + a, Vector3(Q_ARM.z * k, 0.0, 0.0))
+	b.rot("neck", Vector3(-30.0 * k, 0.0, 0.0))
+	b.rot("head", Vector3(-16.0 * k, 0.0, 0.0))
+	b.bend(TAIL, Vector3(Q_TAIL * k, 0.0, 0.0), 0.8)
 
 
 ## The bound on top of _quad: rear legs together, arms together, spine flexing.
@@ -251,12 +277,12 @@ static func _rear_splay(b: HHMonsterBody, amt: float) -> void:
 
 ## The sprawl: belly on the ground, body level, head resting, tail flat.
 static func _sprawl_pose(b: HHMonsterBody, amt: float) -> void:
-	_pitch_hips(b, 12.0 * amt)
+	_pitch_hips(b, SPRAWL_PITCH * amt)
 	b.move("root", Vector3(0.0, SPRAWL * amt, 0.0))
 	_rear_splay(b, amt)
-	b.rot("neck", Vector3(6.0 * amt, 0.0, 0.0))
-	b.rot("head", Vector3(10.0 * amt, 0.0, 0.0))
-	b.bend(TAIL, Vector3(14.0 * amt, 0.0, 0.0), 0.7)
+	b.rot("neck", Vector3(-16.0 * amt, 0.0, 0.0))
+	b.rot("head", Vector3(-6.0 * amt, 0.0, 0.0))
+	b.bend(TAIL, Vector3(-34.0 * amt, 0.0, 0.0), 0.7)
 
 
 # ------------------------------------------------------------------ idles
@@ -335,10 +361,10 @@ static func _rattle_roar(t: float, b: HHMonsterBody) -> void:
 	var crouch := a * (1.0 - s)
 	var sh := _shake(t, 0.75, 0.9, 10.0) * hold
 	b.move("root", Vector3(0.0, -0.3 * crouch + 0.12 * hold, 0.0))
-	_pitch_hips(b, 8.0 * crouch - 10.0 * hold)
-	b.bend(SPINE, Vector3(6.0 * crouch - 8.0 * hold, 0.0, 0.0), 1.2)
-	b.rot("neck", Vector3(16.0 * crouch - 28.0 * hold, 3.0 * sh, 0.0))
-	b.rot("head", Vector3(10.0 * crouch - 22.0 * hold, 2.0 * sh, 0.0))
+	_pitch_hips(b, 8.0 * crouch - 3.0 * hold)
+	b.bend(SPINE, Vector3(6.0 * crouch - 4.0 * hold, 0.0, 0.0), 1.2)
+	b.rot("neck", Vector3(16.0 * crouch - 12.0 * hold, 3.0 * sh, 0.0))
+	b.rot("head", Vector3(10.0 * crouch - 12.0 * hold, 2.0 * sh, 0.0))
 	_jaw(b, 4.0 * crouch + 42.0 * hold + 3.0 * sh)
 	for leg in REAR:
 		b.rot("hip_" + leg, Vector3(-10.0 * crouch, 0.0, 0.0))
@@ -382,7 +408,7 @@ static func _run(t: float, b: HHMonsterBody) -> void:
 
 static func _charge(t: float, b: HHMonsterBody) -> void:
 	_quad(b, 1.0)
-	_pitch_hips(b, 6.0)
+	_pitch_hips(b, 3.0)
 	_bound(b, t, 0.5, 1.2)
 	b.rot("neck", Vector3(-6.0, 0.0, 0.0))
 	b.rot("head", Vector3(-4.0, 0.0, 0.0))
@@ -405,9 +431,9 @@ static func _dirt_scrape(t: float, b: HHMonsterBody) -> void:
 			rake = _snap(u, 0.2, 1.0)
 	var brace := lean
 	b.move("root", Vector3(0.0, -0.16 * brace, 0.0))
-	_pitch_hips(b, 12.0 * lean)
-	b.bend(SPINE, Vector3(4.0 * lean, 0.0, 0.0), 1.1)
-	b.rot("neck", Vector3(22.0 * lean, 0.0, 0.0))
+	_pitch_hips(b, 5.0 * lean)
+	b.bend(SPINE, Vector3(2.0 * lean, 0.0, 0.0), 1.1)
+	b.rot("neck", Vector3(12.0 * lean, 0.0, 0.0))
 	b.rot("head", Vector3(8.0 * lean, 3.0 * _shake(t, 0.1, 1.2, 4.0), 0.0))
 	_jaw(b, 10.0 * lean)
 	# the scraping foot: swings forward and lifts, then rakes hard back
@@ -489,8 +515,8 @@ static func _ember_spit(t: float, b: HHMonsterBody) -> void:
 	_pitch_hips(b, -6.0 * k + 6.0 * w * (1.0 - rec))
 	b.move("spine_1", Vector3(0.0, 0.1 * k, 0.0))
 	b.bend(SPINE, Vector3(-8.0 * k + 3.0 * w * (1.0 - rec), 0.0, 0.0), 1.3)
-	b.rot("neck", Vector3(-24.0 * k + 18.0 * w * (1.0 - rec) - 4.0 * pulse, 0.0, 0.0))
-	b.rot("head", Vector3(-14.0 * k + 10.0 * w * (1.0 - rec) - 3.0 * pulse, 0.0, 0.0))
+	b.rot("neck", Vector3(-24.0 * k + 6.0 * w * (1.0 - rec) - 4.0 * pulse, 0.0, 0.0))
+	b.rot("head", Vector3(-14.0 * k + 4.0 * w * (1.0 - rec) - 3.0 * pulse, 0.0, 0.0))
 	_jaw(b, 10.0 * a + 36.0 * w * (1.0 - rec) + 6.0 * pulse)
 	_arms_tuck(b, 1.0)
 	for leg in REAR:
@@ -542,9 +568,11 @@ static func _back_roll(t: float, b: HHMonsterBody) -> void:
 	if t > 1.2:
 		var u := clampf((t - 1.2) / 1.1, 0.0, 1.0)
 		turns = 540.0 * (u * u * (3.0 - 2.0 * u) * 0.3 + u * 0.7)
-	# the roll: pivot on the long axis at hip height, lowered so the back lands on the ground
-	b.move("root", Vector3(0.0, -0.45 * sit * (1.0 - flip) - 0.9 * onback, 0.0))
-	_pivot(b, Vector3(-18.0 * sit * (1.0 - flip), turns, 180.0 * onback), Vector3(0.0, HIP_H, HIP_Z))
+	# the roll: the torso lies down level (pitch), then rolls about its long axis at hip
+	# height, lowered so the back lands on the ground
+	var lie := _ss(t, 0.4, 0.9) * (1.0 - up)
+	b.move("root", Vector3(0.0, -0.45 * sit * (1.0 - flip) - ROLL_DROP * onback, 0.0))
+	_pitch_then_roll(b, -14.0 * sit * (1.0 - flip) + ROLL_PITCH * lie, turns, 180.0 * onback, Vector3(0.0, HIP_H, HIP_Z))
 	b.bend(SPINE, Vector3(-6.0 * sit + 10.0 * onback, 0.0, 0.0), 1.2)
 	b.rot("neck", Vector3(-14.0 * sit + 16.0 * onback, 0.0, 0.0))
 	b.rot("head", Vector3(-8.0 * sit + 10.0 * onback, 0.0, 0.0))
@@ -557,7 +585,7 @@ static func _back_roll(t: float, b: HHMonsterBody) -> void:
 	for arm in ARMS:
 		b.rot("hip_" + arm, Vector3(-40.0 * onback, 0.0, 0.0))
 		b.rot("knee_" + arm, Vector3(-30.0 * onback, 0.0, 0.0))
-	b.bend(TAIL, Vector3(26.0 * sit * (1.0 - flip) + 30.0 * onback, 20.0 * kick * sin(TAU * t * 1.5), 0.0), 1.3)
+	b.bend(TAIL, Vector3(26.0 * sit * (1.0 - flip) - 16.0 * onback, 20.0 * kick * sin(TAU * t * 1.5), 0.0), 1.3)
 	_quills(b, t, 30.0 * sit * (1.0 - flip) - 80.0 * bald, 0.0)
 	_rattle(b, t, 14.0 * spin * (1.0 - bald))
 
@@ -603,9 +631,9 @@ static func _collapse(t: float, b: HHMonsterBody) -> void:
 	var bounce := _shake(t, 1.3, 0.6, 2.5) * 0.05
 	_sprawl_pose(b, d)
 	b.move("root", Vector3(0.0, bounce, 0.0))
-	b.bend(SPINE, Vector3(5.0 * d, 0.0, 0.0), 0.8)
-	b.rot("neck", Vector3(12.0 * d, 0.0, 0.0))
-	b.rot("head", Vector3(6.0 * d, 0.0, 0.0))
+	b.bend(SPINE, Vector3(2.0 * d, 0.0, 0.0), 0.8)
+	b.rot("neck", Vector3(6.0 * d, 0.0, 0.0))
+	b.rot("head", Vector3(3.0 * d, 0.0, 0.0))
 	_jaw(b, 18.0 * d)
 	_quills(b, t, 14.0 - 80.0 * d, 0.0)
 
@@ -613,9 +641,10 @@ static func _collapse(t: float, b: HHMonsterBody) -> void:
 static func _death(t: float, b: HHMonsterBody) -> void:
 	_collapse(minf(t, 2.0), b)
 	var r := _ss(t, 1.5, 2.7)
-	_roll_about(b, 75.0 * r, 0.5)
-	b.move("root", Vector3(0.0, 0.2 * r, 0.0))
-	b.rot("neck", Vector3(0.0, 0.0, -10.0 * r))
+	_roll_about(b, 75.0 * r, 0.85)
+	b.move("root", Vector3(0.0, 0.65 * r, 0.0))
+	b.rot("neck", Vector3(-16.0 * r, 0.0, -10.0 * r))
+	b.rot("head", Vector3(-8.0 * r, 0.0, 0.0))
 	_jaw(b, 16.0 * r)
 	for leg in REAR:
 		b.rot("hip_" + leg, Vector3(-20.0 * r, 0.0, 0.0))
