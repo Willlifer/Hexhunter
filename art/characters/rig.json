@@ -16,19 +16,19 @@
   ],
   "max": [
    0.5676,
-   2.225,
-   0.21
+   2.3,
+   0.258
   ]
  },
- "tris": 1776,
+ "tris": 1788,
  "tris_by_role": {
   "skin": 260,
   "leather": 736,
-  "cloak": 208,
+  "cloak": 220,
   "boots": 504,
   "straps": 68
  },
- "verts": 966,
+ "verts": 974,
  "meshes": [
   "body_skin",
   "body_leather",
