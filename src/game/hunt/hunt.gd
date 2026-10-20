@@ -65,6 +65,9 @@ func go(step: Dictionary) -> void:
 func _show(n: Node, cfg: Dictionary) -> void:
 	node = n
 	n.name = screen.capitalize()
+	if shell is HHShell:                                   # H612: the shell connects our handler, not its routing
+		(shell as HHShell).show_screen(n, cfg, _on_finished)
+		return
 	if n.has_signal("finished"):
 		n.finished.connect(_on_finished)
 	if shell != null and shell.has_method("show_screen"):
@@ -98,6 +101,9 @@ func _prep_screen() -> Node:
 
 func _fight(cfg: Dictionary) -> void:
 	var src: Node = null
+	if shell is HHShell:                                   # H612
+		node = (shell as HHShell).play(cfg, _on_finished)
+		return
 	if shell != null and shell.has_method("play"):
 		var got: Variant = shell.play(cfg)
 		if got is Node:

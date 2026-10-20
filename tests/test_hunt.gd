@@ -63,6 +63,19 @@ class NoPlayShell:
 			screen.setup(cfg)
 
 
+## Tests that reach the results screen with the real HHSave must not write the
+## player's save (they did: user://hunter.json filled with 3.3 s wins).
+const TEST_SAVE := "user://test_hunt_hunter.json"
+func _scratch_save() -> void:
+	HHSave.path = TEST_SAVE
+
+
+func _restore_save() -> void:
+	HHSave.path = HHSave.DEFAULT_PATH
+	if FileAccess.file_exists(TEST_SAVE):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+
+
 # ------------------------------------------------------------------ flow
 
 func test_flow_walks_a_whole_hunt(c: HHSelfTest.HHCheck) -> void:
@@ -298,6 +311,7 @@ func test_results_uses_the_save_api(c: HHSelfTest.HHCheck) -> void:
 # ------------------------------------------------------------------ driver
 
 func test_hunt_driver_against_stub_shell(c: HHSelfTest.HHCheck) -> void:
+	_scratch_save()
 	var shell := HHHuntShellStub.new()
 	var hunt := HHHunt.start(shell, { "seed": 2 })
 	hunt.immediate = true
@@ -328,10 +342,12 @@ func test_hunt_driver_against_stub_shell(c: HHSelfTest.HHCheck) -> void:
 	hunt.node.finished.emit({ "result": "continue" })
 	c.eq(hunt.screen, "map", "results -> map")
 	c.eq(hunt.history.size(), 5, "five transitions logged")
+	_restore_save()
 	shell.free()
 
 
 func test_hunt_driver_without_play(c: HHSelfTest.HHCheck) -> void:
+	_scratch_save()
 	var shell := NoPlayShell.new()
 	var hunt := HHHunt.start(shell, { "seed": 1 })
 	hunt.immediate = true
@@ -339,11 +355,48 @@ func test_hunt_driver_without_play(c: HHSelfTest.HHCheck) -> void:
 	hunt.node.finished.emit({ "result": "skipped" })
 	hunt.node.finished.emit({ "result": "play", "cfg": {} })
 	c.eq(hunt.screen, "fight", "reached the fight")
-	c.ok(hunt.node is HHHuntFightWatch, "no play(): the fallback fight watch")
-	var watch: HHHuntFightWatch = hunt.node
-	c.ok(watch.fight is HHFight, "wrapping an HHFight")
-	c.eq(str(watch.fight.get("monster_id")), "spirewalker", "with the ambushing monster")
+	# H612: HHFight has its own finished signal now (Lane L), so the fallback
+	# hands back the fight itself; the watch only wraps a fight without one.
+	c.ok(hunt.node is HHFight and hunt.node.has_signal("finished"), "no play(): the fallback launches an HHFight with finished")
+	var fight: HHFight = hunt.node
+	c.eq(str(fight.get("monster_id")), "spirewalker", "with the ambushing monster")
+	var watch := HHHuntFightWatch.new()
+	watch.bind(fight, { "monster": "spirewalker" })
+	fight.add_child(watch)
 	var p := watch.payload("win")
 	c.eq(p.result, "win", "payload verdict")
 	c.ok(float(p.max_hp) > 0.0 and float(p.monster_max_hp) > 0.0, "payload carries both max hps")
+	_restore_save()
+	shell.free()
+
+
+## H612: the real shell drives the hunt: each screen reports to the hunt
+## alone (no shell routing on top), the prep is the lobby with the hunt's
+## arena and monster locked, and the fight launches once, through shell.play.
+func test_hunt_through_real_shell(c: HHSelfTest.HHCheck) -> void:
+	_scratch_save()
+	var shell := HHShell.new()
+	var hunt := HHHunt.start(shell, { "seed": 1, "weapon": "bow" })
+	hunt.immediate = true
+	c.eq(hunt.screen, "map", "starts on the map")
+	hunt.node.finished.emit({ "result": "approach", "monster": "rimeslithe", "arena": "cave" })
+	c.eq(hunt.screen, "ambush", "approach -> ambush")
+	hunt.node.finished.emit({ "result": "skipped" })
+	c.eq(hunt.screen, "prep", "ambush -> prep")
+	c.ok(hunt.node is HHLobby, "prep is the lobby")
+	var lobby: HHLobby = hunt.node
+	c.ok(lobby.state.is_locked("arena") and lobby.state.is_locked("monster"), "arena and monster locked")
+	c.eq(str(lobby.state.cfg.monster), "rimeslithe", "the ambushing monster")
+	lobby.finished.emit({ "result": "fight", "cfg": lobby.state.launch_cfg() })
+	c.eq(hunt.screen, "fight", "prep -> fight")
+	c.ok(hunt.node is HHFight and shell.screen == hunt.node, "the shell owns the one fight")
+	var fights := 0
+	for ch in shell.get_children():
+		if ch is HHFight and not ch.is_queued_for_deletion():
+			fights += 1
+	c.eq(fights, 1, "launched exactly once")
+	c.eq(shell.fights_run, 0, "the shell's lobby routing stayed out of it")
+	hunt.node.finished.emit({ "result": "win", "cfg": shell.last_cfg, "ticks": 900, "hp": 2000, "monster_hp": 0 })
+	c.eq(hunt.screen, "results", "fight -> results")
+	_restore_save()
 	shell.free()

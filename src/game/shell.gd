@@ -52,6 +52,8 @@ func _route(result: Dictionary, from: Node) -> void:
 		go_lobby(last_cfg, result)
 	elif str(result.get("result", "")) == "fight":
 		play(result.get("cfg", last_cfg))
+	elif str(result.get("result", "")) == "hunt":
+		hunt(result.get("cfg", last_cfg))
 	elif str(result.get("result", "")) == "quit":
 		get_tree().quit(0)
 
@@ -65,12 +67,22 @@ func go_lobby(cfg: Dictionary = last_cfg, result: Dictionary = {}) -> void:
 	show_screen(lobby, cfg)
 
 
-## Build and show the fight `cfg` describes.
-func play(cfg: Dictionary) -> void:
+## Build and show the fight `cfg` describes. The hunt loop passes its own
+## `on_finished` and gets the fight back (H612).
+func play(cfg: Dictionary, on_finished: Callable = Callable()) -> Node:
 	last_cfg = cfg.duplicate(true)
 	var fight := HHFight.new()
 	fight.name = "Fight"
-	show_screen(fight, last_cfg)
+	show_screen(fight, last_cfg, on_finished)
+	return fight
+
+
+## The hunt loop (Lane H): map -> ambush -> prep (this lobby, arena and
+## monster locked) -> fight -> results -> map. Quitting the map returns here.
+func hunt(cfg: Dictionary = last_cfg) -> void:
+	var h: Node = HHHunt.start(self, { "seed": int(cfg.get("seed", 1)), "weapon": str(cfg.get("weapon", "lance")),
+		"element": str(cfg.get("element", "fire")), "backup": str(cfg.get("backup", "water")) })
+	h.connect("ended", func(): go_lobby(last_cfg), CONNECT_ONE_SHOT)
 
 
 func replay() -> void:

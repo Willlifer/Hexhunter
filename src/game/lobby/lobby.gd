@@ -34,6 +34,7 @@ const ROW_KEYS := ["1", "2", "3", "4"]
 const ROW_NAMES := ["ARENA", "MONSTER", "WEAPON", "ELEMENTS   first click = active, second = backup"]
 
 var state := HHLobbyState.new()
+var _hunt_btn: Button = null
 var can_replay := false          # the shell sets this once a fight has run
 var result_text := ""            # the last fight's result line for the ticker
 var rng := RandomNumberGenerator.new()
@@ -184,6 +185,13 @@ func _build_card() -> void:
 	fight.add_theme_font_size_override("font_size", 26)
 	fight.pressed.connect(_fight)
 	v.add_child(fight)
+	_hunt_btn = Button.new()                              # H612: the hunt loop starts from the plain lobby
+	_hunt_btn.text = "GO HUNTING   (H)"
+	_hunt_btn.tooltip_text = "World map: find the stirring site, survive the ambush, prepare, fight, take the drops"
+	_hunt_btn.custom_minimum_size = Vector2(0, 44)
+	_hunt_btn.add_theme_font_size_override("font_size", 20)
+	_hunt_btn.pressed.connect(_hunt)
+	v.add_child(_hunt_btn)
 	_replay = Button.new()
 	_replay.text = "Replay last fight"
 	_replay.custom_minimum_size = Vector2(0, 38)
@@ -280,6 +288,15 @@ func _fight() -> void:
 	finished.emit({ "result": "fight", "cfg": state.launch_cfg() })
 
 
+func _in_hunt() -> bool:
+	return not (state.cfg.get("locked", []) as Array).is_empty()
+
+
+func _hunt() -> void:
+	state.save_last()
+	finished.emit({ "result": "hunt", "cfg": state.launch_cfg() })
+
+
 func _ticker_rest() -> void:
 	_ticker.text = result_text if result_text != "" else "hover a tile for what it does"
 
@@ -302,6 +319,8 @@ func _refresh() -> void:
 		HHRegistry.name_of("monster", str(state.cfg.monster)), HHRegistry.name_of("arena", str(state.cfg.arena)),
 		HHRegistry.name_of("weapon", str(state.cfg.weapon)).to_lower(),
 		HHRegistry.name_of("element", str(state.cfg.element)), HHRegistry.name_of("element", str(state.cfg.backup))]
+	if _hunt_btn != null:
+		_hunt_btn.visible = not _in_hunt()
 	_replay.disabled = not can_replay
 	_new_seed.disabled = not can_replay
 	_refresh_upgrades()
@@ -327,6 +346,9 @@ func _unhandled_input(ev: InputEvent) -> void:
 			_refresh()
 		KEY_ENTER, KEY_KP_ENTER:
 			_fight()
+		KEY_H:
+			if not _in_hunt():
+				_hunt()
 		KEY_ESCAPE:
 			finished.emit({ "result": "quit" })
 		_:

@@ -9,6 +9,7 @@ extends Node
 ##                              when src/monster/<monster>.gd exists, else the stub)
 ##   --weapon <id>              lance (default) | daggers | bow
 ##   --element <el> --backup <el>   the hunter's element pair (default fire / water)
+##   --hunt [--seed N] [--weapon id]  the hunt loop: world map -> ambush -> prep -> fight -> results
 ##   --sandbox                  H20: left-click paints, keys 1-7 pick the element
 ##   --autoplay [--seconds s]   scripted run, then quit (the smoke test)
 ##   --shot <dir> [--count n] [--every s]   save n rendered frames to <dir>, then quit
@@ -56,6 +57,15 @@ func _ready() -> void:
 	if "--shot-lobby" in args:
 		shell.go_lobby(HHShell.default_cfg())
 		_capture(args, "--shot-lobby")
+		return
+	if "--hunt" in args:                                            # H612: straight onto the world map
+		var hc := HHShell.default_cfg()
+		hc.seed = int(_arg(args, "--seed", "1"))
+		hc.weapon = _arg(args, "--weapon", "lance")
+		hc.element = _arg(args, "--element", "fire")
+		hc.backup = _arg(args, "--backup", "water")
+		shell.last_cfg = hc
+		shell.hunt(hc)
 		return
 	var direct := false
 	for f in FIGHT_FLAGS:
