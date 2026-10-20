@@ -1,5140 +1,3331 @@
 {
- "version": 1,
- "generator": "tools/blender/build_monster_*.py + monster_rig/rigkit.py",
- "space": "Godot model-local: origin at the ground under the hips, +Y up, +Z the monster's forward, +X its left. Bones carry head/tail at rest; sockets are Node3D under BoneAttachment3D.",
- "monsters": {
-  "colambros": {
-   "id": "colambros",
-<<<<<<< HEAD
-   "version": 3,
-   "rigkit_version": 1,
-   "footprint_hexes": 2,
-   "length": 8.123,
-   "height": 4.969,
-   "width": 2.687,
-   "aabb": {
-    "min": [
-     -1.3435,
-     -0.1015,
-     -4.3219
-    ],
-    "max": [
-     1.3435,
-     4.969,
-     3.8009
-    ]
-   },
-   "tris": 2250,
-   "verts": 1337,
-=======
-   "version": 2,
-   "rigkit_version": 1,
-   "footprint_hexes": 2,
-   "length": 7.901,
-   "height": 4.066,
-   "width": 1.992,
-   "aabb": {
-    "min": [
-     -0.996,
-     0.02,
-     -3.5027
-    ],
-    "max": [
-     0.996,
-     4.0656,
-     4.3979
-    ]
-   },
-   "tris": 1182,
-   "verts": 767,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-   "meshes": [
-    "body_hide",
-    "body_belly",
-    "body_quill",
-    "body_teeth",
-    "body_eye",
-    "body_claw"
-   ],
-   "bones": [
-    {
-     "name": "root",
-     "parent": "",
-     "head": [
-      0.0,
-      0.0,
-      -0.0
-     ],
-     "tail": [
-      0.0,
-      0.5,
-      -0.0
-     ]
+  "version": 1,
+  "generator": "tools/blender/build_monster_*.py + monster_rig/rigkit.py",
+  "space": "Godot model-local: origin at the ground under the hips, +Y up, +Z the monster's forward, +X its left. Bones carry head/tail at rest; sockets are Node3D under BoneAttachment3D.",
+  "monsters": {
+    "colambros": {
+      "id": "colambros",
+      "version": 3,
+      "rigkit_version": 1,
+      "footprint_hexes": 2,
+      "length": 8.123,
+      "height": 4.969,
+      "width": 2.687,
+      "aabb": {
+        "min": [
+          -1.3435,
+          -0.1015,
+          -4.3219
+        ],
+        "max": [
+          1.3435,
+          4.969,
+          3.8009
+        ]
+      },
+      "tris": 2250,
+      "verts": 1337,
+      "meshes": [
+        "body_hide",
+        "body_belly",
+        "body_quill",
+        "body_teeth",
+        "body_eye",
+        "body_claw"
+      ],
+      "bones": [
+        {
+          "name": "root",
+          "parent": "",
+          "head": [
+            0.0,
+            0.0,
+            -0.0
+          ],
+          "tail": [
+            0.0,
+            0.5,
+            -0.0
+          ]
+        },
+        {
+          "name": "hips",
+          "parent": "root",
+          "head": [
+            0.0,
+            1.95,
+            -0.4
+          ],
+          "tail": [
+            0.0,
+            2.35,
+            0.35
+          ]
+        },
+        {
+          "name": "spine_0",
+          "parent": "hips",
+          "head": [
+            0.0,
+            2.35,
+            0.35
+          ],
+          "tail": [
+            0.0,
+            2.78,
+            0.95
+          ]
+        },
+        {
+          "name": "spine_1",
+          "parent": "spine_0",
+          "head": [
+            0.0,
+            2.78,
+            0.95
+          ],
+          "tail": [
+            0.0,
+            3.15,
+            1.45
+          ]
+        },
+        {
+          "name": "chest",
+          "parent": "spine_1",
+          "head": [
+            0.0,
+            3.15,
+            1.45
+          ],
+          "tail": [
+            0.0,
+            3.45,
+            1.75
+          ]
+        },
+        {
+          "name": "neck",
+          "parent": "chest",
+          "head": [
+            0.0,
+            3.45,
+            1.75
+          ],
+          "tail": [
+            0.0,
+            3.75,
+            2.2
+          ]
+        },
+        {
+          "name": "head",
+          "parent": "neck",
+          "head": [
+            0.0,
+            3.75,
+            2.2
+          ],
+          "tail": [
+            0.0,
+            3.55,
+            3.75
+          ]
+        },
+        {
+          "name": "tail_0",
+          "parent": "hips",
+          "head": [
+            0.0,
+            1.95,
+            -0.4
+          ],
+          "tail": [
+            0.0,
+            1.42,
+            -1.3
+          ]
+        },
+        {
+          "name": "tail_1",
+          "parent": "tail_0",
+          "head": [
+            0.0,
+            1.42,
+            -1.3
+          ],
+          "tail": [
+            0.0,
+            0.78,
+            -2.25
+          ]
+        },
+        {
+          "name": "tail_2",
+          "parent": "tail_1",
+          "head": [
+            0.0,
+            0.78,
+            -2.25
+          ],
+          "tail": [
+            0.0,
+            0.4,
+            -3.3
+          ]
+        },
+        {
+          "name": "tail_3",
+          "parent": "tail_2",
+          "head": [
+            0.0,
+            0.4,
+            -3.3
+          ],
+          "tail": [
+            0.0,
+            0.22,
+            -4.3
+          ]
+        },
+        {
+          "name": "jaw",
+          "parent": "head",
+          "head": [
+            0.0,
+            3.56,
+            2.88
+          ],
+          "tail": [
+            0.0,
+            3.42,
+            3.75
+          ]
+        },
+        {
+          "name": "quill_0",
+          "parent": "head",
+          "head": [
+            0.0,
+            4.2975,
+            2.425
+          ],
+          "tail": [
+            0.0,
+            4.5644,
+            2.0642
+          ]
+        },
+        {
+          "name": "quill_1",
+          "parent": "neck",
+          "head": [
+            0.0,
+            4.0704,
+            1.9963
+          ],
+          "tail": [
+            0.0,
+            4.4056,
+            1.3989
+          ]
+        },
+        {
+          "name": "quill_2",
+          "parent": "chest",
+          "head": [
+            0.0,
+            3.8229,
+            1.5858
+          ],
+          "tail": [
+            0.0,
+            4.2782,
+            0.8471
+          ]
+        },
+        {
+          "name": "quill_3",
+          "parent": "spine_1",
+          "head": [
+            0.0,
+            3.6052,
+            1.1601
+          ],
+          "tail": [
+            0.0,
+            4.1929,
+            0.3376
+          ]
+        },
+        {
+          "name": "quill_4",
+          "parent": "spine_0",
+          "head": [
+            0.0,
+            3.3905,
+            0.7283
+          ],
+          "tail": [
+            0.0,
+            4.0117,
+            -0.1973
+          ]
+        },
+        {
+          "name": "quill_5",
+          "parent": "hips",
+          "head": [
+            0.0,
+            3.17,
+            0.301
+          ],
+          "tail": [
+            0.0,
+            3.834,
+            -0.6716
+          ]
+        },
+        {
+          "name": "quill_6",
+          "parent": "hips",
+          "head": [
+            0.0,
+            2.9526,
+            -0.1281
+          ],
+          "tail": [
+            0.0,
+            3.6282,
+            -1.1178
+          ]
+        },
+        {
+          "name": "quill_7",
+          "parent": "tail_0",
+          "head": [
+            0.0,
+            2.6971,
+            -0.5437
+          ],
+          "tail": [
+            0.0,
+            3.0977,
+            -1.6496
+          ]
+        },
+        {
+          "name": "quill_8",
+          "parent": "tail_0",
+          "head": [
+            0.0,
+            2.3797,
+            -0.9052
+          ],
+          "tail": [
+            0.0,
+            2.7584,
+            -1.9506
+          ]
+        },
+        {
+          "name": "quill_9",
+          "parent": "tail_0",
+          "head": [
+            0.0,
+            2.0624,
+            -1.2668
+          ],
+          "tail": [
+            0.0,
+            2.4052,
+            -2.2133
+          ]
+        },
+        {
+          "name": "quill_10",
+          "parent": "tail_1",
+          "head": [
+            0.0,
+            1.7518,
+            -1.6331
+          ],
+          "tail": [
+            0.0,
+            2.062,
+            -2.4375
+          ]
+        },
+        {
+          "name": "quill_11",
+          "parent": "tail_1",
+          "head": [
+            0.0,
+            1.4419,
+            -2.0011
+          ],
+          "tail": [
+            0.0,
+            1.6859,
+            -2.6338
+          ]
+        },
+        {
+          "name": "quill_12",
+          "parent": "tail_2",
+          "head": [
+            0.0,
+            1.1617,
+            -2.3771
+          ],
+          "tail": [
+            0.0,
+            1.4124,
+            -2.7373
+          ]
+        },
+        {
+          "name": "quill_13",
+          "parent": "tail_2",
+          "head": [
+            0.0,
+            0.9482,
+            -2.8082
+          ],
+          "tail": [
+            0.0,
+            1.1438,
+            -3.0892
+          ]
+        },
+        {
+          "name": "hip_hl",
+          "parent": "hips",
+          "head": [
+            0.66,
+            1.8,
+            -0.4
+          ],
+          "tail": [
+            0.86,
+            1.22,
+            0.42
+          ]
+        },
+        {
+          "name": "knee_hl",
+          "parent": "hip_hl",
+          "head": [
+            0.86,
+            1.22,
+            0.42
+          ],
+          "tail": [
+            0.88,
+            0.86,
+            -0.5
+          ]
+        },
+        {
+          "name": "ankle_hl",
+          "parent": "knee_hl",
+          "head": [
+            0.88,
+            0.86,
+            -0.5
+          ],
+          "tail": [
+            0.88,
+            0.14,
+            0.02
+          ]
+        },
+        {
+          "name": "toe_hl",
+          "parent": "ankle_hl",
+          "head": [
+            0.88,
+            0.14,
+            0.02
+          ],
+          "tail": [
+            0.88,
+            0.14,
+            0.4298
+          ]
+        },
+        {
+          "name": "hip_hr",
+          "parent": "hips",
+          "head": [
+            -0.66,
+            1.8,
+            -0.4
+          ],
+          "tail": [
+            -0.86,
+            1.22,
+            0.42
+          ]
+        },
+        {
+          "name": "knee_hr",
+          "parent": "hip_hr",
+          "head": [
+            -0.86,
+            1.22,
+            0.42
+          ],
+          "tail": [
+            -0.88,
+            0.86,
+            -0.5
+          ]
+        },
+        {
+          "name": "ankle_hr",
+          "parent": "knee_hr",
+          "head": [
+            -0.88,
+            0.86,
+            -0.5
+          ],
+          "tail": [
+            -0.88,
+            0.14,
+            0.02
+          ]
+        },
+        {
+          "name": "toe_hr",
+          "parent": "ankle_hr",
+          "head": [
+            -0.88,
+            0.14,
+            0.02
+          ],
+          "tail": [
+            -0.88,
+            0.14,
+            0.4298
+          ]
+        },
+        {
+          "name": "hip_fl",
+          "parent": "chest",
+          "head": [
+            0.5,
+            2.88,
+            1.42
+          ],
+          "tail": [
+            0.66,
+            2.36,
+            1.4
+          ]
+        },
+        {
+          "name": "knee_fl",
+          "parent": "hip_fl",
+          "head": [
+            0.66,
+            2.36,
+            1.4
+          ],
+          "tail": [
+            0.58,
+            2.3,
+            1.86
+          ]
+        },
+        {
+          "name": "ankle_fl",
+          "parent": "knee_fl",
+          "head": [
+            0.58,
+            2.3,
+            1.86
+          ],
+          "tail": [
+            0.56,
+            2.04,
+            2.08
+          ]
+        },
+        {
+          "name": "toe_fl",
+          "parent": "ankle_fl",
+          "head": [
+            0.56,
+            2.04,
+            2.08
+          ],
+          "tail": [
+            0.5395,
+            2.04,
+            2.3057
+          ]
+        },
+        {
+          "name": "hip_fr",
+          "parent": "chest",
+          "head": [
+            -0.5,
+            2.88,
+            1.42
+          ],
+          "tail": [
+            -0.66,
+            2.36,
+            1.4
+          ]
+        },
+        {
+          "name": "knee_fr",
+          "parent": "hip_fr",
+          "head": [
+            -0.66,
+            2.36,
+            1.4
+          ],
+          "tail": [
+            -0.58,
+            2.3,
+            1.86
+          ]
+        },
+        {
+          "name": "ankle_fr",
+          "parent": "knee_fr",
+          "head": [
+            -0.58,
+            2.3,
+            1.86
+          ],
+          "tail": [
+            -0.56,
+            2.04,
+            2.08
+          ]
+        },
+        {
+          "name": "toe_fr",
+          "parent": "ankle_fr",
+          "head": [
+            -0.56,
+            2.04,
+            2.08
+          ],
+          "tail": [
+            -0.5395,
+            2.04,
+            2.3057
+          ]
+        }
+      ],
+      "chains": {
+        "spine": [
+          "hips",
+          "spine_0",
+          "spine_1",
+          "chest"
+        ],
+        "neck": [
+          "neck",
+          "head"
+        ],
+        "tail": [
+          "tail_0",
+          "tail_1",
+          "tail_2",
+          "tail_3"
+        ]
+      },
+      "jaw": "jaw",
+      "frill": [],
+      "legs": {
+        "hl": {
+          "hip": "hip_hl",
+          "knee": "knee_hl",
+          "ankle": "ankle_hl",
+          "toe": "toe_hl",
+          "ik": "ik_hl",
+          "toe_at": [
+            0.88,
+            0.14,
+            0.02
+          ],
+          "hip_at": [
+            0.66,
+            1.8,
+            -0.4
+          ]
+        },
+        "hr": {
+          "hip": "hip_hr",
+          "knee": "knee_hr",
+          "ankle": "ankle_hr",
+          "toe": "toe_hr",
+          "ik": "ik_hr",
+          "toe_at": [
+            -0.88,
+            0.14,
+            0.02
+          ],
+          "hip_at": [
+            -0.66,
+            1.8,
+            -0.4
+          ]
+        },
+        "fl": {
+          "hip": "hip_fl",
+          "knee": "knee_fl",
+          "ankle": "ankle_fl",
+          "toe": "toe_fl",
+          "ik": "ik_fl",
+          "toe_at": [
+            0.56,
+            2.04,
+            2.08
+          ],
+          "hip_at": [
+            0.5,
+            2.88,
+            1.42
+          ]
+        },
+        "fr": {
+          "hip": "hip_fr",
+          "knee": "knee_fr",
+          "ankle": "ankle_fr",
+          "toe": "toe_fr",
+          "ik": "ik_fr",
+          "toe_at": [
+            -0.56,
+            2.04,
+            2.08
+          ],
+          "hip_at": [
+            -0.5,
+            2.88,
+            1.42
+          ]
+        }
+      },
+      "sockets": {
+        "mouth": {
+          "bone": "head",
+          "at": [
+            0.0,
+            3.56,
+            3.7
+          ]
+        },
+        "head_top": {
+          "bone": "head",
+          "at": [
+            0.0,
+            4.4,
+            2.7
+          ]
+        },
+        "back": {
+          "bone": "spine_1",
+          "at": [
+            0.0,
+            3.46,
+            0.95
+          ]
+        },
+        "hips_top": {
+          "bone": "hips",
+          "at": [
+            0.0,
+            2.77,
+            -0.4
+          ]
+        },
+        "tail_tip": {
+          "bone": "tail_3",
+          "at": [
+            0.0,
+            0.22,
+            -4.3
+          ]
+        },
+        "chest": {
+          "bone": "chest",
+          "at": [
+            0.0,
+            2.7,
+            1.55
+          ]
+        }
+      },
+      "roles": {
+        "hide": [
+          0.64,
+          0.24,
+          0.12
+        ],
+        "belly": [
+          0.86,
+          0.83,
+          0.76
+        ],
+        "quill": [
+          0.9,
+          0.85,
+          0.7
+        ],
+        "teeth": [
+          0.95,
+          0.93,
+          0.85
+        ],
+        "eye": [
+          1.0,
+          0.62,
+          0.12
+        ],
+        "claw": [
+          0.2,
+          0.16,
+          0.14
+        ]
+      },
+      "generator": "tools/blender/build_monster_colambros.py",
+      "quills": [
+        "quill_0",
+        "quill_1",
+        "quill_2",
+        "quill_3",
+        "quill_4",
+        "quill_5",
+        "quill_6",
+        "quill_7",
+        "quill_8",
+        "quill_9",
+        "quill_10",
+        "quill_11",
+        "quill_12",
+        "quill_13"
+      ],
+      "stance": "biped",
+      "arms": [
+        "fl",
+        "fr"
+      ]
     },
-    {
-     "name": "hips",
-     "parent": "root",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      1.95,
-      -0.4
-     ],
-     "tail": [
-      0.0,
-      2.35,
-      0.35
-=======
-      1.75,
-      -0.55
-     ],
-     "tail": [
-      0.0,
-      2.05,
-      0.3
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
+    "swampfang": {
+      "id": "swampfang",
+      "version": 2,
+      "rigkit_version": 1,
+      "footprint_hexes": 2,
+      "length": 9.762,
+      "height": 4.05,
+      "width": 4.157,
+      "aabb": {
+        "min": [
+          -2.0783,
+          -0.0488,
+          -4.4
+        ],
+        "max": [
+          2.0783,
+          4.05,
+          5.3622
+        ]
+      },
+      "tris": 2674,
+      "verts": 1766,
+      "meshes": [
+        "body_hide",
+        "body_belly",
+        "body_frill",
+        "body_fin",
+        "body_mouth",
+        "body_teeth",
+        "body_eye",
+        "body_claw"
+      ],
+      "bones": [
+        {
+          "name": "root",
+          "parent": "",
+          "head": [
+            0.0,
+            0.0,
+            -0.0
+          ],
+          "tail": [
+            0.0,
+            0.5,
+            -0.0
+          ]
+        },
+        {
+          "name": "hips",
+          "parent": "root",
+          "head": [
+            0.0,
+            1.05,
+            -1.3
+          ],
+          "tail": [
+            0.0,
+            1.2,
+            -0.4
+          ]
+        },
+        {
+          "name": "spine_0",
+          "parent": "hips",
+          "head": [
+            0.0,
+            1.2,
+            -0.4
+          ],
+          "tail": [
+            0.0,
+            1.4,
+            0.6
+          ]
+        },
+        {
+          "name": "spine_1",
+          "parent": "spine_0",
+          "head": [
+            0.0,
+            1.4,
+            0.6
+          ],
+          "tail": [
+            0.0,
+            1.6,
+            1.5
+          ]
+        },
+        {
+          "name": "chest",
+          "parent": "spine_1",
+          "head": [
+            0.0,
+            1.6,
+            1.5
+          ],
+          "tail": [
+            0.0,
+            1.66,
+            2.25
+          ]
+        },
+        {
+          "name": "neck",
+          "parent": "chest",
+          "head": [
+            0.0,
+            1.66,
+            2.25
+          ],
+          "tail": [
+            0.0,
+            1.72,
+            2.9
+          ]
+        },
+        {
+          "name": "head",
+          "parent": "neck",
+          "head": [
+            0.0,
+            1.72,
+            2.9
+          ],
+          "tail": [
+            0.0,
+            1.76,
+            3.4
+          ]
+        },
+        {
+          "name": "tail_0",
+          "parent": "hips",
+          "head": [
+            0.0,
+            1.05,
+            -1.3
+          ],
+          "tail": [
+            0.0,
+            0.95,
+            -2.2
+          ]
+        },
+        {
+          "name": "tail_1",
+          "parent": "tail_0",
+          "head": [
+            0.0,
+            0.95,
+            -2.2
+          ],
+          "tail": [
+            0.0,
+            0.82,
+            -3.0
+          ]
+        },
+        {
+          "name": "tail_2",
+          "parent": "tail_1",
+          "head": [
+            0.0,
+            0.82,
+            -3.0
+          ],
+          "tail": [
+            0.0,
+            0.68,
+            -3.75
+          ]
+        },
+        {
+          "name": "tail_3",
+          "parent": "tail_2",
+          "head": [
+            0.0,
+            0.68,
+            -3.75
+          ],
+          "tail": [
+            0.0,
+            0.58,
+            -4.35
+          ]
+        },
+        {
+          "name": "jaw",
+          "parent": "head",
+          "head": [
+            0.0,
+            1.42,
+            3.35
+          ],
+          "tail": [
+            0.0,
+            1.3,
+            5.2
+          ]
+        },
+        {
+          "name": "frill_l",
+          "parent": "neck",
+          "head": [
+            0.55,
+            1.82,
+            3.0
+          ],
+          "tail": [
+            1.1,
+            1.99,
+            3.0
+          ]
+        },
+        {
+          "name": "frill_r",
+          "parent": "neck",
+          "head": [
+            -0.55,
+            1.82,
+            3.0
+          ],
+          "tail": [
+            -1.1,
+            1.99,
+            3.0
+          ]
+        },
+        {
+          "name": "fin_0",
+          "parent": "head",
+          "head": [
+            0.0,
+            2.31,
+            3.475
+          ],
+          "tail": [
+            0.0,
+            2.78,
+            2.9625
+          ]
+        },
+        {
+          "name": "fin_1",
+          "parent": "spine_1",
+          "head": [
+            0.0,
+            2.475,
+            1.4
+          ],
+          "tail": [
+            0.0,
+            3.2625,
+            0.35
+          ]
+        },
+        {
+          "name": "fin_2",
+          "parent": "spine_0",
+          "head": [
+            0.0,
+            2.15,
+            -0.375
+          ],
+          "tail": [
+            0.0,
+            2.85,
+            -1.1625
+          ]
+        },
+        {
+          "name": "hip_fl",
+          "parent": "chest",
+          "head": [
+            0.95,
+            1.5,
+            1.65
+          ],
+          "tail": [
+            1.5,
+            0.9,
+            1.98
+          ]
+        },
+        {
+          "name": "knee_fl",
+          "parent": "hip_fl",
+          "head": [
+            1.5,
+            0.9,
+            1.98
+          ],
+          "tail": [
+            1.56,
+            0.34,
+            1.8
+          ]
+        },
+        {
+          "name": "ankle_fl",
+          "parent": "knee_fl",
+          "head": [
+            1.56,
+            0.34,
+            1.8
+          ],
+          "tail": [
+            1.56,
+            0.06,
+            2.6
+          ]
+        },
+        {
+          "name": "toe_fl",
+          "parent": "ankle_fl",
+          "head": [
+            1.56,
+            0.06,
+            2.6
+          ],
+          "tail": [
+            1.56,
+            0.06,
+            2.9304
+          ]
+        },
+        {
+          "name": "hip_fr",
+          "parent": "chest",
+          "head": [
+            -0.95,
+            1.5,
+            1.65
+          ],
+          "tail": [
+            -1.5,
+            0.9,
+            1.98
+          ]
+        },
+        {
+          "name": "knee_fr",
+          "parent": "hip_fr",
+          "head": [
+            -1.5,
+            0.9,
+            1.98
+          ],
+          "tail": [
+            -1.56,
+            0.34,
+            1.8
+          ]
+        },
+        {
+          "name": "ankle_fr",
+          "parent": "knee_fr",
+          "head": [
+            -1.56,
+            0.34,
+            1.8
+          ],
+          "tail": [
+            -1.56,
+            0.06,
+            2.6
+          ]
+        },
+        {
+          "name": "toe_fr",
+          "parent": "ankle_fr",
+          "head": [
+            -1.56,
+            0.06,
+            2.6
+          ],
+          "tail": [
+            -1.56,
+            0.06,
+            2.9304
+          ]
+        },
+        {
+          "name": "hip_hl",
+          "parent": "hips",
+          "head": [
+            0.62,
+            0.85,
+            -1.2
+          ],
+          "tail": [
+            0.92,
+            0.46,
+            -0.92
+          ]
+        },
+        {
+          "name": "knee_hl",
+          "parent": "hip_hl",
+          "head": [
+            0.92,
+            0.46,
+            -0.92
+          ],
+          "tail": [
+            0.98,
+            0.2,
+            -1.35
+          ]
+        },
+        {
+          "name": "ankle_hl",
+          "parent": "knee_hl",
+          "head": [
+            0.98,
+            0.2,
+            -1.35
+          ],
+          "tail": [
+            0.98,
+            0.04,
+            -0.92
+          ]
+        },
+        {
+          "name": "toe_hl",
+          "parent": "ankle_hl",
+          "head": [
+            0.98,
+            0.04,
+            -0.92
+          ],
+          "tail": [
+            0.98,
+            0.04,
+            -0.592
+          ]
+        },
+        {
+          "name": "hip_hr",
+          "parent": "hips",
+          "head": [
+            -0.62,
+            0.85,
+            -1.2
+          ],
+          "tail": [
+            -0.92,
+            0.46,
+            -0.92
+          ]
+        },
+        {
+          "name": "knee_hr",
+          "parent": "hip_hr",
+          "head": [
+            -0.92,
+            0.46,
+            -0.92
+          ],
+          "tail": [
+            -0.98,
+            0.2,
+            -1.35
+          ]
+        },
+        {
+          "name": "ankle_hr",
+          "parent": "knee_hr",
+          "head": [
+            -0.98,
+            0.2,
+            -1.35
+          ],
+          "tail": [
+            -0.98,
+            0.04,
+            -0.92
+          ]
+        },
+        {
+          "name": "toe_hr",
+          "parent": "ankle_hr",
+          "head": [
+            -0.98,
+            0.04,
+            -0.92
+          ],
+          "tail": [
+            -0.98,
+            0.04,
+            -0.592
+          ]
+        }
+      ],
+      "chains": {
+        "spine": [
+          "hips",
+          "spine_0",
+          "spine_1",
+          "chest"
+        ],
+        "neck": [
+          "neck",
+          "head"
+        ],
+        "tail": [
+          "tail_0",
+          "tail_1",
+          "tail_2",
+          "tail_3"
+        ]
+      },
+      "jaw": "jaw",
+      "frill": [
+        "frill_l",
+        "frill_r"
+      ],
+      "legs": {
+        "fl": {
+          "hip": "hip_fl",
+          "knee": "knee_fl",
+          "ankle": "ankle_fl",
+          "toe": "toe_fl",
+          "ik": "ik_fl",
+          "toe_at": [
+            1.56,
+            0.06,
+            2.6
+          ],
+          "hip_at": [
+            0.95,
+            1.5,
+            1.65
+          ]
+        },
+        "fr": {
+          "hip": "hip_fr",
+          "knee": "knee_fr",
+          "ankle": "ankle_fr",
+          "toe": "toe_fr",
+          "ik": "ik_fr",
+          "toe_at": [
+            -1.56,
+            0.06,
+            2.6
+          ],
+          "hip_at": [
+            -0.95,
+            1.5,
+            1.65
+          ]
+        },
+        "hl": {
+          "hip": "hip_hl",
+          "knee": "knee_hl",
+          "ankle": "ankle_hl",
+          "toe": "toe_hl",
+          "ik": "ik_hl",
+          "toe_at": [
+            0.98,
+            0.04,
+            -0.92
+          ],
+          "hip_at": [
+            0.62,
+            0.85,
+            -1.2
+          ]
+        },
+        "hr": {
+          "hip": "hip_hr",
+          "knee": "knee_hr",
+          "ankle": "ankle_hr",
+          "toe": "toe_hr",
+          "ik": "ik_hr",
+          "toe_at": [
+            -0.98,
+            0.04,
+            -0.92
+          ],
+          "hip_at": [
+            -0.62,
+            0.85,
+            -1.2
+          ]
+        }
+      },
+      "sockets": {
+        "mouth": {
+          "bone": "head",
+          "at": [
+            0.0,
+            1.42,
+            5.0
+          ]
+        },
+        "frill": {
+          "bone": "neck",
+          "at": [
+            0.0,
+            1.95,
+            3.0
+          ]
+        },
+        "back": {
+          "bone": "spine_1",
+          "at": [
+            0.0,
+            2.55,
+            0.6
+          ]
+        },
+        "tail_tip": {
+          "bone": "tail_3",
+          "at": [
+            0.0,
+            0.58,
+            -4.35
+          ]
+        },
+        "head_top": {
+          "bone": "head",
+          "at": [
+            0.0,
+            2.5,
+            3.45
+          ]
+        }
+      },
+      "roles": {
+        "hide": [
+          0.3,
+          0.5,
+          0.8
+        ],
+        "belly": [
+          0.92,
+          0.86,
+          0.66
+        ],
+        "frill": [
+          0.86,
+          0.22,
+          0.2
+        ],
+        "fin": [
+          0.84,
+          0.3,
+          0.26
+        ],
+        "mouth": [
+          0.55,
+          0.12,
+          0.16
+        ],
+        "teeth": [
+          0.96,
+          0.94,
+          0.86
+        ],
+        "eye": [
+          0.98,
+          0.78,
+          0.18
+        ],
+        "claw": [
+          0.82,
+          0.8,
+          0.72
+        ]
+      },
+      "generator": "tools/blender/build_monster_swampfang.py"
     },
-    {
-     "name": "spine_0",
-     "parent": "hips",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      2.35,
-      0.35
-     ],
-     "tail": [
-      0.0,
-      2.78,
-      0.95
-=======
-      2.05,
-      0.3
-     ],
-     "tail": [
-      0.0,
-      2.38,
-      1.15
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
+    "spirewalker": {
+      "id": "spirewalker",
+      "version": 2,
+      "rigkit_version": 1,
+      "footprint_hexes": 2,
+      "length": 7.826,
+      "height": 4.166,
+      "width": 7.46,
+      "aabb": {
+        "min": [
+          -3.7301,
+          -0.0672,
+          -3.5436
+        ],
+        "max": [
+          3.7301,
+          4.1661,
+          4.2828
+        ]
+      },
+      "tris": 5802,
+      "verts": 3724,
+      "meshes": [
+        "body_hide",
+        "body_belly",
+        "body_mound",
+        "body_frond",
+        "body_reed",
+        "body_bristle",
+        "body_arc",
+        "body_mouth",
+        "body_teeth",
+        "body_eye",
+        "body_claw"
+      ],
+      "bones": [
+        {
+          "name": "root",
+          "parent": "",
+          "head": [
+            0.0,
+            0.0,
+            -0.0
+          ],
+          "tail": [
+            0.0,
+            0.5,
+            -0.0
+          ]
+        },
+        {
+          "name": "hips",
+          "parent": "root",
+          "head": [
+            0.0,
+            1.0,
+            -1.4
+          ],
+          "tail": [
+            0.0,
+            1.1,
+            -0.5
+          ]
+        },
+        {
+          "name": "spine_0",
+          "parent": "hips",
+          "head": [
+            0.0,
+            1.1,
+            -0.5
+          ],
+          "tail": [
+            0.0,
+            1.12,
+            0.5
+          ]
+        },
+        {
+          "name": "spine_1",
+          "parent": "spine_0",
+          "head": [
+            0.0,
+            1.12,
+            0.5
+          ],
+          "tail": [
+            0.0,
+            1.02,
+            1.4
+          ]
+        },
+        {
+          "name": "chest",
+          "parent": "spine_1",
+          "head": [
+            0.0,
+            1.02,
+            1.4
+          ],
+          "tail": [
+            0.0,
+            0.92,
+            2.05
+          ]
+        },
+        {
+          "name": "neck",
+          "parent": "chest",
+          "head": [
+            0.0,
+            0.92,
+            2.05
+          ],
+          "tail": [
+            0.0,
+            0.9,
+            2.55
+          ]
+        },
+        {
+          "name": "head",
+          "parent": "neck",
+          "head": [
+            0.0,
+            0.9,
+            2.55
+          ],
+          "tail": [
+            0.0,
+            0.88,
+            2.95
+          ]
+        },
+        {
+          "name": "tail_0",
+          "parent": "hips",
+          "head": [
+            0.0,
+            1.0,
+            -1.4
+          ],
+          "tail": [
+            0.0,
+            0.8,
+            -2.2
+          ]
+        },
+        {
+          "name": "tail_1",
+          "parent": "tail_0",
+          "head": [
+            0.0,
+            0.8,
+            -2.2
+          ],
+          "tail": [
+            0.0,
+            0.62,
+            -2.85
+          ]
+        },
+        {
+          "name": "tail_2",
+          "parent": "tail_1",
+          "head": [
+            0.0,
+            0.62,
+            -2.85
+          ],
+          "tail": [
+            0.0,
+            0.5,
+            -3.4
+          ]
+        },
+        {
+          "name": "vine_0_0",
+          "parent": "spine_0",
+          "head": [
+            0.45,
+            2.3,
+            -0.95
+          ],
+          "tail": [
+            0.7,
+            2.95,
+            -1.55
+          ]
+        },
+        {
+          "name": "vine_0_1",
+          "parent": "vine_0_0",
+          "head": [
+            0.7,
+            2.95,
+            -1.55
+          ],
+          "tail": [
+            1.0,
+            3.0,
+            -2.3
+          ]
+        },
+        {
+          "name": "vine_0_2",
+          "parent": "vine_0_1",
+          "head": [
+            1.0,
+            3.0,
+            -2.3
+          ],
+          "tail": [
+            1.3,
+            2.65,
+            -3.0
+          ]
+        },
+        {
+          "name": "vine_0_3",
+          "parent": "vine_0_2",
+          "head": [
+            1.3,
+            2.65,
+            -3.0
+          ],
+          "tail": [
+            1.48,
+            2.22,
+            -3.5
+          ]
+        },
+        {
+          "name": "vine_0_4",
+          "parent": "vine_0_3",
+          "head": [
+            1.48,
+            2.22,
+            -3.5
+          ],
+          "tail": [
+            1.42,
+            2.5,
+            -3.3
+          ]
+        },
+        {
+          "name": "vine_1_0",
+          "parent": "spine_0",
+          "head": [
+            -0.45,
+            2.3,
+            -0.95
+          ],
+          "tail": [
+            -0.7,
+            2.95,
+            -1.55
+          ]
+        },
+        {
+          "name": "vine_1_1",
+          "parent": "vine_1_0",
+          "head": [
+            -0.7,
+            2.95,
+            -1.55
+          ],
+          "tail": [
+            -1.0,
+            3.0,
+            -2.3
+          ]
+        },
+        {
+          "name": "vine_1_2",
+          "parent": "vine_1_1",
+          "head": [
+            -1.0,
+            3.0,
+            -2.3
+          ],
+          "tail": [
+            -1.3,
+            2.65,
+            -3.0
+          ]
+        },
+        {
+          "name": "vine_1_3",
+          "parent": "vine_1_2",
+          "head": [
+            -1.3,
+            2.65,
+            -3.0
+          ],
+          "tail": [
+            -1.48,
+            2.22,
+            -3.5
+          ]
+        },
+        {
+          "name": "vine_1_4",
+          "parent": "vine_1_3",
+          "head": [
+            -1.48,
+            2.22,
+            -3.5
+          ],
+          "tail": [
+            -1.42,
+            2.5,
+            -3.3
+          ]
+        },
+        {
+          "name": "vine_2_0",
+          "parent": "spine_1",
+          "head": [
+            1.0,
+            2.4,
+            -0.2
+          ],
+          "tail": [
+            1.6,
+            3.05,
+            -0.6
+          ]
+        },
+        {
+          "name": "vine_2_1",
+          "parent": "vine_2_0",
+          "head": [
+            1.6,
+            3.05,
+            -0.6
+          ],
+          "tail": [
+            2.1,
+            3.1,
+            -1.3
+          ]
+        },
+        {
+          "name": "vine_2_2",
+          "parent": "vine_2_1",
+          "head": [
+            2.1,
+            3.1,
+            -1.3
+          ],
+          "tail": [
+            2.4,
+            2.75,
+            -2.0
+          ]
+        },
+        {
+          "name": "vine_2_3",
+          "parent": "vine_2_2",
+          "head": [
+            2.4,
+            2.75,
+            -2.0
+          ],
+          "tail": [
+            2.5,
+            2.38,
+            -2.5
+          ]
+        },
+        {
+          "name": "vine_2_4",
+          "parent": "vine_2_3",
+          "head": [
+            2.5,
+            2.38,
+            -2.5
+          ],
+          "tail": [
+            2.36,
+            2.62,
+            -2.3
+          ]
+        },
+        {
+          "name": "vine_3_0",
+          "parent": "spine_1",
+          "head": [
+            -1.0,
+            2.4,
+            -0.2
+          ],
+          "tail": [
+            -1.6,
+            3.05,
+            -0.6
+          ]
+        },
+        {
+          "name": "vine_3_1",
+          "parent": "vine_3_0",
+          "head": [
+            -1.6,
+            3.05,
+            -0.6
+          ],
+          "tail": [
+            -2.1,
+            3.1,
+            -1.3
+          ]
+        },
+        {
+          "name": "vine_3_2",
+          "parent": "vine_3_1",
+          "head": [
+            -2.1,
+            3.1,
+            -1.3
+          ],
+          "tail": [
+            -2.4,
+            2.75,
+            -2.0
+          ]
+        },
+        {
+          "name": "vine_3_3",
+          "parent": "vine_3_2",
+          "head": [
+            -2.4,
+            2.75,
+            -2.0
+          ],
+          "tail": [
+            -2.5,
+            2.38,
+            -2.5
+          ]
+        },
+        {
+          "name": "vine_3_4",
+          "parent": "vine_3_3",
+          "head": [
+            -2.5,
+            2.38,
+            -2.5
+          ],
+          "tail": [
+            -2.36,
+            2.62,
+            -2.3
+          ]
+        },
+        {
+          "name": "jaw",
+          "parent": "head",
+          "head": [
+            0.0,
+            0.62,
+            2.75
+          ],
+          "tail": [
+            0.0,
+            0.55,
+            4.25
+          ]
+        },
+        {
+          "name": "reed_0",
+          "parent": "spine_0",
+          "head": [
+            0.0,
+            2.1557,
+            -0.85
+          ],
+          "tail": [
+            0.0,
+            3.2557,
+            -0.85
+          ]
+        },
+        {
+          "name": "reed_1",
+          "parent": "spine_1",
+          "head": [
+            0.0,
+            2.4494,
+            -0.0
+          ],
+          "tail": [
+            0.0,
+            3.5494,
+            -0.0
+          ]
+        },
+        {
+          "name": "reed_2",
+          "parent": "chest",
+          "head": [
+            0.0,
+            2.26,
+            0.95
+          ],
+          "tail": [
+            0.0,
+            3.36,
+            0.95
+          ]
+        },
+        {
+          "name": "hip_fl",
+          "parent": "chest",
+          "head": [
+            1.55,
+            0.9,
+            1.6
+          ],
+          "tail": [
+            2.3,
+            0.95,
+            1.85
+          ]
+        },
+        {
+          "name": "knee_fl",
+          "parent": "hip_fl",
+          "head": [
+            2.3,
+            0.95,
+            1.85
+          ],
+          "tail": [
+            2.45,
+            0.3,
+            2.15
+          ]
+        },
+        {
+          "name": "ankle_fl",
+          "parent": "knee_fl",
+          "head": [
+            2.45,
+            0.3,
+            2.15
+          ],
+          "tail": [
+            2.55,
+            0.06,
+            2.85
+          ]
+        },
+        {
+          "name": "toe_fl",
+          "parent": "ankle_fl",
+          "head": [
+            2.55,
+            0.06,
+            2.85
+          ],
+          "tail": [
+            2.5969,
+            0.06,
+            3.1781
+          ]
+        },
+        {
+          "name": "hip_fr",
+          "parent": "chest",
+          "head": [
+            -1.55,
+            0.9,
+            1.6
+          ],
+          "tail": [
+            -2.3,
+            0.95,
+            1.85
+          ]
+        },
+        {
+          "name": "knee_fr",
+          "parent": "hip_fr",
+          "head": [
+            -2.3,
+            0.95,
+            1.85
+          ],
+          "tail": [
+            -2.45,
+            0.3,
+            2.15
+          ]
+        },
+        {
+          "name": "ankle_fr",
+          "parent": "knee_fr",
+          "head": [
+            -2.45,
+            0.3,
+            2.15
+          ],
+          "tail": [
+            -2.55,
+            0.06,
+            2.85
+          ]
+        },
+        {
+          "name": "toe_fr",
+          "parent": "ankle_fr",
+          "head": [
+            -2.55,
+            0.06,
+            2.85
+          ],
+          "tail": [
+            -2.5969,
+            0.06,
+            3.1781
+          ]
+        },
+        {
+          "name": "hip_ml",
+          "parent": "spine_1",
+          "head": [
+            1.8,
+            0.9,
+            0.3
+          ],
+          "tail": [
+            2.65,
+            0.92,
+            0.3
+          ]
+        },
+        {
+          "name": "knee_ml",
+          "parent": "hip_ml",
+          "head": [
+            2.65,
+            0.92,
+            0.3
+          ],
+          "tail": [
+            2.8,
+            0.28,
+            0.35
+          ]
+        },
+        {
+          "name": "ankle_ml",
+          "parent": "knee_ml",
+          "head": [
+            2.8,
+            0.28,
+            0.35
+          ],
+          "tail": [
+            3.05,
+            0.06,
+            0.75
+          ]
+        },
+        {
+          "name": "toe_ml",
+          "parent": "ankle_ml",
+          "head": [
+            3.05,
+            0.06,
+            0.75
+          ],
+          "tail": [
+            3.2181,
+            0.06,
+            1.019
+          ]
+        },
+        {
+          "name": "hip_mr",
+          "parent": "spine_1",
+          "head": [
+            -1.8,
+            0.9,
+            0.3
+          ],
+          "tail": [
+            -2.65,
+            0.92,
+            0.3
+          ]
+        },
+        {
+          "name": "knee_mr",
+          "parent": "hip_mr",
+          "head": [
+            -2.65,
+            0.92,
+            0.3
+          ],
+          "tail": [
+            -2.8,
+            0.28,
+            0.35
+          ]
+        },
+        {
+          "name": "ankle_mr",
+          "parent": "knee_mr",
+          "head": [
+            -2.8,
+            0.28,
+            0.35
+          ],
+          "tail": [
+            -3.05,
+            0.06,
+            0.75
+          ]
+        },
+        {
+          "name": "toe_mr",
+          "parent": "ankle_mr",
+          "head": [
+            -3.05,
+            0.06,
+            0.75
+          ],
+          "tail": [
+            -3.2181,
+            0.06,
+            1.019
+          ]
+        },
+        {
+          "name": "hip_hl",
+          "parent": "hips",
+          "head": [
+            1.5,
+            0.88,
+            -1.1
+          ],
+          "tail": [
+            2.3,
+            0.92,
+            -1.4
+          ]
+        },
+        {
+          "name": "knee_hl",
+          "parent": "hip_hl",
+          "head": [
+            2.3,
+            0.92,
+            -1.4
+          ],
+          "tail": [
+            2.35,
+            0.28,
+            -1.75
+          ]
+        },
+        {
+          "name": "ankle_hl",
+          "parent": "knee_hl",
+          "head": [
+            2.35,
+            0.28,
+            -1.75
+          ],
+          "tail": [
+            2.5,
+            0.06,
+            -2.3
+          ]
+        },
+        {
+          "name": "toe_hl",
+          "parent": "ankle_hl",
+          "head": [
+            2.5,
+            0.06,
+            -2.3
+          ],
+          "tail": [
+            2.5859,
+            0.06,
+            -2.615
+          ]
+        },
+        {
+          "name": "hip_hr",
+          "parent": "hips",
+          "head": [
+            -1.5,
+            0.88,
+            -1.1
+          ],
+          "tail": [
+            -2.3,
+            0.92,
+            -1.4
+          ]
+        },
+        {
+          "name": "knee_hr",
+          "parent": "hip_hr",
+          "head": [
+            -2.3,
+            0.92,
+            -1.4
+          ],
+          "tail": [
+            -2.35,
+            0.28,
+            -1.75
+          ]
+        },
+        {
+          "name": "ankle_hr",
+          "parent": "knee_hr",
+          "head": [
+            -2.35,
+            0.28,
+            -1.75
+          ],
+          "tail": [
+            -2.5,
+            0.06,
+            -2.3
+          ]
+        },
+        {
+          "name": "toe_hr",
+          "parent": "ankle_hr",
+          "head": [
+            -2.5,
+            0.06,
+            -2.3
+          ],
+          "tail": [
+            -2.5859,
+            0.06,
+            -2.615
+          ]
+        }
+      ],
+      "chains": {
+        "spine": [
+          "hips",
+          "spine_0",
+          "spine_1",
+          "chest"
+        ],
+        "neck": [
+          "neck",
+          "head"
+        ],
+        "tail": [
+          "tail_0",
+          "tail_1",
+          "tail_2"
+        ],
+        "vine_0": [
+          "vine_0_0",
+          "vine_0_1",
+          "vine_0_2",
+          "vine_0_3",
+          "vine_0_4"
+        ],
+        "vine_1": [
+          "vine_1_0",
+          "vine_1_1",
+          "vine_1_2",
+          "vine_1_3",
+          "vine_1_4"
+        ],
+        "vine_2": [
+          "vine_2_0",
+          "vine_2_1",
+          "vine_2_2",
+          "vine_2_3",
+          "vine_2_4"
+        ],
+        "vine_3": [
+          "vine_3_0",
+          "vine_3_1",
+          "vine_3_2",
+          "vine_3_3",
+          "vine_3_4"
+        ]
+      },
+      "jaw": "jaw",
+      "frill": [],
+      "legs": {
+        "fl": {
+          "hip": "hip_fl",
+          "knee": "knee_fl",
+          "ankle": "ankle_fl",
+          "toe": "toe_fl",
+          "ik": "ik_fl",
+          "toe_at": [
+            2.55,
+            0.06,
+            2.85
+          ],
+          "hip_at": [
+            1.55,
+            0.9,
+            1.6
+          ]
+        },
+        "fr": {
+          "hip": "hip_fr",
+          "knee": "knee_fr",
+          "ankle": "ankle_fr",
+          "toe": "toe_fr",
+          "ik": "ik_fr",
+          "toe_at": [
+            -2.55,
+            0.06,
+            2.85
+          ],
+          "hip_at": [
+            -1.55,
+            0.9,
+            1.6
+          ]
+        },
+        "ml": {
+          "hip": "hip_ml",
+          "knee": "knee_ml",
+          "ankle": "ankle_ml",
+          "toe": "toe_ml",
+          "ik": "ik_ml",
+          "toe_at": [
+            3.05,
+            0.06,
+            0.75
+          ],
+          "hip_at": [
+            1.8,
+            0.9,
+            0.3
+          ]
+        },
+        "mr": {
+          "hip": "hip_mr",
+          "knee": "knee_mr",
+          "ankle": "ankle_mr",
+          "toe": "toe_mr",
+          "ik": "ik_mr",
+          "toe_at": [
+            -3.05,
+            0.06,
+            0.75
+          ],
+          "hip_at": [
+            -1.8,
+            0.9,
+            0.3
+          ]
+        },
+        "hl": {
+          "hip": "hip_hl",
+          "knee": "knee_hl",
+          "ankle": "ankle_hl",
+          "toe": "toe_hl",
+          "ik": "ik_hl",
+          "toe_at": [
+            2.5,
+            0.06,
+            -2.3
+          ],
+          "hip_at": [
+            1.5,
+            0.88,
+            -1.1
+          ]
+        },
+        "hr": {
+          "hip": "hip_hr",
+          "knee": "knee_hr",
+          "ankle": "ankle_hr",
+          "toe": "toe_hr",
+          "ik": "ik_hr",
+          "toe_at": [
+            -2.5,
+            0.06,
+            -2.3
+          ],
+          "hip_at": [
+            -1.5,
+            0.88,
+            -1.1
+          ]
+        }
+      },
+      "sockets": {
+        "mouth": {
+          "bone": "head",
+          "at": [
+            0.0,
+            0.62,
+            4.05
+          ]
+        },
+        "back": {
+          "bone": "spine_1",
+          "at": [
+            0.0,
+            2.6,
+            0.4
+          ]
+        },
+        "reeds": {
+          "bone": "reed_1",
+          "at": [
+            0.0,
+            3.65,
+            -0.0
+          ]
+        },
+        "tail_tip": {
+          "bone": "tail_2",
+          "at": [
+            0.0,
+            0.5,
+            -3.35
+          ]
+        },
+        "arm_l": {
+          "bone": "knee_fl",
+          "at": [
+            2.45,
+            0.6,
+            2.15
+          ]
+        },
+        "arm_r": {
+          "bone": "knee_fr",
+          "at": [
+            -2.45,
+            0.6,
+            2.15
+          ]
+        },
+        "head_top": {
+          "bone": "head",
+          "at": [
+            0.0,
+            1.62,
+            3.0
+          ]
+        }
+      },
+      "roles": {
+        "hide": [
+          0.75,
+          0.58,
+          0.22
+        ],
+        "belly": [
+          0.88,
+          0.78,
+          0.52
+        ],
+        "mound": [
+          0.46,
+          0.35,
+          0.13
+        ],
+        "frond": [
+          0.48,
+          0.48,
+          0.15
+        ],
+        "reed": [
+          0.76,
+          0.4,
+          0.16
+        ],
+        "bristle": [
+          0.5,
+          0.28,
+          0.12
+        ],
+        "arc": [
+          0.62,
+          0.32,
+          0.96
+        ],
+        "mouth": [
+          0.5,
+          0.16,
+          0.14
+        ],
+        "teeth": [
+          0.95,
+          0.93,
+          0.84
+        ],
+        "eye": [
+          0.98,
+          0.72,
+          0.16
+        ],
+        "claw": [
+          0.9,
+          0.88,
+          0.8
+        ]
+      },
+      "reeds": [
+        "reed_0",
+        "reed_1",
+        "reed_2"
+      ],
+      "bristles": [
+        "knee_fl",
+        "knee_fr"
+      ],
+      "vines": {
+        "vine_0": [
+          "vine_0_0",
+          "vine_0_1",
+          "vine_0_2",
+          "vine_0_3",
+          "vine_0_4"
+        ],
+        "vine_1": [
+          "vine_1_0",
+          "vine_1_1",
+          "vine_1_2",
+          "vine_1_3",
+          "vine_1_4"
+        ],
+        "vine_2": [
+          "vine_2_0",
+          "vine_2_1",
+          "vine_2_2",
+          "vine_2_3",
+          "vine_2_4"
+        ],
+        "vine_3": [
+          "vine_3_0",
+          "vine_3_1",
+          "vine_3_2",
+          "vine_3_3",
+          "vine_3_4"
+        ]
+      },
+      "generator": "tools/blender/build_monster_spirewalker.py"
     },
-    {
-     "name": "spine_1",
-     "parent": "spine_0",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      2.78,
-      0.95
-     ],
-     "tail": [
-      0.0,
-      3.15,
-      1.45
-=======
-      2.38,
-      1.15
-     ],
-     "tail": [
-      0.0,
-      2.62,
-      1.85
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "chest",
-     "parent": "spine_1",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      3.15,
-      1.45
-     ],
-     "tail": [
-      0.0,
-      3.45,
-      1.75
-=======
-      2.62,
-      1.85
-     ],
-     "tail": [
-      0.0,
-      2.74,
-      2.35
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "neck",
-     "parent": "chest",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      3.45,
-      1.75
-     ],
-     "tail": [
-      0.0,
-      3.75,
-      2.2
-=======
-      2.74,
-      2.35
-     ],
-     "tail": [
-      0.0,
-      2.92,
-      2.9
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "head",
-     "parent": "neck",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      3.75,
-      2.2
-     ],
-     "tail": [
-      0.0,
-      3.55,
-      3.75
-=======
-      2.92,
-      2.9
-     ],
-     "tail": [
-      0.0,
-      2.82,
-      4.35
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "tail_0",
-     "parent": "hips",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      1.95,
-      -0.4
-=======
-      1.75,
-      -0.55
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ],
-     "tail": [
-      0.0,
-      1.42,
-<<<<<<< HEAD
-      -1.3
-=======
-      -1.45
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "tail_1",
-     "parent": "tail_0",
-     "head": [
-      0.0,
-      1.42,
-<<<<<<< HEAD
-      -1.3
-     ],
-     "tail": [
-      0.0,
-      0.78,
-=======
-      -1.45
-     ],
-     "tail": [
-      0.0,
-      1.02,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      -2.25
-     ]
-    },
-    {
-     "name": "tail_2",
-     "parent": "tail_1",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      0.78,
-=======
-      1.02,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      -2.25
-     ],
-     "tail": [
-      0.0,
-<<<<<<< HEAD
-      0.4,
-      -3.3
-=======
-      0.62,
-      -2.95
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "tail_3",
-     "parent": "tail_2",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      0.4,
-      -3.3
-     ],
-     "tail": [
-      0.0,
-      0.22,
-      -4.3
-=======
-      0.62,
-      -2.95
-     ],
-     "tail": [
-      0.0,
-      0.36,
-      -3.45
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "jaw",
-     "parent": "head",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      3.56,
-      2.88
-     ],
-     "tail": [
-      0.0,
-      3.42,
-      3.75
-=======
-      2.74,
-      3.45
-     ],
-     "tail": [
-      0.0,
-      2.68,
-      4.35
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "quill_0",
-     "parent": "head",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      4.2975,
-      2.425
-     ],
-     "tail": [
-      0.0,
-      4.5644,
-      2.0642
-=======
-      3.4649,
-      3.1575
-     ],
-     "tail": [
-      0.0,
-      3.7181,
-      2.8796
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "quill_1",
-     "parent": "neck",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      4.0704,
-      1.9963
-     ],
-     "tail": [
-      0.0,
-      4.4056,
-      1.3989
-=======
-      3.3409,
-      2.7441
-     ],
-     "tail": [
-      0.0,
-      3.7358,
-      2.3107
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "quill_2",
-<<<<<<< HEAD
-     "parent": "chest",
-     "head": [
-      0.0,
-      3.8229,
-      1.5858
-     ],
-     "tail": [
-      0.0,
-      4.2782,
-      0.8471
-=======
-     "parent": "neck",
-     "head": [
-      0.0,
-      3.2198,
-      2.355
-     ],
-     "tail": [
-      0.0,
-      3.8997,
-      2.0506
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "quill_3",
-<<<<<<< HEAD
-     "parent": "spine_1",
-     "head": [
-      0.0,
-      3.6052,
-      1.1601
-     ],
-     "tail": [
-      0.0,
-      4.1929,
-      0.3376
-=======
-     "parent": "chest",
-     "head": [
-      0.0,
-      3.2713,
-      1.9264
-     ],
-     "tail": [
-      0.0,
-      4.0656,
-      1.5707
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "quill_4",
-<<<<<<< HEAD
-     "parent": "spine_0",
-     "head": [
-      0.0,
-      3.3905,
-      0.7283
-     ],
-     "tail": [
-      0.0,
-      4.0117,
-      -0.1973
-=======
-     "parent": "spine_1",
-     "head": [
-      0.0,
-      3.1979,
-      1.4839
-     ],
-     "tail": [
-      0.0,
-      3.8929,
-      0.8164
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "quill_5",
-<<<<<<< HEAD
-     "parent": "hips",
-     "head": [
-      0.0,
-      3.17,
-      0.301
-     ],
-     "tail": [
-      0.0,
-      3.834,
-      -0.6716
-=======
-     "parent": "spine_1",
-     "head": [
-      0.0,
-      3.0943,
-      1.0599
-     ],
-     "tail": [
-      0.0,
-      3.7714,
-      0.2924
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "quill_6",
-<<<<<<< HEAD
-     "parent": "hips",
-     "head": [
-      0.0,
-      2.9526,
-      -0.1281
-     ],
-     "tail": [
-      0.0,
-      3.6282,
-      -1.1178
-=======
-     "parent": "spine_0",
-     "head": [
-      0.0,
-      2.9637,
-      0.6486
-     ],
-     "tail": [
-      0.0,
-      3.6574,
-      -0.1379
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "quill_7",
-<<<<<<< HEAD
-     "parent": "tail_0",
-     "head": [
-      0.0,
-      2.6971,
-      -0.5437
-     ],
-     "tail": [
-      0.0,
-      3.0977,
-      -1.6496
-=======
-     "parent": "spine_0",
-     "head": [
-      0.0,
-      2.8337,
-      0.2377
-     ],
-     "tail": [
-      0.0,
-      3.5291,
-      -0.534
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "quill_8",
-<<<<<<< HEAD
-     "parent": "tail_0",
-     "head": [
-      0.0,
-      2.3797,
-      -0.9052
-     ],
-     "tail": [
-      0.0,
-      2.7584,
-      -1.9506
-=======
-     "parent": "hips",
-     "head": [
-      0.0,
-      2.7074,
-      -0.1751
-     ],
-     "tail": [
-      0.0,
-      3.3728,
-      -0.9133
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "quill_9",
-<<<<<<< HEAD
-     "parent": "tail_0",
-     "head": [
-      0.0,
-      2.0624,
-      -1.2668
-     ],
-     "tail": [
-      0.0,
-      2.4052,
-      -2.2133
-=======
-     "parent": "hips",
-     "head": [
-      0.0,
-      2.5685,
-      -0.6006
-     ],
-     "tail": [
-      0.0,
-      2.9666,
-      -1.4244
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "quill_10",
-<<<<<<< HEAD
-     "parent": "tail_1",
-     "head": [
-      0.0,
-      1.7518,
-      -1.6331
-     ],
-     "tail": [
-      0.0,
-      2.062,
-      -2.4375
-=======
-     "parent": "hips",
-     "head": [
-      0.0,
-      2.3319,
-      -0.9616
-     ],
-     "tail": [
-      0.0,
-      2.6814,
-      -1.685
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "quill_11",
-<<<<<<< HEAD
-     "parent": "tail_1",
-     "head": [
-      0.0,
-      1.4419,
-      -2.0011
-     ],
-     "tail": [
-      0.0,
-      1.6859,
-      -2.6338
-=======
-     "parent": "tail_0",
-     "head": [
-      0.0,
-      2.0953,
-      -1.3226
-     ],
-     "tail": [
-      0.0,
-      2.3823,
-      -1.9165
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "quill_12",
-<<<<<<< HEAD
-     "parent": "tail_2",
-     "head": [
-      0.0,
-      1.1617,
-      -2.3771
-     ],
-     "tail": [
-      0.0,
-      1.4124,
-      -2.7373
-=======
-     "parent": "tail_0",
-     "head": [
-      0.0,
-      1.8516,
-      -1.681
-     ],
-     "tail": [
-      0.0,
-      2.0463,
-      -2.1176
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "quill_13",
-<<<<<<< HEAD
-     "parent": "tail_2",
-     "head": [
-      0.0,
-      0.9482,
-      -2.8082
-     ],
-     "tail": [
-      0.0,
-      1.1438,
-      -3.0892
-=======
-     "parent": "tail_1",
-     "head": [
-      0.0,
-      1.604,
-      -2.0346
-     ],
-     "tail": [
-      0.0,
-      1.7371,
-      -2.3328
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "hip_hl",
-     "parent": "hips",
-     "head": [
-<<<<<<< HEAD
-      0.66,
-      1.8,
-      -0.4
-     ],
-     "tail": [
-      0.86,
-      1.22,
-      0.42
-=======
-      0.5,
-      1.65,
-      -0.55
-     ],
-     "tail": [
-      0.68,
-      1.1,
-      0.25
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "knee_hl",
-     "parent": "hip_hl",
-     "head": [
-<<<<<<< HEAD
-      0.86,
-      1.22,
-      0.42
-     ],
-     "tail": [
-      0.88,
-      0.86,
-      -0.5
-=======
-      0.68,
-      1.1,
-      0.25
-     ],
-     "tail": [
-      0.7,
-      0.3,
-      -0.6
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "ankle_hl",
-     "parent": "knee_hl",
-     "head": [
-<<<<<<< HEAD
-      0.88,
-      0.86,
-      -0.5
-     ],
-     "tail": [
-      0.88,
-      0.14,
-      0.02
-=======
-      0.7,
-      0.3,
-      -0.6
-     ],
-     "tail": [
-      0.7,
-      0.07,
-      0.45
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "toe_hl",
-     "parent": "ankle_hl",
-     "head": [
-<<<<<<< HEAD
-      0.88,
-      0.14,
-      0.02
-     ],
-     "tail": [
-      0.88,
-      0.14,
-      0.4298
-=======
-      0.7,
-      0.07,
-      0.45
-     ],
-     "tail": [
-      0.7,
-      0.07,
-      0.8407
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "hip_hr",
-     "parent": "hips",
-     "head": [
-<<<<<<< HEAD
-      -0.66,
-      1.8,
-      -0.4
-     ],
-     "tail": [
-      -0.86,
-      1.22,
-      0.42
-=======
-      -0.5,
-      1.65,
-      -0.55
-     ],
-     "tail": [
-      -0.68,
-      1.1,
-      0.25
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "knee_hr",
-     "parent": "hip_hr",
-     "head": [
-<<<<<<< HEAD
-      -0.86,
-      1.22,
-      0.42
-     ],
-     "tail": [
-      -0.88,
-      0.86,
-      -0.5
-=======
-      -0.68,
-      1.1,
-      0.25
-     ],
-     "tail": [
-      -0.7,
-      0.3,
-      -0.6
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "ankle_hr",
-     "parent": "knee_hr",
-     "head": [
-<<<<<<< HEAD
-      -0.88,
-      0.86,
-      -0.5
-     ],
-     "tail": [
-      -0.88,
-      0.14,
-      0.02
-=======
-      -0.7,
-      0.3,
-      -0.6
-     ],
-     "tail": [
-      -0.7,
-      0.07,
-      0.45
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "toe_hr",
-     "parent": "ankle_hr",
-     "head": [
-<<<<<<< HEAD
-      -0.88,
-      0.14,
-      0.02
-     ],
-     "tail": [
-      -0.88,
-      0.14,
-      0.4298
-=======
-      -0.7,
-      0.07,
-      0.45
-     ],
-     "tail": [
-      -0.7,
-      0.07,
-      0.8407
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "hip_fl",
-     "parent": "chest",
-     "head": [
-<<<<<<< HEAD
-      0.5,
-      2.88,
-      1.42
-     ],
-     "tail": [
-      0.66,
-      2.36,
-      1.4
-=======
-      0.46,
-      2.3,
-      1.8
-     ],
-     "tail": [
-      0.58,
-      1.75,
-      1.6
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "knee_fl",
-     "parent": "hip_fl",
-     "head": [
-<<<<<<< HEAD
-      0.66,
-      2.36,
-      1.4
-     ],
-     "tail": [
-      0.58,
-      2.3,
-      1.86
-=======
-      0.58,
-      1.75,
-      1.6
-     ],
-     "tail": [
-      0.6,
-      1.3,
-      1.95
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "ankle_fl",
-     "parent": "knee_fl",
-     "head": [
-<<<<<<< HEAD
-      0.58,
-      2.3,
-      1.86
-     ],
-     "tail": [
-      0.56,
-      2.04,
-      2.08
-=======
-      0.6,
-      1.3,
-      1.95
-     ],
-     "tail": [
-      0.6,
-      1.14,
-      2.32
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "toe_fl",
-     "parent": "ankle_fl",
-     "head": [
-<<<<<<< HEAD
-      0.56,
-      2.04,
-      2.08
-     ],
-     "tail": [
-      0.5395,
-      2.04,
-      2.3057
-=======
-      0.6,
-      1.14,
-      2.32
-     ],
-     "tail": [
-      0.6,
-      1.14,
-      2.6412
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "hip_fr",
-     "parent": "chest",
-     "head": [
-<<<<<<< HEAD
-      -0.5,
-      2.88,
-      1.42
-     ],
-     "tail": [
-      -0.66,
-      2.36,
-      1.4
-=======
-      -0.46,
-      2.3,
-      1.8
-     ],
-     "tail": [
-      -0.58,
-      1.75,
-      1.6
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "knee_fr",
-     "parent": "hip_fr",
-     "head": [
-<<<<<<< HEAD
-      -0.66,
-      2.36,
-      1.4
-     ],
-     "tail": [
-      -0.58,
-      2.3,
-      1.86
-=======
-      -0.58,
-      1.75,
-      1.6
-     ],
-     "tail": [
-      -0.6,
-      1.3,
-      1.95
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "ankle_fr",
-     "parent": "knee_fr",
-     "head": [
-<<<<<<< HEAD
-      -0.58,
-      2.3,
-      1.86
-     ],
-     "tail": [
-      -0.56,
-      2.04,
-      2.08
-=======
-      -0.6,
-      1.3,
-      1.95
-     ],
-     "tail": [
-      -0.6,
-      1.14,
-      2.32
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "toe_fr",
-     "parent": "ankle_fr",
-     "head": [
-<<<<<<< HEAD
-      -0.56,
-      2.04,
-      2.08
-     ],
-     "tail": [
-      -0.5395,
-      2.04,
-      2.3057
-=======
-      -0.6,
-      1.14,
-      2.32
-     ],
-     "tail": [
-      -0.6,
-      1.14,
-      2.6412
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
+    "rimeslithe": {
+      "id": "rimeslithe",
+      "version": 2,
+      "rigkit_version": 1,
+      "footprint_hexes": 2,
+      "length": 10.187,
+      "height": 5.323,
+      "width": 5.124,
+      "aabb": {
+        "min": [
+          -2.5621,
+          -0.133,
+          -4.7468
+        ],
+        "max": [
+          2.5621,
+          5.3228,
+          5.4406
+        ]
+      },
+      "tris": 3414,
+      "verts": 1997,
+      "meshes": [
+        "body_hide",
+        "body_belly",
+        "body_crystal",
+        "body_teeth",
+        "body_eye",
+        "body_claw"
+      ],
+      "bones": [
+        {
+          "name": "root",
+          "parent": "",
+          "head": [
+            0.0,
+            0.0,
+            -0.0
+          ],
+          "tail": [
+            0.0,
+            0.5,
+            -0.0
+          ]
+        },
+        {
+          "name": "hips",
+          "parent": "root",
+          "head": [
+            0.0,
+            1.8,
+            -1.85
+          ],
+          "tail": [
+            0.0,
+            2.4,
+            -0.75
+          ]
+        },
+        {
+          "name": "spine_0",
+          "parent": "hips",
+          "head": [
+            0.0,
+            2.4,
+            -0.75
+          ],
+          "tail": [
+            0.0,
+            2.95,
+            0.45
+          ]
+        },
+        {
+          "name": "spine_1",
+          "parent": "spine_0",
+          "head": [
+            0.0,
+            2.95,
+            0.45
+          ],
+          "tail": [
+            0.0,
+            3.05,
+            1.55
+          ]
+        },
+        {
+          "name": "chest",
+          "parent": "spine_1",
+          "head": [
+            0.0,
+            3.05,
+            1.55
+          ],
+          "tail": [
+            0.0,
+            2.75,
+            2.45
+          ]
+        },
+        {
+          "name": "neck",
+          "parent": "chest",
+          "head": [
+            0.0,
+            2.75,
+            2.45
+          ],
+          "tail": [
+            0.0,
+            2.5,
+            3.25
+          ]
+        },
+        {
+          "name": "head",
+          "parent": "neck",
+          "head": [
+            0.0,
+            2.5,
+            3.25
+          ],
+          "tail": [
+            0.0,
+            1.94,
+            5.35
+          ]
+        },
+        {
+          "name": "tail_0",
+          "parent": "hips",
+          "head": [
+            0.0,
+            1.8,
+            -1.85
+          ],
+          "tail": [
+            0.0,
+            1.55,
+            -2.75
+          ]
+        },
+        {
+          "name": "tail_1",
+          "parent": "tail_0",
+          "head": [
+            0.0,
+            1.55,
+            -2.75
+          ],
+          "tail": [
+            0.0,
+            1.2,
+            -3.55
+          ]
+        },
+        {
+          "name": "tail_2",
+          "parent": "tail_1",
+          "head": [
+            0.0,
+            1.2,
+            -3.55
+          ],
+          "tail": [
+            0.0,
+            0.85,
+            -4.2
+          ]
+        },
+        {
+          "name": "tail_3",
+          "parent": "tail_2",
+          "head": [
+            0.0,
+            0.85,
+            -4.2
+          ],
+          "tail": [
+            0.0,
+            0.6,
+            -4.7
+          ]
+        },
+        {
+          "name": "jaw",
+          "parent": "head",
+          "head": [
+            0.0,
+            2.02,
+            4.1
+          ],
+          "tail": [
+            0.0,
+            1.86,
+            5.45
+          ]
+        },
+        {
+          "name": "hip_fl",
+          "parent": "chest",
+          "head": [
+            1.25,
+            2.85,
+            2.05
+          ],
+          "tail": [
+            2.0,
+            1.85,
+            1.55
+          ]
+        },
+        {
+          "name": "knee_fl",
+          "parent": "hip_fl",
+          "head": [
+            2.0,
+            1.85,
+            1.55
+          ],
+          "tail": [
+            1.95,
+            0.75,
+            3.7
+          ]
+        },
+        {
+          "name": "ankle_fl",
+          "parent": "knee_fl",
+          "head": [
+            1.95,
+            0.75,
+            3.7
+          ],
+          "tail": [
+            1.85,
+            0.1,
+            4.15
+          ]
+        },
+        {
+          "name": "toe_fl",
+          "parent": "ankle_fl",
+          "head": [
+            1.85,
+            0.1,
+            4.15
+          ],
+          "tail": [
+            1.8061,
+            0.1,
+            4.3476
+          ]
+        },
+        {
+          "name": "hip_fr",
+          "parent": "chest",
+          "head": [
+            -1.25,
+            2.85,
+            2.05
+          ],
+          "tail": [
+            -2.0,
+            1.85,
+            1.55
+          ]
+        },
+        {
+          "name": "knee_fr",
+          "parent": "hip_fr",
+          "head": [
+            -2.0,
+            1.85,
+            1.55
+          ],
+          "tail": [
+            -1.95,
+            0.75,
+            3.7
+          ]
+        },
+        {
+          "name": "ankle_fr",
+          "parent": "knee_fr",
+          "head": [
+            -1.95,
+            0.75,
+            3.7
+          ],
+          "tail": [
+            -1.85,
+            0.1,
+            4.15
+          ]
+        },
+        {
+          "name": "toe_fr",
+          "parent": "ankle_fr",
+          "head": [
+            -1.85,
+            0.1,
+            4.15
+          ],
+          "tail": [
+            -1.8061,
+            0.1,
+            4.3476
+          ]
+        },
+        {
+          "name": "hip_hl",
+          "parent": "hips",
+          "head": [
+            0.95,
+            1.65,
+            -1.85
+          ],
+          "tail": [
+            1.25,
+            1.05,
+            -1.0
+          ]
+        },
+        {
+          "name": "knee_hl",
+          "parent": "hip_hl",
+          "head": [
+            1.25,
+            1.05,
+            -1.0
+          ],
+          "tail": [
+            1.3,
+            0.75,
+            -2.25
+          ]
+        },
+        {
+          "name": "ankle_hl",
+          "parent": "knee_hl",
+          "head": [
+            1.3,
+            0.75,
+            -2.25
+          ],
+          "tail": [
+            1.3,
+            0.12,
+            -1.6
+          ]
+        },
+        {
+          "name": "toe_hl",
+          "parent": "ankle_hl",
+          "head": [
+            1.3,
+            0.12,
+            -1.6
+          ],
+          "tail": [
+            1.3,
+            0.12,
+            -1.1333
+          ]
+        },
+        {
+          "name": "hip_hr",
+          "parent": "hips",
+          "head": [
+            -0.95,
+            1.65,
+            -1.85
+          ],
+          "tail": [
+            -1.25,
+            1.05,
+            -1.0
+          ]
+        },
+        {
+          "name": "knee_hr",
+          "parent": "hip_hr",
+          "head": [
+            -1.25,
+            1.05,
+            -1.0
+          ],
+          "tail": [
+            -1.3,
+            0.75,
+            -2.25
+          ]
+        },
+        {
+          "name": "ankle_hr",
+          "parent": "knee_hr",
+          "head": [
+            -1.3,
+            0.75,
+            -2.25
+          ],
+          "tail": [
+            -1.3,
+            0.12,
+            -1.6
+          ]
+        },
+        {
+          "name": "toe_hr",
+          "parent": "ankle_hr",
+          "head": [
+            -1.3,
+            0.12,
+            -1.6
+          ],
+          "tail": [
+            -1.3,
+            0.12,
+            -1.1333
+          ]
+        }
+      ],
+      "chains": {
+        "spine": [
+          "hips",
+          "spine_0",
+          "spine_1",
+          "chest"
+        ],
+        "neck": [
+          "neck",
+          "head"
+        ],
+        "tail": [
+          "tail_0",
+          "tail_1",
+          "tail_2",
+          "tail_3"
+        ]
+      },
+      "jaw": "jaw",
+      "frill": [],
+      "legs": {
+        "fl": {
+          "hip": "hip_fl",
+          "knee": "knee_fl",
+          "ankle": "ankle_fl",
+          "toe": "toe_fl",
+          "ik": "ik_fl",
+          "toe_at": [
+            1.85,
+            0.1,
+            4.15
+          ],
+          "hip_at": [
+            1.25,
+            2.85,
+            2.05
+          ]
+        },
+        "fr": {
+          "hip": "hip_fr",
+          "knee": "knee_fr",
+          "ankle": "ankle_fr",
+          "toe": "toe_fr",
+          "ik": "ik_fr",
+          "toe_at": [
+            -1.85,
+            0.1,
+            4.15
+          ],
+          "hip_at": [
+            -1.25,
+            2.85,
+            2.05
+          ]
+        },
+        "hl": {
+          "hip": "hip_hl",
+          "knee": "knee_hl",
+          "ankle": "ankle_hl",
+          "toe": "toe_hl",
+          "ik": "ik_hl",
+          "toe_at": [
+            1.3,
+            0.12,
+            -1.6
+          ],
+          "hip_at": [
+            0.95,
+            1.65,
+            -1.85
+          ]
+        },
+        "hr": {
+          "hip": "hip_hr",
+          "knee": "knee_hr",
+          "ankle": "ankle_hr",
+          "toe": "toe_hr",
+          "ik": "ik_hr",
+          "toe_at": [
+            -1.3,
+            0.12,
+            -1.6
+          ],
+          "hip_at": [
+            -0.95,
+            1.65,
+            -1.85
+          ]
+        }
+      },
+      "sockets": {
+        "mouth": {
+          "bone": "head",
+          "at": [
+            0.0,
+            1.92,
+            5.3
+          ]
+        },
+        "head_top": {
+          "bone": "head",
+          "at": [
+            0.0,
+            2.85,
+            4.0
+          ]
+        },
+        "back": {
+          "bone": "spine_1",
+          "at": [
+            0.0,
+            4.1,
+            0.45
+          ]
+        },
+        "shoulder_l": {
+          "bone": "chest",
+          "at": [
+            1.05,
+            3.7,
+            1.75
+          ]
+        },
+        "shoulder_r": {
+          "bone": "chest",
+          "at": [
+            -1.05,
+            3.7,
+            1.75
+          ]
+        },
+        "fist_l": {
+          "bone": "toe_fl",
+          "at": [
+            1.85,
+            0.35,
+            4.15
+          ]
+        },
+        "fist_r": {
+          "bone": "toe_fr",
+          "at": [
+            -1.85,
+            0.35,
+            4.15
+          ]
+        },
+        "tail_tip": {
+          "bone": "tail_3",
+          "at": [
+            0.0,
+            0.6,
+            -4.7
+          ]
+        }
+      },
+      "roles": {
+        "hide": [
+          0.21,
+          0.26,
+          0.37
+        ],
+        "belly": [
+          0.4,
+          0.46,
+          0.56
+        ],
+        "crystal": [
+          0.34,
+          0.36,
+          0.42
+        ],
+        "teeth": [
+          0.93,
+          0.92,
+          0.86
+        ],
+        "eye": [
+          0.55,
+          0.95,
+          1.0
+        ],
+        "claw": [
+          0.12,
+          0.12,
+          0.16
+        ]
+      },
+      "generator": "tools/blender/build_monster_rimeslithe.py",
+      "ext": {
+        "module": "monster_rig/ext_rimeslithe.py",
+        "version": 2
+      },
+      "arms": [
+        "fl",
+        "fr"
+      ],
+      "crystals": {
+        "shoulder_l": {
+          "bone": "chest",
+          "at": [
+            1.05,
+            3.65,
+            1.75
+          ],
+          "n": 8
+        },
+        "shoulder_r": {
+          "bone": "chest",
+          "at": [
+            -1.05,
+            3.65,
+            1.75
+          ],
+          "n": 8
+        },
+        "back_0": {
+          "bone": "spine_1",
+          "at": [
+            0.0,
+            3.95,
+            0.45
+          ],
+          "n": 7
+        },
+        "back_1": {
+          "bone": "spine_0",
+          "at": [
+            0.0,
+            3.3,
+            -0.75
+          ],
+          "n": 6
+        },
+        "back_2": {
+          "bone": "hips",
+          "at": [
+            0.0,
+            2.55,
+            -1.75
+          ],
+          "n": 4
+        },
+        "tail": {
+          "bone": "tail_0",
+          "at": [
+            0.0,
+            2.05,
+            -2.6
+          ],
+          "n": 3
+        }
+      }
     }
-   ],
-   "chains": {
-    "spine": [
-     "hips",
-     "spine_0",
-     "spine_1",
-     "chest"
-    ],
-    "neck": [
-     "neck",
-     "head"
-    ],
-    "tail": [
-     "tail_0",
-     "tail_1",
-     "tail_2",
-     "tail_3"
-    ]
-   },
-   "jaw": "jaw",
-   "frill": [],
-   "legs": {
-    "hl": {
-     "hip": "hip_hl",
-     "knee": "knee_hl",
-     "ankle": "ankle_hl",
-     "toe": "toe_hl",
-     "ik": "ik_hl",
-     "toe_at": [
-<<<<<<< HEAD
-      0.88,
-      0.14,
-      0.02
-     ],
-     "hip_at": [
-      0.66,
-      1.8,
-      -0.4
-=======
-      0.7,
-      0.07,
-      0.45
-     ],
-     "hip_at": [
-      0.5,
-      1.65,
-      -0.55
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "hr": {
-     "hip": "hip_hr",
-     "knee": "knee_hr",
-     "ankle": "ankle_hr",
-     "toe": "toe_hr",
-     "ik": "ik_hr",
-     "toe_at": [
-<<<<<<< HEAD
-      -0.88,
-      0.14,
-      0.02
-     ],
-     "hip_at": [
-      -0.66,
-      1.8,
-      -0.4
-=======
-      -0.7,
-      0.07,
-      0.45
-     ],
-     "hip_at": [
-      -0.5,
-      1.65,
-      -0.55
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "fl": {
-     "hip": "hip_fl",
-     "knee": "knee_fl",
-     "ankle": "ankle_fl",
-     "toe": "toe_fl",
-     "ik": "ik_fl",
-     "toe_at": [
-<<<<<<< HEAD
-      0.56,
-      2.04,
-      2.08
-     ],
-     "hip_at": [
-      0.5,
-      2.88,
-      1.42
-=======
-      0.6,
-      1.14,
-      2.32
-     ],
-     "hip_at": [
-      0.46,
-      2.3,
-      1.8
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "fr": {
-     "hip": "hip_fr",
-     "knee": "knee_fr",
-     "ankle": "ankle_fr",
-     "toe": "toe_fr",
-     "ik": "ik_fr",
-     "toe_at": [
-<<<<<<< HEAD
-      -0.56,
-      2.04,
-      2.08
-     ],
-     "hip_at": [
-      -0.5,
-      2.88,
-      1.42
-=======
-      -0.6,
-      1.14,
-      2.32
-     ],
-     "hip_at": [
-      -0.46,
-      2.3,
-      1.8
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    }
-   },
-   "sockets": {
-    "mouth": {
-     "bone": "head",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      3.56,
-      3.7
-=======
-      2.74,
-      4.3
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "head_top": {
-     "bone": "head",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      4.4,
-      2.7
-=======
-      3.48,
-      3.35
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "back": {
-     "bone": "spine_1",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      3.46,
-      0.95
-=======
-      3.08,
-      1.15
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "hips_top": {
-     "bone": "hips",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      2.77,
-      -0.4
-=======
-      2.55,
-      -0.55
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "tail_tip": {
-     "bone": "tail_3",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      0.22,
-      -4.3
-=======
-      0.36,
-      -3.45
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "chest": {
-     "bone": "chest",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      2.7,
-      1.55
-=======
-      2.02,
-      1.85
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    }
-   },
-   "roles": {
-    "hide": [
-     0.64,
-     0.24,
-     0.12
-    ],
-    "belly": [
-     0.86,
-     0.83,
-     0.76
-    ],
-    "quill": [
-     0.9,
-     0.85,
-     0.7
-    ],
-    "teeth": [
-     0.95,
-     0.93,
-     0.85
-    ],
-    "eye": [
-     1.0,
-     0.62,
-     0.12
-    ],
-    "claw": [
-     0.2,
-     0.16,
-     0.14
-    ]
-   },
-   "generator": "tools/blender/build_monster_colambros.py",
-   "quills": [
-    "quill_0",
-    "quill_1",
-    "quill_2",
-    "quill_3",
-    "quill_4",
-    "quill_5",
-    "quill_6",
-    "quill_7",
-    "quill_8",
-    "quill_9",
-    "quill_10",
-    "quill_11",
-    "quill_12",
-    "quill_13"
-   ],
-   "stance": "biped",
-   "arms": [
-    "fl",
-    "fr"
-   ]
-  },
-  "swampfang": {
-   "id": "swampfang",
-<<<<<<< HEAD
-   "version": 1,
-   "rigkit_version": 1,
-   "footprint_hexes": 2,
-   "length": 9.301,
-   "height": 3.595,
-   "width": 3.42,
-   "aabb": {
-    "min": [
-     -1.71,
-     -0.0045,
-     -4.3656
-    ],
-    "max": [
-     1.71,
-     3.5954,
-     4.9353
-    ]
-   },
-   "tris": 1122,
-   "verts": 781,
-=======
-   "version": 2,
-   "rigkit_version": 1,
-   "footprint_hexes": 2,
-   "length": 9.762,
-   "height": 4.05,
-   "width": 4.157,
-   "aabb": {
-    "min": [
-     -2.0783,
-     -0.0488,
-     -4.4
-    ],
-    "max": [
-     2.0783,
-     4.05,
-     5.3622
-    ]
-   },
-   "tris": 2674,
-   "verts": 1766,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-   "meshes": [
-    "body_hide",
-    "body_belly",
-    "body_frill",
-<<<<<<< HEAD
-=======
-    "body_fin",
-    "body_mouth",
->>>>>>> worktree-agent-a6fd554ce0ea60374
-    "body_teeth",
-    "body_eye",
-    "body_claw"
-   ],
-   "bones": [
-    {
-     "name": "root",
-     "parent": "",
-     "head": [
-      0.0,
-      0.0,
-      -0.0
-     ],
-     "tail": [
-      0.0,
-      0.5,
-      -0.0
-     ]
-    },
-    {
-     "name": "hips",
-     "parent": "root",
-     "head": [
-      0.0,
-      1.05,
-      -1.3
-     ],
-     "tail": [
-      0.0,
-<<<<<<< HEAD
-      1.22,
-=======
-      1.2,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      -0.4
-     ]
-    },
-    {
-     "name": "spine_0",
-     "parent": "hips",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      1.22,
-=======
-      1.2,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      -0.4
-     ],
-     "tail": [
-      0.0,
-<<<<<<< HEAD
-      1.38,
-=======
-      1.4,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      0.6
-     ]
-    },
-    {
-     "name": "spine_1",
-     "parent": "spine_0",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      1.38,
-=======
-      1.4,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      0.6
-     ],
-     "tail": [
-      0.0,
-<<<<<<< HEAD
-      1.52,
-=======
-      1.6,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      1.5
-     ]
-    },
-    {
-     "name": "chest",
-     "parent": "spine_1",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      1.52,
-=======
-      1.6,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      1.5
-     ],
-     "tail": [
-      0.0,
-<<<<<<< HEAD
-      1.62,
-      2.2
-=======
-      1.66,
-      2.25
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "neck",
-     "parent": "chest",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      1.62,
-      2.2
-     ],
-     "tail": [
-      0.0,
-      1.66,
-=======
-      1.66,
-      2.25
-     ],
-     "tail": [
-      0.0,
-      1.72,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      2.9
-     ]
-    },
-    {
-     "name": "head",
-     "parent": "neck",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      1.66,
-=======
-      1.72,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      2.9
-     ],
-     "tail": [
-      0.0,
-<<<<<<< HEAD
-      1.42,
-      4.9
-=======
-      1.76,
-      3.4
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "tail_0",
-     "parent": "hips",
-     "head": [
-      0.0,
-      1.05,
-      -1.3
-     ],
-     "tail": [
-      0.0,
-      0.95,
-      -2.2
-     ]
-    },
-    {
-     "name": "tail_1",
-     "parent": "tail_0",
-     "head": [
-      0.0,
-      0.95,
-      -2.2
-     ],
-     "tail": [
-      0.0,
-      0.82,
-      -3.0
-     ]
-    },
-    {
-     "name": "tail_2",
-     "parent": "tail_1",
-     "head": [
-      0.0,
-      0.82,
-      -3.0
-     ],
-     "tail": [
-      0.0,
-      0.68,
-      -3.75
-     ]
-    },
-    {
-     "name": "tail_3",
-     "parent": "tail_2",
-     "head": [
-      0.0,
-      0.68,
-      -3.75
-     ],
-     "tail": [
-      0.0,
-      0.58,
-      -4.35
-     ]
-    },
-    {
-     "name": "jaw",
-     "parent": "head",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      1.32,
-      3.55
-     ],
-     "tail": [
-      0.0,
-      1.18,
-      4.8
-=======
-      1.42,
-      3.35
-     ],
-     "tail": [
-      0.0,
-      1.3,
-      5.2
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "frill_l",
-     "parent": "neck",
-     "head": [
-      0.55,
-<<<<<<< HEAD
-      1.78,
-=======
-      1.82,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      3.0
-     ],
-     "tail": [
-      1.1,
-<<<<<<< HEAD
-      1.95,
-=======
-      1.99,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      3.0
-     ]
-    },
-    {
-     "name": "frill_r",
-     "parent": "neck",
-     "head": [
-      -0.55,
-<<<<<<< HEAD
-      1.78,
-=======
-      1.82,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      3.0
-     ],
-     "tail": [
-      -1.1,
-<<<<<<< HEAD
-      1.95,
-=======
-      1.99,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      3.0
-     ]
-    },
-    {
-<<<<<<< HEAD
-     "name": "hip_fl",
-     "parent": "chest",
-     "head": [
-      0.85,
-      1.45,
-      1.6
-     ],
-     "tail": [
-      1.32,
-      0.8,
-      1.95
-=======
-     "name": "fin_0",
-     "parent": "head",
-     "head": [
-      0.0,
-      2.31,
-      3.475
-     ],
-     "tail": [
-      0.0,
-      2.78,
-      2.9625
-     ]
-    },
-    {
-     "name": "fin_1",
-     "parent": "spine_1",
-     "head": [
-      0.0,
-      2.475,
-      1.4
-     ],
-     "tail": [
-      0.0,
-      3.2625,
-      0.35
-     ]
-    },
-    {
-     "name": "fin_2",
-     "parent": "spine_0",
-     "head": [
-      0.0,
-      2.15,
-      -0.375
-     ],
-     "tail": [
-      0.0,
-      2.85,
-      -1.1625
-     ]
-    },
-    {
-     "name": "hip_fl",
-     "parent": "chest",
-     "head": [
-      0.95,
-      1.5,
-      1.65
-     ],
-     "tail": [
-      1.5,
-      0.9,
-      1.98
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "knee_fl",
-     "parent": "hip_fl",
-     "head": [
-<<<<<<< HEAD
-      1.32,
-      0.8,
-      1.95
-     ],
-     "tail": [
-      1.38,
-      0.3,
-      1.65
-=======
-      1.5,
-      0.9,
-      1.98
-     ],
-     "tail": [
-      1.56,
-      0.34,
-      1.8
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "ankle_fl",
-     "parent": "knee_fl",
-     "head": [
-<<<<<<< HEAD
-      1.38,
-      0.3,
-      1.65
-     ],
-     "tail": [
-      1.38,
-      0.06,
-      2.35
-=======
-      1.56,
-      0.34,
-      1.8
-     ],
-     "tail": [
-      1.56,
-      0.06,
-      2.6
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "toe_fl",
-     "parent": "ankle_fl",
-     "head": [
-<<<<<<< HEAD
-      1.38,
-      0.06,
-      2.35
-     ],
-     "tail": [
-      1.38,
-      0.06,
-      2.6811
-=======
-      1.56,
-      0.06,
-      2.6
-     ],
-     "tail": [
-      1.56,
-      0.06,
-      2.9304
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "hip_fr",
-     "parent": "chest",
-     "head": [
-<<<<<<< HEAD
-      -0.85,
-      1.45,
-      1.6
-     ],
-     "tail": [
-      -1.32,
-      0.8,
-      1.95
-=======
-      -0.95,
-      1.5,
-      1.65
-     ],
-     "tail": [
-      -1.5,
-      0.9,
-      1.98
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "knee_fr",
-     "parent": "hip_fr",
-     "head": [
-<<<<<<< HEAD
-      -1.32,
-      0.8,
-      1.95
-     ],
-     "tail": [
-      -1.38,
-      0.3,
-      1.65
-=======
-      -1.5,
-      0.9,
-      1.98
-     ],
-     "tail": [
-      -1.56,
-      0.34,
-      1.8
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "ankle_fr",
-     "parent": "knee_fr",
-     "head": [
-<<<<<<< HEAD
-      -1.38,
-      0.3,
-      1.65
-     ],
-     "tail": [
-      -1.38,
-      0.06,
-      2.35
-=======
-      -1.56,
-      0.34,
-      1.8
-     ],
-     "tail": [
-      -1.56,
-      0.06,
-      2.6
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "toe_fr",
-     "parent": "ankle_fr",
-     "head": [
-<<<<<<< HEAD
-      -1.38,
-      0.06,
-      2.35
-     ],
-     "tail": [
-      -1.38,
-      0.06,
-      2.6811
-=======
-      -1.56,
-      0.06,
-      2.6
-     ],
-     "tail": [
-      -1.56,
-      0.06,
-      2.9304
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "hip_hl",
-     "parent": "hips",
-     "head": [
-      0.62,
-      0.85,
-      -1.2
-     ],
-     "tail": [
-      0.92,
-      0.46,
-      -0.92
-     ]
-    },
-    {
-     "name": "knee_hl",
-     "parent": "hip_hl",
-     "head": [
-      0.92,
-      0.46,
-      -0.92
-     ],
-     "tail": [
-      0.98,
-      0.2,
-      -1.35
-     ]
-    },
-    {
-     "name": "ankle_hl",
-     "parent": "knee_hl",
-     "head": [
-      0.98,
-      0.2,
-      -1.35
-     ],
-     "tail": [
-      0.98,
-      0.04,
-      -0.92
-     ]
-    },
-    {
-     "name": "toe_hl",
-     "parent": "ankle_hl",
-     "head": [
-      0.98,
-      0.04,
-      -0.92
-     ],
-     "tail": [
-      0.98,
-      0.04,
-      -0.592
-     ]
-    },
-    {
-     "name": "hip_hr",
-     "parent": "hips",
-     "head": [
-      -0.62,
-      0.85,
-      -1.2
-     ],
-     "tail": [
-      -0.92,
-      0.46,
-      -0.92
-     ]
-    },
-    {
-     "name": "knee_hr",
-     "parent": "hip_hr",
-     "head": [
-      -0.92,
-      0.46,
-      -0.92
-     ],
-     "tail": [
-      -0.98,
-      0.2,
-      -1.35
-     ]
-    },
-    {
-     "name": "ankle_hr",
-     "parent": "knee_hr",
-     "head": [
-      -0.98,
-      0.2,
-      -1.35
-     ],
-     "tail": [
-      -0.98,
-      0.04,
-      -0.92
-     ]
-    },
-    {
-     "name": "toe_hr",
-     "parent": "ankle_hr",
-     "head": [
-      -0.98,
-      0.04,
-      -0.92
-     ],
-     "tail": [
-      -0.98,
-      0.04,
-      -0.592
-     ]
-    }
-   ],
-   "chains": {
-    "spine": [
-     "hips",
-     "spine_0",
-     "spine_1",
-     "chest"
-    ],
-    "neck": [
-     "neck",
-     "head"
-    ],
-    "tail": [
-     "tail_0",
-     "tail_1",
-     "tail_2",
-     "tail_3"
-    ]
-   },
-   "jaw": "jaw",
-   "frill": [
-    "frill_l",
-    "frill_r"
-   ],
-   "legs": {
-    "fl": {
-     "hip": "hip_fl",
-     "knee": "knee_fl",
-     "ankle": "ankle_fl",
-     "toe": "toe_fl",
-     "ik": "ik_fl",
-     "toe_at": [
-<<<<<<< HEAD
-      1.38,
-      0.06,
-      2.35
-     ],
-     "hip_at": [
-      0.85,
-      1.45,
-      1.6
-=======
-      1.56,
-      0.06,
-      2.6
-     ],
-     "hip_at": [
-      0.95,
-      1.5,
-      1.65
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "fr": {
-     "hip": "hip_fr",
-     "knee": "knee_fr",
-     "ankle": "ankle_fr",
-     "toe": "toe_fr",
-     "ik": "ik_fr",
-     "toe_at": [
-<<<<<<< HEAD
-      -1.38,
-      0.06,
-      2.35
-     ],
-     "hip_at": [
-      -0.85,
-      1.45,
-      1.6
-=======
-      -1.56,
-      0.06,
-      2.6
-     ],
-     "hip_at": [
-      -0.95,
-      1.5,
-      1.65
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "hl": {
-     "hip": "hip_hl",
-     "knee": "knee_hl",
-     "ankle": "ankle_hl",
-     "toe": "toe_hl",
-     "ik": "ik_hl",
-     "toe_at": [
-      0.98,
-      0.04,
-      -0.92
-     ],
-     "hip_at": [
-      0.62,
-      0.85,
-      -1.2
-     ]
-    },
-    "hr": {
-     "hip": "hip_hr",
-     "knee": "knee_hr",
-     "ankle": "ankle_hr",
-     "toe": "toe_hr",
-     "ik": "ik_hr",
-     "toe_at": [
-      -0.98,
-      0.04,
-      -0.92
-     ],
-     "hip_at": [
-      -0.62,
-      0.85,
-      -1.2
-     ]
-    }
-   },
-   "sockets": {
-    "mouth": {
-     "bone": "head",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      1.28,
-      4.6
-=======
-      1.42,
-      5.0
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "frill": {
-     "bone": "neck",
-     "at": [
-      0.0,
-      1.95,
-      3.0
-     ]
-    },
-    "back": {
-     "bone": "spine_1",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      2.45,
-=======
-      2.55,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      0.6
-     ]
-    },
-    "tail_tip": {
-     "bone": "tail_3",
-     "at": [
-      0.0,
-      0.58,
-      -4.35
-     ]
-    },
-    "head_top": {
-     "bone": "head",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      2.25,
-=======
-      2.5,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      3.45
-     ]
-    }
-   },
-   "roles": {
-    "hide": [
-     0.3,
-     0.5,
-     0.8
-    ],
-    "belly": [
-<<<<<<< HEAD
-     0.9,
-     0.86,
-     0.72
-=======
-     0.92,
-     0.86,
-     0.66
->>>>>>> worktree-agent-a6fd554ce0ea60374
-    ],
-    "frill": [
-     0.86,
-     0.22,
-     0.2
-    ],
-<<<<<<< HEAD
-=======
-    "fin": [
-     0.84,
-     0.3,
-     0.26
-    ],
-    "mouth": [
-     0.55,
-     0.12,
-     0.16
-    ],
->>>>>>> worktree-agent-a6fd554ce0ea60374
-    "teeth": [
-     0.96,
-     0.94,
-     0.86
-    ],
-    "eye": [
-     0.98,
-     0.78,
-     0.18
-    ],
-    "claw": [
-<<<<<<< HEAD
-     0.22,
-     0.2,
-     0.26
-=======
-     0.82,
-     0.8,
-     0.72
->>>>>>> worktree-agent-a6fd554ce0ea60374
-    ]
-   },
-   "generator": "tools/blender/build_monster_swampfang.py"
-  },
-  "spirewalker": {
-   "id": "spirewalker",
-<<<<<<< HEAD
-   "version": 1,
-   "rigkit_version": 1,
-   "footprint_hexes": 2,
-   "length": 7.857,
-   "height": 3.814,
-   "width": 7.618,
-   "aabb": {
-    "min": [
-     -3.8088,
-     0.016,
-     -3.4687
-    ],
-    "max": [
-     3.8088,
-     3.8143,
-     4.3879
-    ]
-   },
-   "tris": 2714,
-   "verts": 1859,
-   "meshes": [
-    "body_hide",
-    "body_belly",
-    "body_reed",
-    "body_bristle",
-    "body_arc",
-=======
-   "version": 2,
-   "rigkit_version": 1,
-   "footprint_hexes": 2,
-   "length": 7.826,
-   "height": 4.166,
-   "width": 7.46,
-   "aabb": {
-    "min": [
-     -3.7301,
-     -0.0672,
-     -3.5436
-    ],
-    "max": [
-     3.7301,
-     4.1661,
-     4.2828
-    ]
-   },
-   "tris": 5802,
-   "verts": 3724,
-   "meshes": [
-    "body_hide",
-    "body_belly",
-    "body_mound",
-    "body_frond",
-    "body_reed",
-    "body_bristle",
-    "body_arc",
-    "body_mouth",
->>>>>>> worktree-agent-a6fd554ce0ea60374
-    "body_teeth",
-    "body_eye",
-    "body_claw"
-   ],
-   "bones": [
-    {
-     "name": "root",
-     "parent": "",
-     "head": [
-      0.0,
-      0.0,
-      -0.0
-     ],
-     "tail": [
-      0.0,
-      0.5,
-      -0.0
-     ]
-    },
-    {
-     "name": "hips",
-     "parent": "root",
-     "head": [
-      0.0,
-      1.0,
-<<<<<<< HEAD
-      -1.5
-=======
-      -1.4
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ],
-     "tail": [
-      0.0,
-      1.1,
-<<<<<<< HEAD
-      -0.6
-=======
-      -0.5
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "spine_0",
-     "parent": "hips",
-     "head": [
-      0.0,
-      1.1,
-<<<<<<< HEAD
-      -0.6
-     ],
-     "tail": [
-      0.0,
-      1.15,
-=======
-      -0.5
-     ],
-     "tail": [
-      0.0,
-      1.12,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      0.5
-     ]
-    },
-    {
-     "name": "spine_1",
-     "parent": "spine_0",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      1.15,
-=======
-      1.12,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      0.5
-     ],
-     "tail": [
-      0.0,
-<<<<<<< HEAD
-      1.08,
-      1.5
-=======
-      1.02,
-      1.4
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "chest",
-     "parent": "spine_1",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      1.08,
-      1.5
-     ],
-     "tail": [
-      0.0,
-      0.98,
-      2.2
-=======
-      1.02,
-      1.4
-     ],
-     "tail": [
-      0.0,
-      0.92,
-      2.05
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "neck",
-     "parent": "chest",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      0.98,
-      2.2
-     ],
-     "tail": [
-      0.0,
-      0.95,
-      2.75
-=======
-      0.92,
-      2.05
-     ],
-     "tail": [
-      0.0,
-      0.9,
-      2.55
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "head",
-     "parent": "neck",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      0.95,
-      2.75
-     ],
-     "tail": [
-      0.0,
-      0.74,
-      4.35
-=======
-      0.9,
-      2.55
-     ],
-     "tail": [
-      0.0,
-      0.88,
-      2.95
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "tail_0",
-     "parent": "hips",
-     "head": [
-      0.0,
-      1.0,
-<<<<<<< HEAD
-      -1.5
-     ],
-     "tail": [
-      0.0,
-      0.82,
-      -2.3
-=======
-      -1.4
-     ],
-     "tail": [
-      0.0,
-      0.8,
-      -2.2
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "tail_1",
-     "parent": "tail_0",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      0.82,
-      -2.3
-     ],
-     "tail": [
-      0.0,
-      0.66,
-      -2.95
-=======
-      0.8,
-      -2.2
-     ],
-     "tail": [
-      0.0,
-      0.62,
-      -2.85
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "tail_2",
-     "parent": "tail_1",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      0.66,
-      -2.95
-     ],
-     "tail": [
-      0.0,
-      0.56,
-      -3.45
-=======
-      0.62,
-      -2.85
-     ],
-     "tail": [
-      0.0,
-      0.5,
-      -3.4
-     ]
-    },
-    {
-     "name": "vine_0_0",
-     "parent": "spine_0",
-     "head": [
-      0.45,
-      2.3,
-      -0.95
-     ],
-     "tail": [
-      0.7,
-      2.95,
-      -1.55
-     ]
-    },
-    {
-     "name": "vine_0_1",
-     "parent": "vine_0_0",
-     "head": [
-      0.7,
-      2.95,
-      -1.55
-     ],
-     "tail": [
-      1.0,
-      3.0,
-      -2.3
-     ]
-    },
-    {
-     "name": "vine_0_2",
-     "parent": "vine_0_1",
-     "head": [
-      1.0,
-      3.0,
-      -2.3
-     ],
-     "tail": [
-      1.3,
-      2.65,
-      -3.0
-     ]
-    },
-    {
-     "name": "vine_0_3",
-     "parent": "vine_0_2",
-     "head": [
-      1.3,
-      2.65,
-      -3.0
-     ],
-     "tail": [
-      1.48,
-      2.22,
-      -3.5
-     ]
-    },
-    {
-     "name": "vine_0_4",
-     "parent": "vine_0_3",
-     "head": [
-      1.48,
-      2.22,
-      -3.5
-     ],
-     "tail": [
-      1.42,
-      2.5,
-      -3.3
-     ]
-    },
-    {
-     "name": "vine_1_0",
-     "parent": "spine_0",
-     "head": [
-      -0.45,
-      2.3,
-      -0.95
-     ],
-     "tail": [
-      -0.7,
-      2.95,
-      -1.55
-     ]
-    },
-    {
-     "name": "vine_1_1",
-     "parent": "vine_1_0",
-     "head": [
-      -0.7,
-      2.95,
-      -1.55
-     ],
-     "tail": [
-      -1.0,
-      3.0,
-      -2.3
-     ]
-    },
-    {
-     "name": "vine_1_2",
-     "parent": "vine_1_1",
-     "head": [
-      -1.0,
-      3.0,
-      -2.3
-     ],
-     "tail": [
-      -1.3,
-      2.65,
-      -3.0
-     ]
-    },
-    {
-     "name": "vine_1_3",
-     "parent": "vine_1_2",
-     "head": [
-      -1.3,
-      2.65,
-      -3.0
-     ],
-     "tail": [
-      -1.48,
-      2.22,
-      -3.5
-     ]
-    },
-    {
-     "name": "vine_1_4",
-     "parent": "vine_1_3",
-     "head": [
-      -1.48,
-      2.22,
-      -3.5
-     ],
-     "tail": [
-      -1.42,
-      2.5,
-      -3.3
-     ]
-    },
-    {
-     "name": "vine_2_0",
-     "parent": "spine_1",
-     "head": [
-      1.0,
-      2.4,
-      -0.2
-     ],
-     "tail": [
-      1.6,
-      3.05,
-      -0.6
-     ]
-    },
-    {
-     "name": "vine_2_1",
-     "parent": "vine_2_0",
-     "head": [
-      1.6,
-      3.05,
-      -0.6
-     ],
-     "tail": [
-      2.1,
-      3.1,
-      -1.3
-     ]
-    },
-    {
-     "name": "vine_2_2",
-     "parent": "vine_2_1",
-     "head": [
-      2.1,
-      3.1,
-      -1.3
-     ],
-     "tail": [
-      2.4,
-      2.75,
-      -2.0
-     ]
-    },
-    {
-     "name": "vine_2_3",
-     "parent": "vine_2_2",
-     "head": [
-      2.4,
-      2.75,
-      -2.0
-     ],
-     "tail": [
-      2.5,
-      2.38,
-      -2.5
-     ]
-    },
-    {
-     "name": "vine_2_4",
-     "parent": "vine_2_3",
-     "head": [
-      2.5,
-      2.38,
-      -2.5
-     ],
-     "tail": [
-      2.36,
-      2.62,
-      -2.3
-     ]
-    },
-    {
-     "name": "vine_3_0",
-     "parent": "spine_1",
-     "head": [
-      -1.0,
-      2.4,
-      -0.2
-     ],
-     "tail": [
-      -1.6,
-      3.05,
-      -0.6
-     ]
-    },
-    {
-     "name": "vine_3_1",
-     "parent": "vine_3_0",
-     "head": [
-      -1.6,
-      3.05,
-      -0.6
-     ],
-     "tail": [
-      -2.1,
-      3.1,
-      -1.3
-     ]
-    },
-    {
-     "name": "vine_3_2",
-     "parent": "vine_3_1",
-     "head": [
-      -2.1,
-      3.1,
-      -1.3
-     ],
-     "tail": [
-      -2.4,
-      2.75,
-      -2.0
-     ]
-    },
-    {
-     "name": "vine_3_3",
-     "parent": "vine_3_2",
-     "head": [
-      -2.4,
-      2.75,
-      -2.0
-     ],
-     "tail": [
-      -2.5,
-      2.38,
-      -2.5
-     ]
-    },
-    {
-     "name": "vine_3_4",
-     "parent": "vine_3_3",
-     "head": [
-      -2.5,
-      2.38,
-      -2.5
-     ],
-     "tail": [
-      -2.36,
-      2.62,
-      -2.3
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "jaw",
-     "parent": "head",
-     "head": [
-      0.0,
-      0.62,
-<<<<<<< HEAD
-      3.25
-     ],
-     "tail": [
-      0.0,
-      0.52,
-      4.3
-=======
-      2.75
-     ],
-     "tail": [
-      0.0,
-      0.55,
-      4.25
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "reed_0",
-     "parent": "spine_0",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      1.72,
-      -0.9
-     ],
-     "tail": [
-      0.0,
-      2.82,
-      -0.9
-=======
-      2.1557,
-      -0.85
-     ],
-     "tail": [
-      0.0,
-      3.2557,
-      -0.85
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "reed_1",
-     "parent": "spine_1",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      1.8518,
-      -0.1
-     ],
-     "tail": [
-      0.0,
-      2.9518,
-      -0.1
-=======
-      2.4494,
-      -0.0
-     ],
-     "tail": [
-      0.0,
-      3.5494,
-      -0.0
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "reed_2",
-     "parent": "chest",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      1.822,
-      0.9
-     ],
-     "tail": [
-      0.0,
-      2.922,
-      0.9
-=======
-      2.26,
-      0.95
-     ],
-     "tail": [
-      0.0,
-      3.36,
-      0.95
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "hip_fl",
-     "parent": "chest",
-     "head": [
-<<<<<<< HEAD
-      1.25,
-      1.0,
-      1.7
-     ],
-     "tail": [
-      2.35,
-      1.8,
-      2.2
-=======
-      1.55,
-      0.9,
-      1.6
-     ],
-     "tail": [
-      2.3,
-      0.95,
-      1.85
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "knee_fl",
-     "parent": "hip_fl",
-     "head": [
-<<<<<<< HEAD
-      2.35,
-      1.8,
-      2.2
-     ],
-     "tail": [
-      2.8,
-      0.46,
-      2.4
-=======
-      2.3,
-      0.95,
-      1.85
-     ],
-     "tail": [
-      2.45,
-      0.3,
-      2.15
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "ankle_fl",
-     "parent": "knee_fl",
-     "head": [
-<<<<<<< HEAD
-      2.8,
-      0.46,
-      2.4
-     ],
-     "tail": [
-      3.0,
-      0.06,
-      3.0
-=======
-      2.45,
-      0.3,
-      2.15
-     ],
-     "tail": [
-      2.55,
-      0.06,
-      2.85
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "toe_fl",
-     "parent": "ankle_fl",
-     "head": [
-<<<<<<< HEAD
-      3.0,
-      0.06,
-      3.0
-     ],
-     "tail": [
-      3.0935,
-      0.06,
-      3.2806
-=======
-      2.55,
-      0.06,
-      2.85
-     ],
-     "tail": [
-      2.5969,
-      0.06,
-      3.1781
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "hip_fr",
-     "parent": "chest",
-     "head": [
-<<<<<<< HEAD
-      -1.25,
-      1.0,
-      1.7
-     ],
-     "tail": [
-      -2.35,
-      1.8,
-      2.2
-=======
-      -1.55,
-      0.9,
-      1.6
-     ],
-     "tail": [
-      -2.3,
-      0.95,
-      1.85
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "knee_fr",
-     "parent": "hip_fr",
-     "head": [
-<<<<<<< HEAD
-      -2.35,
-      1.8,
-      2.2
-     ],
-     "tail": [
-      -2.8,
-      0.46,
-      2.4
-=======
-      -2.3,
-      0.95,
-      1.85
-     ],
-     "tail": [
-      -2.45,
-      0.3,
-      2.15
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "ankle_fr",
-     "parent": "knee_fr",
-     "head": [
-<<<<<<< HEAD
-      -2.8,
-      0.46,
-      2.4
-     ],
-     "tail": [
-      -3.0,
-      0.06,
-      3.0
-=======
-      -2.45,
-      0.3,
-      2.15
-     ],
-     "tail": [
-      -2.55,
-      0.06,
-      2.85
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "toe_fr",
-     "parent": "ankle_fr",
-     "head": [
-<<<<<<< HEAD
-      -3.0,
-      0.06,
-      3.0
-     ],
-     "tail": [
-      -3.0935,
-      0.06,
-      3.2806
-=======
-      -2.55,
-      0.06,
-      2.85
-     ],
-     "tail": [
-      -2.5969,
-      0.06,
-      3.1781
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "hip_ml",
-     "parent": "spine_1",
-     "head": [
-<<<<<<< HEAD
-      1.75,
-      1.05,
-      0.35
-     ],
-     "tail": [
-      2.8,
-      1.9,
-      0.35
-=======
-      1.8,
-      0.9,
-      0.3
-     ],
-     "tail": [
-      2.65,
-      0.92,
-      0.3
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "knee_ml",
-     "parent": "hip_ml",
-     "head": [
-<<<<<<< HEAD
-      2.8,
-      1.9,
-      0.35
-     ],
-     "tail": [
-      3.1,
-      0.46,
-      0.25
-=======
-      2.65,
-      0.92,
-      0.3
-     ],
-     "tail": [
-      2.8,
-      0.28,
-      0.35
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "ankle_ml",
-     "parent": "knee_ml",
-     "head": [
-<<<<<<< HEAD
-      3.1,
-      0.46,
-      0.25
-     ],
-     "tail": [
-      3.35,
-      0.06,
-      0.55
-=======
-      2.8,
-      0.28,
-      0.35
-     ],
-     "tail": [
-      3.05,
-      0.06,
-      0.75
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "toe_ml",
-     "parent": "ankle_ml",
-     "head": [
-<<<<<<< HEAD
-      3.35,
-      0.06,
-      0.55
-     ],
-     "tail": [
-      3.5065,
-      0.06,
-      0.7378
-=======
-      3.05,
-      0.06,
-      0.75
-     ],
-     "tail": [
-      3.2181,
-      0.06,
-      1.019
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "hip_mr",
-     "parent": "spine_1",
-     "head": [
-<<<<<<< HEAD
-      -1.75,
-      1.05,
-      0.35
-     ],
-     "tail": [
-      -2.8,
-      1.9,
-      0.35
-=======
-      -1.8,
-      0.9,
-      0.3
-     ],
-     "tail": [
-      -2.65,
-      0.92,
-      0.3
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "knee_mr",
-     "parent": "hip_mr",
-     "head": [
-<<<<<<< HEAD
-      -2.8,
-      1.9,
-      0.35
-     ],
-     "tail": [
-      -3.1,
-      0.46,
-      0.25
-=======
-      -2.65,
-      0.92,
-      0.3
-     ],
-     "tail": [
-      -2.8,
-      0.28,
-      0.35
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "ankle_mr",
-     "parent": "knee_mr",
-     "head": [
-<<<<<<< HEAD
-      -3.1,
-      0.46,
-      0.25
-     ],
-     "tail": [
-      -3.35,
-      0.06,
-      0.55
-=======
-      -2.8,
-      0.28,
-      0.35
-     ],
-     "tail": [
-      -3.05,
-      0.06,
-      0.75
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "toe_mr",
-     "parent": "ankle_mr",
-     "head": [
-<<<<<<< HEAD
-      -3.35,
-      0.06,
-      0.55
-     ],
-     "tail": [
-      -3.5065,
-      0.06,
-      0.7378
-=======
-      -3.05,
-      0.06,
-      0.75
-     ],
-     "tail": [
-      -3.2181,
-      0.06,
-      1.019
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "hip_hl",
-     "parent": "hips",
-     "head": [
-<<<<<<< HEAD
-      1.25,
-      0.95,
-      -1.15
-     ],
-     "tail": [
-      2.3,
-      1.7,
-      -1.6
-=======
-      1.5,
-      0.88,
-      -1.1
-     ],
-     "tail": [
-      2.3,
-      0.92,
-      -1.4
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "knee_hl",
-     "parent": "hip_hl",
-     "head": [
-      2.3,
-<<<<<<< HEAD
-      1.7,
-      -1.6
-     ],
-     "tail": [
-      2.75,
-      0.42,
-      -1.9
-=======
-      0.92,
-      -1.4
-     ],
-     "tail": [
-      2.35,
-      0.28,
-      -1.75
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "ankle_hl",
-     "parent": "knee_hl",
-     "head": [
-<<<<<<< HEAD
-      2.75,
-      0.42,
-      -1.9
-     ],
-     "tail": [
-      2.95,
-      0.06,
-      -2.4
-=======
-      2.35,
-      0.28,
-      -1.75
-     ],
-     "tail": [
-      2.5,
-      0.06,
-      -2.3
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "toe_hl",
-     "parent": "ankle_hl",
-     "head": [
-<<<<<<< HEAD
-      2.95,
-      0.06,
-      -2.4
-     ],
-     "tail": [
-      3.0581,
-      0.06,
-      -2.6702
-=======
-      2.5,
-      0.06,
-      -2.3
-     ],
-     "tail": [
-      2.5859,
-      0.06,
-      -2.615
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "hip_hr",
-     "parent": "hips",
-     "head": [
-<<<<<<< HEAD
-      -1.25,
-      0.95,
-      -1.15
-     ],
-     "tail": [
-      -2.3,
-      1.7,
-      -1.6
-=======
-      -1.5,
-      0.88,
-      -1.1
-     ],
-     "tail": [
-      -2.3,
-      0.92,
-      -1.4
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "knee_hr",
-     "parent": "hip_hr",
-     "head": [
-      -2.3,
-<<<<<<< HEAD
-      1.7,
-      -1.6
-     ],
-     "tail": [
-      -2.75,
-      0.42,
-      -1.9
-=======
-      0.92,
-      -1.4
-     ],
-     "tail": [
-      -2.35,
-      0.28,
-      -1.75
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "ankle_hr",
-     "parent": "knee_hr",
-     "head": [
-<<<<<<< HEAD
-      -2.75,
-      0.42,
-      -1.9
-     ],
-     "tail": [
-      -2.95,
-      0.06,
-      -2.4
-=======
-      -2.35,
-      0.28,
-      -1.75
-     ],
-     "tail": [
-      -2.5,
-      0.06,
-      -2.3
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "toe_hr",
-     "parent": "ankle_hr",
-     "head": [
-<<<<<<< HEAD
-      -2.95,
-      0.06,
-      -2.4
-     ],
-     "tail": [
-      -3.0581,
-      0.06,
-      -2.6702
-=======
-      -2.5,
-      0.06,
-      -2.3
-     ],
-     "tail": [
-      -2.5859,
-      0.06,
-      -2.615
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    }
-   ],
-   "chains": {
-    "spine": [
-     "hips",
-     "spine_0",
-     "spine_1",
-     "chest"
-    ],
-    "neck": [
-     "neck",
-     "head"
-    ],
-    "tail": [
-     "tail_0",
-     "tail_1",
-     "tail_2"
-<<<<<<< HEAD
-=======
-    ],
-    "vine_0": [
-     "vine_0_0",
-     "vine_0_1",
-     "vine_0_2",
-     "vine_0_3",
-     "vine_0_4"
-    ],
-    "vine_1": [
-     "vine_1_0",
-     "vine_1_1",
-     "vine_1_2",
-     "vine_1_3",
-     "vine_1_4"
-    ],
-    "vine_2": [
-     "vine_2_0",
-     "vine_2_1",
-     "vine_2_2",
-     "vine_2_3",
-     "vine_2_4"
-    ],
-    "vine_3": [
-     "vine_3_0",
-     "vine_3_1",
-     "vine_3_2",
-     "vine_3_3",
-     "vine_3_4"
->>>>>>> worktree-agent-a6fd554ce0ea60374
-    ]
-   },
-   "jaw": "jaw",
-   "frill": [],
-   "legs": {
-    "fl": {
-     "hip": "hip_fl",
-     "knee": "knee_fl",
-     "ankle": "ankle_fl",
-     "toe": "toe_fl",
-     "ik": "ik_fl",
-     "toe_at": [
-<<<<<<< HEAD
-      3.0,
-      0.06,
-      3.0
-     ],
-     "hip_at": [
-      1.25,
-      1.0,
-      1.7
-=======
-      2.55,
-      0.06,
-      2.85
-     ],
-     "hip_at": [
-      1.55,
-      0.9,
-      1.6
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "fr": {
-     "hip": "hip_fr",
-     "knee": "knee_fr",
-     "ankle": "ankle_fr",
-     "toe": "toe_fr",
-     "ik": "ik_fr",
-     "toe_at": [
-<<<<<<< HEAD
-      -3.0,
-      0.06,
-      3.0
-     ],
-     "hip_at": [
-      -1.25,
-      1.0,
-      1.7
-=======
-      -2.55,
-      0.06,
-      2.85
-     ],
-     "hip_at": [
-      -1.55,
-      0.9,
-      1.6
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "ml": {
-     "hip": "hip_ml",
-     "knee": "knee_ml",
-     "ankle": "ankle_ml",
-     "toe": "toe_ml",
-     "ik": "ik_ml",
-     "toe_at": [
-<<<<<<< HEAD
-      3.35,
-      0.06,
-      0.55
-     ],
-     "hip_at": [
-      1.75,
-      1.05,
-      0.35
-=======
-      3.05,
-      0.06,
-      0.75
-     ],
-     "hip_at": [
-      1.8,
-      0.9,
-      0.3
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "mr": {
-     "hip": "hip_mr",
-     "knee": "knee_mr",
-     "ankle": "ankle_mr",
-     "toe": "toe_mr",
-     "ik": "ik_mr",
-     "toe_at": [
-<<<<<<< HEAD
-      -3.35,
-      0.06,
-      0.55
-     ],
-     "hip_at": [
-      -1.75,
-      1.05,
-      0.35
-=======
-      -3.05,
-      0.06,
-      0.75
-     ],
-     "hip_at": [
-      -1.8,
-      0.9,
-      0.3
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "hl": {
-     "hip": "hip_hl",
-     "knee": "knee_hl",
-     "ankle": "ankle_hl",
-     "toe": "toe_hl",
-     "ik": "ik_hl",
-     "toe_at": [
-<<<<<<< HEAD
-      2.95,
-      0.06,
-      -2.4
-     ],
-     "hip_at": [
-      1.25,
-      0.95,
-      -1.15
-=======
-      2.5,
-      0.06,
-      -2.3
-     ],
-     "hip_at": [
-      1.5,
-      0.88,
-      -1.1
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "hr": {
-     "hip": "hip_hr",
-     "knee": "knee_hr",
-     "ankle": "ankle_hr",
-     "toe": "toe_hr",
-     "ik": "ik_hr",
-     "toe_at": [
-<<<<<<< HEAD
-      -2.95,
-      0.06,
-      -2.4
-     ],
-     "hip_at": [
-      -1.25,
-      0.95,
-      -1.15
-=======
-      -2.5,
-      0.06,
-      -2.3
-     ],
-     "hip_at": [
-      -1.5,
-      0.88,
-      -1.1
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    }
-   },
-   "sockets": {
-    "mouth": {
-     "bone": "head",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      0.6,
-      4.2
-=======
-      0.62,
-      4.05
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "back": {
-     "bone": "spine_1",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      1.98,
-=======
-      2.6,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      0.4
-     ]
-    },
-    "reeds": {
-     "bone": "reed_1",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      3.0,
-      -0.1
-=======
-      3.65,
-      -0.0
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "tail_tip": {
-     "bone": "tail_2",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      0.56,
-      -3.45
-=======
-      0.5,
-      -3.35
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "arm_l": {
-     "bone": "knee_fl",
-     "at": [
-<<<<<<< HEAD
-      2.6,
-      0.9,
-      2.35
-=======
-      2.45,
-      0.6,
-      2.15
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "arm_r": {
-     "bone": "knee_fr",
-     "at": [
-<<<<<<< HEAD
-      -2.6,
-      0.9,
-      2.35
-=======
-      -2.45,
-      0.6,
-      2.15
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "head_top": {
-     "bone": "head",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      1.4,
-      3.3
-=======
-      1.62,
-      3.0
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    }
-   },
-   "roles": {
-    "hide": [
-<<<<<<< HEAD
-     0.8,
-     0.64,
-     0.2
-    ],
-    "belly": [
-     0.86,
-     0.76,
-     0.5
-=======
-     0.75,
-     0.58,
-     0.22
-    ],
-    "belly": [
-     0.88,
-     0.78,
-     0.52
-    ],
-    "mound": [
-     0.46,
-     0.35,
-     0.13
-    ],
-    "frond": [
-     0.48,
-     0.48,
-     0.15
->>>>>>> worktree-agent-a6fd554ce0ea60374
-    ],
-    "reed": [
-     0.76,
-     0.4,
-     0.16
-    ],
-    "bristle": [
-<<<<<<< HEAD
-     0.58,
-     0.3,
-=======
-     0.5,
-     0.28,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     0.12
-    ],
-    "arc": [
-     0.62,
-     0.32,
-     0.96
-    ],
-<<<<<<< HEAD
-=======
-    "mouth": [
-     0.5,
-     0.16,
-     0.14
-    ],
->>>>>>> worktree-agent-a6fd554ce0ea60374
-    "teeth": [
-     0.95,
-     0.93,
-     0.84
-    ],
-    "eye": [
-     0.98,
-     0.72,
-     0.16
-    ],
-    "claw": [
-<<<<<<< HEAD
-     0.3,
-     0.22,
-     0.16
-=======
-     0.9,
-     0.88,
-     0.8
->>>>>>> worktree-agent-a6fd554ce0ea60374
-    ]
-   },
-   "reeds": [
-    "reed_0",
-    "reed_1",
-    "reed_2"
-   ],
-   "bristles": [
-    "knee_fl",
-    "knee_fr"
-   ],
-<<<<<<< HEAD
-=======
-   "vines": {
-    "vine_0": [
-     "vine_0_0",
-     "vine_0_1",
-     "vine_0_2",
-     "vine_0_3",
-     "vine_0_4"
-    ],
-    "vine_1": [
-     "vine_1_0",
-     "vine_1_1",
-     "vine_1_2",
-     "vine_1_3",
-     "vine_1_4"
-    ],
-    "vine_2": [
-     "vine_2_0",
-     "vine_2_1",
-     "vine_2_2",
-     "vine_2_3",
-     "vine_2_4"
-    ],
-    "vine_3": [
-     "vine_3_0",
-     "vine_3_1",
-     "vine_3_2",
-     "vine_3_3",
-     "vine_3_4"
-    ]
-   },
->>>>>>> worktree-agent-a6fd554ce0ea60374
-   "generator": "tools/blender/build_monster_spirewalker.py"
-  },
-  "rimeslithe": {
-   "id": "rimeslithe",
-<<<<<<< HEAD
-   "version": 2,
-   "rigkit_version": 1,
-   "footprint_hexes": 2,
-   "length": 10.187,
-   "height": 5.323,
-   "width": 5.124,
-   "aabb": {
-    "min": [
-     -2.5621,
-     -0.133,
-     -4.7468
-    ],
-    "max": [
-     2.5621,
-     5.3228,
-     5.4406
-    ]
-   },
-   "tris": 3414,
-   "verts": 1997,
-=======
-   "version": 1,
-   "rigkit_version": 1,
-   "footprint_hexes": 2,
-   "length": 9.501,
-   "height": 4.646,
-   "width": 5.15,
-   "aabb": {
-    "min": [
-     -2.575,
-     0.02,
-     -4.0361
-    ],
-    "max": [
-     2.575,
-     4.6457,
-     5.4647
-    ]
-   },
-   "tris": 1872,
-   "verts": 1156,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-   "meshes": [
-    "body_hide",
-    "body_belly",
-    "body_crystal",
-    "body_teeth",
-    "body_eye",
-    "body_claw"
-   ],
-   "bones": [
-    {
-     "name": "root",
-     "parent": "",
-     "head": [
-      0.0,
-      0.0,
-      -0.0
-     ],
-     "tail": [
-      0.0,
-      0.5,
-      -0.0
-     ]
-    },
-    {
-     "name": "hips",
-     "parent": "root",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      1.8,
-      -1.85
-     ],
-     "tail": [
-      0.0,
-      2.4,
-      -0.75
-=======
-      1.7,
-      -1.9
-     ],
-     "tail": [
-      0.0,
-      2.2,
-      -0.8
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "spine_0",
-     "parent": "hips",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      2.4,
-      -0.75
-     ],
-     "tail": [
-      0.0,
-      2.95,
-      0.45
-=======
-      2.2,
-      -0.8
-     ],
-     "tail": [
-      0.0,
-      2.55,
-      0.5
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "spine_1",
-     "parent": "spine_0",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      2.95,
-      0.45
-     ],
-     "tail": [
-      0.0,
-      3.05,
-      1.55
-=======
-      2.55,
-      0.5
-     ],
-     "tail": [
-      0.0,
-      2.6,
-      1.7
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "chest",
-     "parent": "spine_1",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      3.05,
-      1.55
-     ],
-     "tail": [
-      0.0,
-      2.75,
-      2.45
-=======
-      2.6,
-      1.7
-     ],
-     "tail": [
-      0.0,
-      2.35,
-      2.7
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "neck",
-     "parent": "chest",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      2.75,
-      2.45
-     ],
-     "tail": [
-      0.0,
-      2.5,
-      3.25
-=======
-      2.35,
-      2.7
-     ],
-     "tail": [
-      0.0,
-      2.2,
-      3.5
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "head",
-     "parent": "neck",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      2.5,
-      3.25
-     ],
-     "tail": [
-      0.0,
-      1.94,
-      5.35
-=======
-      2.2,
-      3.5
-     ],
-     "tail": [
-      0.0,
-      1.86,
-      5.4
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "tail_0",
-     "parent": "hips",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      1.8,
-      -1.85
-     ],
-     "tail": [
-      0.0,
-      1.55,
-=======
-      1.7,
-      -1.9
-     ],
-     "tail": [
-      0.0,
-      1.45,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      -2.75
-     ]
-    },
-    {
-     "name": "tail_1",
-     "parent": "tail_0",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      1.55,
-=======
-      1.45,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      -2.75
-     ],
-     "tail": [
-      0.0,
-<<<<<<< HEAD
-      1.2,
-      -3.55
-=======
-      1.15,
-      -3.35
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "tail_2",
-     "parent": "tail_1",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      1.2,
-      -3.55
-=======
-      1.15,
-      -3.35
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ],
-     "tail": [
-      0.0,
-      0.85,
-<<<<<<< HEAD
-      -4.2
-=======
-      -3.75
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "tail_3",
-     "parent": "tail_2",
-     "head": [
-      0.0,
-      0.85,
-<<<<<<< HEAD
-      -4.2
-     ],
-     "tail": [
-      0.0,
-      0.6,
-      -4.7
-=======
-      -3.75
-     ],
-     "tail": [
-      0.0,
-      0.62,
-      -3.95
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "jaw",
-     "parent": "head",
-     "head": [
-      0.0,
-<<<<<<< HEAD
-      2.02,
-      4.1
-     ],
-     "tail": [
-      0.0,
-      1.86,
-      5.45
-=======
-      1.8,
-      4.3
-     ],
-     "tail": [
-      0.0,
-      1.68,
-      5.35
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "hip_fl",
-     "parent": "chest",
-     "head": [
-<<<<<<< HEAD
-      1.25,
-      2.85,
-=======
-      1.15,
-      2.6,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      2.05
-     ],
-     "tail": [
-      2.0,
-<<<<<<< HEAD
-      1.85,
-      1.55
-=======
-      1.8,
-      1.5
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "knee_fl",
-     "parent": "hip_fl",
-     "head": [
-      2.0,
-<<<<<<< HEAD
-      1.85,
-      1.55
-     ],
-     "tail": [
-      1.95,
-      0.75,
-      3.7
-=======
-      1.8,
-      1.5
-     ],
-     "tail": [
-      2.1,
-      0.55,
-      3.85
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "ankle_fl",
-     "parent": "knee_fl",
-     "head": [
-<<<<<<< HEAD
-      1.95,
-      0.75,
-      3.7
-     ],
-     "tail": [
-      1.85,
-      0.1,
-      4.15
-=======
-      2.1,
-      0.55,
-      3.85
-     ],
-     "tail": [
-      2.1,
-      0.08,
-      4.35
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "toe_fl",
-     "parent": "ankle_fl",
-     "head": [
-<<<<<<< HEAD
-      1.85,
-      0.1,
-      4.15
-     ],
-     "tail": [
-      1.8061,
-      0.1,
-      4.3476
-=======
-      2.1,
-      0.08,
-      4.35
-     ],
-     "tail": [
-      2.1,
-      0.08,
-      4.605
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "hip_fr",
-     "parent": "chest",
-     "head": [
-<<<<<<< HEAD
-      -1.25,
-      2.85,
-=======
-      -1.15,
-      2.6,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      2.05
-     ],
-     "tail": [
-      -2.0,
-<<<<<<< HEAD
-      1.85,
-      1.55
-=======
-      1.8,
-      1.5
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "knee_fr",
-     "parent": "hip_fr",
-     "head": [
-      -2.0,
-<<<<<<< HEAD
-      1.85,
-      1.55
-     ],
-     "tail": [
-      -1.95,
-      0.75,
-      3.7
-=======
-      1.8,
-      1.5
-     ],
-     "tail": [
-      -2.1,
-      0.55,
-      3.85
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "ankle_fr",
-     "parent": "knee_fr",
-     "head": [
-<<<<<<< HEAD
-      -1.95,
-      0.75,
-      3.7
-     ],
-     "tail": [
-      -1.85,
-      0.1,
-      4.15
-=======
-      -2.1,
-      0.55,
-      3.85
-     ],
-     "tail": [
-      -2.1,
-      0.08,
-      4.35
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "toe_fr",
-     "parent": "ankle_fr",
-     "head": [
-<<<<<<< HEAD
-      -1.85,
-      0.1,
-      4.15
-     ],
-     "tail": [
-      -1.8061,
-      0.1,
-      4.3476
-=======
-      -2.1,
-      0.08,
-      4.35
-     ],
-     "tail": [
-      -2.1,
-      0.08,
-      4.605
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "hip_hl",
-     "parent": "hips",
-     "head": [
-<<<<<<< HEAD
-      0.95,
-      1.65,
-      -1.85
-     ],
-     "tail": [
-      1.25,
-      1.05,
-      -1.0
-=======
-      0.9,
-      1.55,
-      -1.7
-     ],
-     "tail": [
-      1.3,
-      0.95,
-      -2.6
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "knee_hl",
-     "parent": "hip_hl",
-     "head": [
-<<<<<<< HEAD
-      1.25,
-      1.05,
-      -1.0
-     ],
-     "tail": [
-      1.3,
-      0.75,
-      -2.25
-=======
-      1.3,
-      0.95,
-      -2.6
-     ],
-     "tail": [
-      1.35,
-      0.35,
-      -1.95
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "ankle_hl",
-     "parent": "knee_hl",
-     "head": [
-<<<<<<< HEAD
-      1.3,
-      0.75,
-      -2.25
-     ],
-     "tail": [
-      1.3,
-      0.12,
-      -1.6
-=======
-      1.35,
-      0.35,
-      -1.95
-     ],
-     "tail": [
-      1.35,
-      0.05,
-      -1.25
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "toe_hl",
-     "parent": "ankle_hl",
-     "head": [
-<<<<<<< HEAD
-      1.3,
-      0.12,
-      -1.6
-     ],
-     "tail": [
-      1.3,
-      0.12,
-      -1.1333
-=======
-      1.35,
-      0.05,
-      -1.25
-     ],
-     "tail": [
-      1.35,
-      0.05,
-      -0.9283
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "hip_hr",
-     "parent": "hips",
-     "head": [
-<<<<<<< HEAD
-      -0.95,
-      1.65,
-      -1.85
-     ],
-     "tail": [
-      -1.25,
-      1.05,
-      -1.0
-=======
-      -0.9,
-      1.55,
-      -1.7
-     ],
-     "tail": [
-      -1.3,
-      0.95,
-      -2.6
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "knee_hr",
-     "parent": "hip_hr",
-     "head": [
-<<<<<<< HEAD
-      -1.25,
-      1.05,
-      -1.0
-     ],
-     "tail": [
-      -1.3,
-      0.75,
-      -2.25
-=======
-      -1.3,
-      0.95,
-      -2.6
-     ],
-     "tail": [
-      -1.35,
-      0.35,
-      -1.95
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "ankle_hr",
-     "parent": "knee_hr",
-     "head": [
-<<<<<<< HEAD
-      -1.3,
-      0.75,
-      -2.25
-     ],
-     "tail": [
-      -1.3,
-      0.12,
-      -1.6
-=======
-      -1.35,
-      0.35,
-      -1.95
-     ],
-     "tail": [
-      -1.35,
-      0.05,
-      -1.25
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    {
-     "name": "toe_hr",
-     "parent": "ankle_hr",
-     "head": [
-<<<<<<< HEAD
-      -1.3,
-      0.12,
-      -1.6
-     ],
-     "tail": [
-      -1.3,
-      0.12,
-      -1.1333
-=======
-      -1.35,
-      0.05,
-      -1.25
-     ],
-     "tail": [
-      -1.35,
-      0.05,
-      -0.9283
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    }
-   ],
-   "chains": {
-    "spine": [
-     "hips",
-     "spine_0",
-     "spine_1",
-     "chest"
-    ],
-    "neck": [
-     "neck",
-     "head"
-    ],
-    "tail": [
-     "tail_0",
-     "tail_1",
-     "tail_2",
-     "tail_3"
-    ]
-   },
-   "jaw": "jaw",
-   "frill": [],
-   "legs": {
-    "fl": {
-     "hip": "hip_fl",
-     "knee": "knee_fl",
-     "ankle": "ankle_fl",
-     "toe": "toe_fl",
-     "ik": "ik_fl",
-     "toe_at": [
-<<<<<<< HEAD
-      1.85,
-      0.1,
-      4.15
-     ],
-     "hip_at": [
-      1.25,
-      2.85,
-=======
-      2.1,
-      0.08,
-      4.35
-     ],
-     "hip_at": [
-      1.15,
-      2.6,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      2.05
-     ]
-    },
-    "fr": {
-     "hip": "hip_fr",
-     "knee": "knee_fr",
-     "ankle": "ankle_fr",
-     "toe": "toe_fr",
-     "ik": "ik_fr",
-     "toe_at": [
-<<<<<<< HEAD
-      -1.85,
-      0.1,
-      4.15
-     ],
-     "hip_at": [
-      -1.25,
-      2.85,
-=======
-      -2.1,
-      0.08,
-      4.35
-     ],
-     "hip_at": [
-      -1.15,
-      2.6,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      2.05
-     ]
-    },
-    "hl": {
-     "hip": "hip_hl",
-     "knee": "knee_hl",
-     "ankle": "ankle_hl",
-     "toe": "toe_hl",
-     "ik": "ik_hl",
-     "toe_at": [
-<<<<<<< HEAD
-      1.3,
-      0.12,
-      -1.6
-     ],
-     "hip_at": [
-      0.95,
-      1.65,
-      -1.85
-=======
-      1.35,
-      0.05,
-      -1.25
-     ],
-     "hip_at": [
-      0.9,
-      1.55,
-      -1.7
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "hr": {
-     "hip": "hip_hr",
-     "knee": "knee_hr",
-     "ankle": "ankle_hr",
-     "toe": "toe_hr",
-     "ik": "ik_hr",
-     "toe_at": [
-<<<<<<< HEAD
-      -1.3,
-      0.12,
-      -1.6
-     ],
-     "hip_at": [
-      -0.95,
-      1.65,
-      -1.85
-=======
-      -1.35,
-      0.05,
-      -1.25
-     ],
-     "hip_at": [
-      -0.9,
-      1.55,
-      -1.7
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    }
-   },
-   "sockets": {
-    "mouth": {
-     "bone": "head",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      1.92,
-=======
-      1.72,
->>>>>>> worktree-agent-a6fd554ce0ea60374
-      5.3
-     ]
-    },
-    "head_top": {
-     "bone": "head",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      2.85,
-      4.0
-=======
-      2.7,
-      4.3
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "back": {
-     "bone": "spine_1",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      4.1,
-      0.45
-=======
-      3.5,
-      0.7
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "shoulder_l": {
-     "bone": "chest",
-     "at": [
-<<<<<<< HEAD
-      1.05,
-      3.7,
-      1.75
-=======
-      1.0,
-      3.3,
-      1.85
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "shoulder_r": {
-     "bone": "chest",
-     "at": [
-<<<<<<< HEAD
-      -1.05,
-      3.7,
-      1.75
-=======
-      -1.0,
-      3.3,
-      1.85
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "fist_l": {
-     "bone": "toe_fl",
-     "at": [
-<<<<<<< HEAD
-      1.85,
-      0.35,
-      4.15
-=======
-      2.1,
-      0.35,
-      4.35
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "fist_r": {
-     "bone": "toe_fr",
-     "at": [
-<<<<<<< HEAD
-      -1.85,
-      0.35,
-      4.15
-=======
-      -2.1,
-      0.35,
-      4.35
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    },
-    "tail_tip": {
-     "bone": "tail_3",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      0.6,
-      -4.7
-=======
-      0.62,
-      -3.95
->>>>>>> worktree-agent-a6fd554ce0ea60374
-     ]
-    }
-   },
-   "roles": {
-    "hide": [
-     0.21,
-     0.26,
-     0.37
-    ],
-    "belly": [
-     0.4,
-     0.46,
-     0.56
-    ],
-    "crystal": [
-<<<<<<< HEAD
-     0.34,
-     0.36,
-     0.42
-=======
-     0.4,
-     0.43,
-     0.5
->>>>>>> worktree-agent-a6fd554ce0ea60374
-    ],
-    "teeth": [
-     0.93,
-     0.92,
-     0.86
-    ],
-    "eye": [
-     0.55,
-     0.95,
-     1.0
-    ],
-    "claw": [
-     0.12,
-     0.12,
-     0.16
-    ]
-   },
-   "generator": "tools/blender/build_monster_rimeslithe.py",
-   "ext": {
-    "module": "monster_rig/ext_rimeslithe.py",
-<<<<<<< HEAD
-    "version": 2
-=======
-    "version": 1
->>>>>>> worktree-agent-a6fd554ce0ea60374
-   },
-   "arms": [
-    "fl",
-    "fr"
-   ],
-   "crystals": {
-    "shoulder_l": {
-     "bone": "chest",
-     "at": [
-<<<<<<< HEAD
-      1.05,
-      3.65,
-      1.75
-     ],
-     "n": 8
-=======
-      1.0,
-      3.25,
-      1.85
-     ],
-     "n": 6
->>>>>>> worktree-agent-a6fd554ce0ea60374
-    },
-    "shoulder_r": {
-     "bone": "chest",
-     "at": [
-<<<<<<< HEAD
-      -1.05,
-      3.65,
-      1.75
-     ],
-     "n": 8
-=======
-      -1.0,
-      3.25,
-      1.85
-     ],
-     "n": 6
->>>>>>> worktree-agent-a6fd554ce0ea60374
-    },
-    "back_0": {
-     "bone": "spine_1",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      3.95,
-      0.45
-     ],
-     "n": 7
-=======
-      3.42,
-      0.7
-     ],
-     "n": 5
->>>>>>> worktree-agent-a6fd554ce0ea60374
-    },
-    "back_1": {
-     "bone": "spine_0",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      3.3,
-      -0.75
-     ],
-     "n": 6
-=======
-      3.1,
-      -0.55
-     ],
-     "n": 4
->>>>>>> worktree-agent-a6fd554ce0ea60374
-    },
-    "back_2": {
-     "bone": "hips",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      2.55,
-      -1.75
-     ],
-     "n": 4
-=======
-      2.45,
-      -1.65
-     ],
-     "n": 3
->>>>>>> worktree-agent-a6fd554ce0ea60374
-    },
-    "tail": {
-     "bone": "tail_0",
-     "at": [
-      0.0,
-<<<<<<< HEAD
-      2.05,
-      -2.6
-     ],
-     "n": 3
-=======
-      1.95,
-      -2.75
-     ],
-     "n": 2
-    },
-    "crest": {
-     "bone": "head",
-     "at": [
-      0.0,
-      2.62,
-      3.95
-     ],
-     "n": 3
-    },
-    "horn_l": {
-     "bone": "head",
-     "at": [
-      0.45,
-      2.5,
-      4.2
-     ],
-     "n": 1
-    },
-    "horn_r": {
-     "bone": "head",
-     "at": [
-      -0.45,
-      2.5,
-      4.2
-     ],
-     "n": 1
->>>>>>> worktree-agent-a6fd554ce0ea60374
-    }
-   }
   }
- }
 }
