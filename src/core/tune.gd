@@ -26,6 +26,28 @@ const DEFAULTS := {
 	"water_slow": [1.0, 1.0, 0.85, 0.7],   # speed multiplier by water tier
 	# detonations and bursts
 	"detonate_ring_frac": 0.5,   # neighbours take this fraction of the centre blast
+	# reactions (H50, author: "an auto attack does 1x, electric setting off a t1 dark 3x, t3 dark + t3 fire ~21x"):
+	# damage = the caster's auto attack (at lance cadence) x a multiplier; never pct of max HP.
+	"det_mult_per_point": 3.0,   # fuse: x per charge point on the hex (t1 = 1 point, t3 = 3)
+	"det_mult_per_axis": 3.0,    # fuse: x per extra element axis mixed on the hex (fire/water + light/dark)
+	"det_mult_per_water": 1.0,   # fuse: x per water step conducted
+	"overheat_mult": 3.0,        # fresh fire on fire 3: the eruption ring (a fire basic re-triggers it every 2nd swing: fire 3 vents to 2)
+	"overfreeze_mult": 9.0,      # fresh ice on glazed water: the burst
+	"reaction_chain_frac": 0.15, # one cast's blasts on one unit: the strongest in full + this x each other one
+	"reaction_unit_other": 40.0, # the "auto attack" for reactions a monster or the arena sets off (a hunter has 3000 HP)
+	# the arena's own events (H51): one per biome, telegraphed, hits everyone, lays its element
+	"env_on": 1.0,               # 0 switches them off
+	"env_warn_s": 1.8,           # telegraph before each event lands
+	"env_pond_every": 15.0,      # seconds between swells ("pulse water every 15 s or so, because it's water")
+	"env_pond_radius": 4.0,      # the swell's disk (61 hexes)
+	"env_pond_dmg_pct": 1.0,
+	"env_caldera_every": 12.0,   # vents erupt
+	"env_caldera_vents": 3.0,
+	"env_caldera_dmg_pct": 4.0,
+	"env_cave_every": 14.0,      # rockfalls
+	"env_cave_rocks": 4.0,
+	"env_cave_dmg_pct": 4.0,
+	"env_glade_every": 12.0,     # alternates a healing sunbreak and a gust of wind # a monster: a big body covers ~19 hexes, so one fuse used to land a dozen blasts
 	# statuses
 	"burn_pct_per_s": 1.0,
 	"poison_pct_per_s": 1.5,
@@ -42,7 +64,7 @@ const DEFAULTS := {
 	"leap_height_m": 3.0,        # a vault's arc apex
 	# lance (H5): numbers for the first weapon
 	"lance_reach": 2.0,
-	"lance_basic_dmg": 90.0,
+	"lance_basic_dmg": 220.0,    # H50: was 90 ("basic attacks deal more")
 	"lance_basic_ticks": 36.0,   # 1.2 s between basics (H34: heavier)
 	"lance_basic_windup": 12.0,  # 0.4 s of wind-up before a basic lands
 	"basic_stagger": 0.12,       # a landed basic rocks the monster

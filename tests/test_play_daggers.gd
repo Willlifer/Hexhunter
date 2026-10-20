@@ -6,7 +6,7 @@ func _sim() -> HHSim:
 	var a := HHArena.round_flat(1, 25.0, 0.0)
 	var s := HHSim.new(a, 1)
 	s.add_player("p1", Vector2i(0, 6), "fire", "water", "daggers")
-	s.add_monster("m", Vector2i(0, -2), 5000.0, 2)
+	s.add_monster("m", Vector2i(0, -2), 20000.0, 2)   # H50: fire basics set off overheats now; this suite measures cadence
 	return s
 
 
@@ -31,7 +31,7 @@ func test_basics_fast(c: HHSelfTest.HHCheck) -> void:
 				painted = true
 	c.ok(strikes >= 8, "fast basics: many strikes in 10 s (%d)" % strikes)
 	c.ok(windups >= strikes, "every basic winds up first")
-	c.ok(float(m.hp) < 5000.0, "the monster took damage")
+	c.ok(float(m.hp) < 20000.0, "the monster took damage")
 	c.ok(painted, "a basic lays the element (H27)")
 	c.ok(HHHex.distance(p.hex, m.hex) <= int(p.reach) + int(m.size), "stands in reach")
 

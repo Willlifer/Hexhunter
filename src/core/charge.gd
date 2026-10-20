@@ -32,14 +32,9 @@ const AXIS_MAX := 3
 const AXIS := ["fire", "water", "light", "dark"]
 const OPERATORS := { "thunder": "fuse", "ice": "stasis", "wind": "gale" }
 const MARKER_ELEMENT := { "fuse": "thunder", "stasis": "ice", "gale": "wind" }
-const DETONATE_BASE_PCT := 5.0
-const DETONATE_PER_POINT_PCT := 4.0
-const CONDUCT_DET_PCT := 2.0
 const SHATTER_MULT := 1.5
 const OVERHEAT_RING_STEPS := 2
-const OVERHEAT_RING_PCT := 6.0
 const OVERHEAT_VENT_TO := 2
-const OVERFREEZE_PCT := 12.0
 
 var arena: HHArena
 var entries := {}
@@ -197,7 +192,7 @@ func apply(hexes: Array, element: String, caster: String, steps: int = 1, fresh:
 			entries[hex] = p.entry
 		out.changed.append(hex)
 		if p.has("detonate"):
-			out.detonations.append({ "hex": hex, "pct": float(p.detonate), "source": str(p.get("det_source", caster)),
+			out.detonations.append({ "hex": hex, "mult": float(p.detonate), "pct": float(p.detonate), "source": str(p.get("det_source", caster)),
 				"points": int(p.get("det_points", 0)), "mix": p.get("det_mix", {}) })
 		if p.has("gale"):
 			gales.append([hex, p.gale])
@@ -327,10 +322,12 @@ func _operate(e: Dictionary, mk: String, src: String) -> Dictionary:
 		"fuse":
 			var water := maxi(-int(e.h), 0)
 			var pts := absi(int(e.h)) + absi(int(e.v))
-			var pct := DETONATE_BASE_PCT + DETONATE_PER_POINT_PCT * pts + CONDUCT_DET_PCT * water
+			var axes := (1 if int(e.h) != 0 else 0) + (1 if int(e.v) != 0 else 0)
+			var mult := HHTune.value("det_mult_per_point") * pts + HHTune.value("det_mult_per_axis") * maxi(axes - 1, 0) \
+				+ HHTune.value("det_mult_per_water") * water          # H50: x the caster's auto attack
 			if int(e.get("glaze", 0)) > 0:
-				pct *= SHATTER_MULT
-			return { "op": "erase", "detonate": pct, "det_source": src, "det_points": pts, "det_mix": blast_mix(e) }
+				mult *= SHATTER_MULT
+			return { "op": "erase", "detonate": mult, "det_source": src, "det_points": pts, "det_mix": blast_mix(e) }
 		"stasis":
 			e.glaze = int(HHTune.value("charge_glaze_ticks"))
 			e.permanent = false
@@ -388,7 +385,7 @@ func _overheat_finish(centres: Array, caster: String, out: Dictionary) -> void:
 				out.changed.append(n)
 		if entries.has(c):
 			entries[c].h = OVERHEAT_VENT_TO
-		out.overheat.append({ "hex": c, "ring": painted, "pct": OVERHEAT_RING_PCT, "source": caster })
+		out.overheat.append({ "hex": c, "ring": painted, "mult": HHTune.value("overheat_mult"), "pct": HHTune.value("overheat_mult"), "source": caster })
 
 
 func _overfreeze_begin(hexes: Array, element: String, fresh: bool) -> Array:
@@ -425,4 +422,4 @@ func _overfreeze_finish(centres: Array, caster: String, out: Dictionary) -> void
 			glazed.append(n)
 			if not n in out.changed:
 				out.changed.append(n)
-		out.overfreeze.append({ "hex": c, "ring": glazed, "pct": OVERFREEZE_PCT, "source": caster })
+		out.overfreeze.append({ "hex": c, "ring": glazed, "mult": HHTune.value("overfreeze_mult"), "pct": HHTune.value("overfreeze_mult"), "source": caster })

@@ -186,3 +186,40 @@ func test_over(c: HHSelfTest.HHCheck) -> void:
 	t.hurt(t.unit("p1"), 1e9, "test")
 	t.step()
 	c.eq(t.over, "dead", "player down = dead")
+
+
+## H50: reactions are multiples of the caster's auto attack, never pct of max
+## HP, and a big body caught by many blasts of one cast takes the strongest in
+## full plus a chain fraction of the rest.
+func test_reactions_scale_with_the_auto_attack(c: HHSelfTest.HHCheck) -> void:
+	var a := HHArena.round_flat(1, 25.0, 0.0)
+	var sim := HHSim.new(a, 1)
+	var p := sim.add_player("p1", Vector2i(0, 8), "thunder", "fire", "lance")
+	var m := sim.add_monster("dummy", Vector2i(0, 0), 20000.0, 2, [])
+	var unit := sim.reaction_unit("p1")
+	c.near(unit, HHTune.value("lance_basic_dmg"), 0.01, "the lance's reaction unit is its auto attack")
+	# one hex under the monster: dark 1, then thunder sets it off: x3
+	var h := Vector2i(0, 0)
+	sim.paint([h], "dark", "p1", 1)
+	var before := float(m.hp)
+	sim.paint([h], "thunder", "p1", 1)
+	var got := before - float(m.hp)
+	c.near(got, unit * 3.0, 1.0, "thunder setting off dark 1 deals 3x the auto attack (%d)" % int(got))
+	# dark 3 + fire 3 on one hex: x21
+	sim.paint([h], "dark", "p1", 3)
+	sim.paint([h], "fire", "p1", 3)
+	before = float(m.hp)
+	sim.paint([h], "thunder", "p1", 1)
+	got = before - float(m.hp)
+	c.near(got, unit * 21.0, 1.0, "dark 3 + fire 3 set off: 21x (%d)" % int(got))
+	# a dozen hexes under the monster, each dark 3: strongest + chain, far below 12 full blasts
+	var hexes: Array = a.area(h, 2)
+	sim.paint(hexes, "dark", "p1", 3)
+	before = float(m.hp)
+	sim.paint(hexes, "thunder", "p1", 1)
+	got = before - float(m.hp)
+	var n := hexes.size()
+	c.ok(got < unit * 9.0 * n * 0.5, "%d blasts on one body chain (%d), not stack" % [n, int(got)])
+	c.ok(got > unit * 9.0, "but the chain beats a single blast (%d)" % int(got))
+	c.ok(float(m.hp) > 0.0, "the monster survives one big combo")
+	c.ok(float(p.hp) == float(p.max_hp), "the caster is never hurt by its own reactions")

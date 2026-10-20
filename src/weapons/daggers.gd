@@ -25,7 +25,7 @@ static func _t(key: String) -> float:
 const TUNE := {
 	# basics
 	"reach": 1,                 # melee: adjacent to the footprint
-	"basic_dmg": 45.0,          # half a lance blow, twice as often
+	"basic_dmg": 110.0,         # half a lance blow, twice as often (H50: was 45)
 	"basic_ticks": 16,          # 0.53 s between basics
 	"basic_windup": 5,          # a flick, not a plant (H34 still: a hit breaks it)
 	# Q Flourish
