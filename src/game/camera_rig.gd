@@ -16,7 +16,7 @@ const FOV := 40.0
 const PITCH_MIN := 15.0
 const PITCH_MAX := 80.0
 const DIST_MIN := 5.0
-const DIST_MAX := 40.0
+const DIST_MAX := 40.0         ## the fight's clamp (the default of dist_max)
 const FOLLOW_LAG := 6.0
 const DRAG_THRESHOLD := 3.0
 const YAW_PER_PX := 0.008
@@ -28,6 +28,7 @@ var cam: Camera3D
 var pivot := Vector3.ZERO: set = _set_pivot
 var yaw := deg_to_rad(0.0): set = _set_yaw
 var pitch := deg_to_rad(48.0): set = _set_pitch
+var dist_max := DIST_MAX      ## L-21 (H761): per instance, so the world map can orbit from 170 m without a scaled parent
 var dist := 18.0: set = _set_dist
 var input_enabled := true
 var pivot_lift := 1.2         # look at the chest, not the feet
@@ -65,7 +66,7 @@ func _set_pitch(v: float) -> void:
 
 
 func _set_dist(v: float) -> void:
-	dist = clampf(v, DIST_MIN, DIST_MAX)
+	dist = clampf(v, DIST_MIN, dist_max)
 	_update()
 
 

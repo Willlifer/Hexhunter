@@ -420,8 +420,10 @@ func _build(q: Dictionary) -> GKAsset:
 				var deep_t := clampf(-a.height_at(cx, cz) / maxf(float(q.water_depth), 0.1), 0.0, 1.0)
 				g.tint = Color(0.85, 0.92, 0.9).lerp(Color(0.1, 0.22, 0.36), pow(deep_t, 1.4))
 			else:
-				# the meadow darkens into the tree line instead of switching role on a jagged ring
-				g.tint = Color.WHITE.lerp(Color(0.55, 0.62, 0.45), clampf((r - R - 3.0) / 8.0, 0.0, 1.0))
+				# the meadow darkens into the tree line instead of switching role on a jagged ring;
+				# H755: a damp darker band at the waterline, as in the reference
+				var damp := 1.0 - smoothstep(rl, rl + 1.6, r)
+				g.tint = Color.WHITE.lerp(Color(0.42, 0.5, 0.36), clampf((r - R - 2.0) / 8.0, 0.0, 1.0)).lerp(Color(0.62, 0.7, 0.5), damp)
 			g.quad(rname, Vector3(x0, a.height_at(x0, z0), z0), Vector3(x0 + step, a.height_at(x0 + step, z0), z0),
 				Vector3(x0 + step, a.height_at(x0 + step, z0 + step), z0 + step), Vector3(x0, a.height_at(x0, z0 + step), z0 + step))
 	g.tint = Color.WHITE
@@ -503,46 +505,97 @@ func _build(q: Dictionary) -> GKAsset:
 	# -- grass tufts on the shore and the skirt
 	var gh: float = q.grass_height
 	if gh > 0.0:
+		# H755: thin blades, short on the walkable shore (telegraphs read over it),
+		# long and dense on the skirt and the far bank (the reference's lush frame)
 		var tg := GKMesh.new()
-		var tuft_role := "hedge"
+		var tuft_role := role("reed_tall")
 		for td in L.tufts:
 			var t: Dictionary = td
 			var x := float(t.x)
 			var z := float(t.z)
 			var y := a.height_at(x, z) - 0.02
-			var h := gh * float(t.h)
+			var rr := sqrt(x * x + z * z)
+			var h := gh * float(t.h) * (0.55 if rr < R - 0.5 else 1.5)
 			var ti := float(t.tint)
 			tg.tint = Color(ti, ti, ti * 0.9)
-			for b in 3:
-				var ba := TAU * float(b) / 3.0 + float(t.h)
-				var bx := x + cos(ba) * 0.14
-				var bz := z + sin(ba) * 0.14
-				var bh := h * (0.7 + 0.3 * float(b) / 2.0)
-				tg.tube(tuft_role, [Vector3(bx, y, bz), Vector3(bx + cos(ba) * 0.12, y + bh, bz + sin(ba) * 0.12)], [0.13, 0.0], 4, false)
+			HHGenUtil.tuft(tg, tuft_role, x, y, z, h, 5, h * 0.25, float(t.h) * 7.0)
+		var drng := HHGenUtil.dress_rng(int(q.seed), "pond-grass")
+		for i in 900:
+			var ang := drng.randf_range(0.0, TAU)
+			var rr := R + drng.randf_range(-1.5, 11.0)
+			var x := cos(ang) * rr
+			var z := sin(ang) * rr
+			var ti := drng.randf_range(0.75, 1.15)
+			tg.tint = Color(ti, ti * 1.02, ti * 0.85)
+			HHGenUtil.tuft(tg, tuft_role, x, a.height_at(x, z) - 0.02, z, gh * drng.randf_range(1.4, 2.8), 6, 0.3, drng.randf() * TAU)
 		tg.tint = Color.WHITE
 		asset.add_part("grass", tg.commit())
-	# -- a ring of trees on the bowl, a few boulders on the shore
+	# -- H755: lily-pad beds hugging the banks (dressing only; the hex pads above are the cells)
+	var bed_g := GKMesh.new()
+	var prng := HHGenUtil.dress_rng(int(q.seed), "pond-pads")
+	var player_pos: Vector2 = L.player_pos
+	for i in 520:
+		var ang := prng.randf_range(0.0, TAU)
+		var rl := lake_radius(L, ang)
+		var rr := rl - 0.5 - pow(prng.randf(), 1.4) * (rl - 2.0)
+		var x := cos(ang) * rr
+		var z := sin(ang) * rr
+		if Vector2(x, z).distance_to(player_pos) < 4.5:
+			continue
+		var ti := prng.randf_range(0.75, 1.15)
+		bed_g.tint = Color(ti, ti * 1.05, ti * 0.9)
+		_pad_lite(bed_g, pad_role, Vector3(x, 0.025 + prng.randf() * 0.01, z), prng.randf_range(0.22, 0.5), prng.randf() * TAU)
+		if prng.randf() < 0.08:
+			bed_g.tint = Color.WHITE
+			_bloom(bed_g, fl, Vector3(x, 0.05, z), 0.12)
+	bed_g.tint = Color.WHITE
+	asset.add_part("pad_beds", bed_g.commit(), Transform3D.IDENTITY, false)
+	# -- a conifer wall on the bowl (H755: the reference's dark tree line), mossy boulders
 	var sg := GKMesh.new()
+	var leaf := role("conifer")
 	for trd in L.trees:
 		var t: Dictionary = trd
 		var x := float(t.x)
 		var z := float(t.z)
-		var y := a.height_at(x, z) - 0.3
-		var h := float(t.h)
-		var w := float(t.w)
 		var ti := float(t.tint)
-		sg.tint = Color.WHITE
-		sg.cyl("bark", Vector3(x, y, z), Vector3(x, y + h * 0.4, z), 0.28, 7)
+		HHGenUtil.conifer(sg, leaf, "bark_fade", Vector3(x, a.height_at(x, z), z), float(t.h) * 1.6, float(t.w) * 1.1, Color(ti, ti, ti))
+	var trng := HHGenUtil.dress_rng(int(q.seed), "pond-forest")
+	for i in 150:
+		var ang := TAU * float(i) / 150.0 + trng.randf_range(-0.03, 0.03)
+		var rr := R + trng.randf_range(4.0, 11.5)
+		var x := cos(ang) * rr
+		var z := sin(ang) * rr
+		var ti := trng.randf_range(0.7, 1.1)
+		var base := Vector3(x, a.height_at(x, z), z)
+		if trng.randf() < 0.22:
+			HHGenUtil.broadleaf(sg, role("leaf_shade"), "bark_fade", base, trng.randf_range(6.0, 9.0), trng.randf_range(2.6, 3.6), trng, Color(ti, ti, ti), 4)
+		else:
+			HHGenUtil.conifer(sg, leaf, "bark_fade", base, trng.randf_range(9.0, 17.0), trng.randf_range(1.8, 3.0), Color(ti, ti, ti * 0.95))
+	for i in 34:                                     # shrubs at the forest's foot
+		var ang := trng.randf_range(0.0, TAU)
+		var rr := R + trng.randf_range(1.0, 5.0)
+		var x := cos(ang) * rr
+		var z := sin(ang) * rr
+		var rad := trng.randf_range(0.8, 1.6)
+		var ti := trng.randf_range(0.75, 1.05)
 		sg.tint = Color(ti, ti, ti)
-		sg.tube("foliage", [Vector3(x, y + h * 0.3, z), Vector3(x, y + h * 0.75, z)], [w, 0.0], 8, true)
-		sg.tube("hedge", [Vector3(x, y + h * 0.55, z), Vector3(x, y + h, z)], [w * 0.75, 0.0], 8, true)
+		sg.sphere(role("leaf_shade"), Vector3(x, a.height_at(x, z) + rad * 0.4, z), rad, 7, Vector3(1.0, 0.7, 1.0))
 	sg.tint = Color.WHITE
 	for rkd in L.rocks:
 		var rk: Dictionary = rkd
 		var x := float(rk.x)
 		var z := float(rk.z)
 		var y := a.height_at(x, z)
-		sg.sphere("stone_grey", Vector3(x, y + float(rk.r) * float(rk.sq) * 0.6, z), float(rk.r), 10, Vector3(1.0, float(rk.sq), 0.85))
+		sg.sphere(role("moss_rock"), Vector3(x, y + float(rk.r) * float(rk.sq) * 0.6, z), float(rk.r), 7, Vector3(1.0, float(rk.sq), 0.85))
+	for i in 10:                                     # bigger boulders out on the skirt
+		var ang := trng.randf_range(0.0, TAU)
+		var rr := R + trng.randf_range(0.5, 4.0)
+		var x := cos(ang) * rr
+		var z := sin(ang) * rr
+		var rad := trng.randf_range(0.9, 1.8)
+		sg.push(Transform3D(Basis(Vector3.UP, trng.randf() * TAU), Vector3(x, a.height_at(x, z) + rad * 0.3, z)))
+		sg.sphere(role("moss_rock"), Vector3.ZERO, rad, 6, Vector3(1.2, 0.65, 0.9))
+		sg.pop()
 	asset.add_part("scenery", sg.commit())
 	# -- markers
 	var ps := a.world(a.spawns.player[0])
@@ -554,7 +607,8 @@ func _build(q: Dictionary) -> GKAsset:
 	asset.markers["ref_cam"] = Transform3D(Basis.looking_at(cam_at - cam_pos, Vector3.UP), cam_pos)   # Camera3D.transform = this looks at the pond
 	# -- a sunny day
 	asset.lights = { "sun_dir_deg": [-55.0, 32.0], "sun_energy": 1.5, "sun_color": "#fff3dc",
-		"sky_top": "#3f82de", "sky_horizon": "#d2e6f6", "ground_horizon": "#9fb27c", "ground_bottom": "#4a5a38", "ambient": 1.0 }
+		"sky_top": "#2a66c8", "sky_horizon": "#b4cdea", "ground_horizon": "#5d7a3a", "ground_bottom": "#2c3a22", "ambient": 0.9, "sky_curve": 0.09,
+		"fog": { "color": "#c4d8ea", "density": 0.0012, "sky_affect": 0.0, "aerial": 0.2 } }
 	asset.meta = { "deep_m": DEEP_M, "water_level": 0.0, "lake_radius": L.r_lake, "pads": L.pads.size(), "cover": cover_hexes(a).size(),
 		"walkable": a.walkable_count(), "cells": a.cells.size() }
 	if a.path(a.spawns.player[0], a.spawns.monster).is_empty():
@@ -589,6 +643,16 @@ static func _pad(g: GKMesh, r_role: String, c: Vector3, rad: float, notch: float
 	var dn2 := Vector3(0, -th, 0)
 	g.quad(r_role, c, c + dn2, pts_out[0] + dn2, pts_out[0])
 	g.quad(r_role, pts_out[segs], pts_out[segs] + dn2, c + dn2, c)
+
+
+## H755: a dressing pad, top face only (8 tris): the beds have hundreds.
+static func _pad_lite(g: GKMesh, r_role: String, c: Vector3, rad: float, notch: float) -> void:
+	var segs := 8
+	var half := 0.3
+	for k in segs:
+		var a0 := notch + half + (TAU - 2.0 * half) * float(k) / float(segs)
+		var a1 := notch + half + (TAU - 2.0 * half) * float(k + 1) / float(segs)
+		g.tri(r_role, c, c + Vector3(cos(a0) * rad, 0.0, sin(a0) * rad), c + Vector3(cos(a1) * rad, 0.0, sin(a1) * rad), Vector3.UP, Vector3.UP, Vector3.UP)
 
 
 ## A tall rolled leaf standing on the pad's far rim: cover to hide behind.

@@ -382,7 +382,7 @@ func _build(q: Dictionary) -> GKAsset:
 	# -- floor: terraces lighter the higher they are, cliff faces and walls darker
 	var g := GKMesh.new()
 	var floor_role := role("cave_floor")
-	var wall_role := role("cave_wall")
+	var wall_role := role("tube_rock")          # H756: banded warm lava-tube rock, not brick courses
 	var hf: Dictionary = a.hf
 	var cols: int = hf.cols
 	var rows: int = hf.rows
@@ -406,14 +406,19 @@ func _build(q: Dictionary) -> GKAsset:
 			var rname := floor_role
 			if r > R + 0.5:
 				rname = wall_role
-				g.tint = Color.WHITE.lerp(Color(0.55, 0.5, 0.48), clampf((r - R) / 6.0, 0.0, 1.0))
+				# H756: lit warm at the foot where the torches are, sinking into dark up the wall
+				var up := clampf((lo - 1.0) / 12.0, 0.0, 1.0)
+				g.tint = Color(1.5, 1.25, 1.0).lerp(Color(0.32, 0.27, 0.24), pow(up, 0.8))
 			elif hi - lo > 0.45:
 				# a cliff face: lighter and warmer than the floors so every terrace edge reads
 				rname = wall_role
-				g.tint = Color(1.7, 1.5, 1.3)
+				g.tint = Color(1.9, 1.6, 1.3)
 			else:
+				# H756: low terraces darker and wetter, high ones drier; the floor's
+				# outer ring darkens toward the wall foot
 				var lvl := clampf(lo / (STEP_M * maxf(float(T - 1), 1.0)), 0.0, 1.0)
-				g.tint = Color(0.85, 0.84, 0.86).lerp(Color(1.6, 1.5, 1.35), lvl)
+				var foot := smoothstep(R - 4.0, R + 0.5, r)
+				g.tint = Color(0.9, 0.88, 0.86).lerp(Color(1.45, 1.35, 1.2), lvl).lerp(Color(0.6, 0.55, 0.5), foot * 0.6)
 			g.quad(rname, Vector3(x0, h00, z0), Vector3(x0 + step, h10, z0), Vector3(x0 + step, h11, z0 + step), Vector3(x0, h01, z0 + step))
 	g.tint = Color.WHITE
 	var floor_mesh := g.commit()
@@ -501,25 +506,113 @@ func _build(q: Dictionary) -> GKAsset:
 		tg.cyl(post, top - Vector3(0, 0.25, 0), top, 0.13, 6)
 		tg.sphere(flame, top + Vector3(0, 0.2, 0), 0.2, 8, Vector3(1.0, 1.6, 1.0))
 		asset.markers["torch_%d" % i] = Transform3D(Basis.IDENTITY, top + Vector3(0, 0.45, 0))
+	# H756: sconces on the wall face between the rim torches (dressing seed)
+	var drng := HHGenUtil.dress_rng(int(q.seed), "cave-sconce")
+	var lamps: Array = []                       # every flame: [pos, pool radius]
+	for i in L.torches.size():
+		var t: Dictionary = L.torches[i]
+		lamps.append([Vector3(float(t.x), a.height_at(float(t.x), float(t.z)) + float(t.h) + 0.2, float(t.z)), 6.5])
+	var n_t: int = (L.torches as Array).size()
+	for i in n_t:
+		var ang := TAU * (float(i) + 0.5) / float(n_t) + drng.randf_range(-0.15, 0.15)
+		var rr := R + 2.2
+		var x := cos(ang) * rr
+		var z := sin(ang) * rr
+		var y := a.height_at(x, z) + drng.randf_range(0.6, 1.4)
+		var inward := Vector3(-cos(ang), 0, -sin(ang))
+		var p := Vector3(x, y, z)
+		tg.cyl(post, p - inward * 0.4, p + inward * 0.25 + Vector3(0, 0.35, 0), 0.06, 5)
+		tg.cyl(post, p + inward * 0.25 + Vector3(0, 0.2, 0), p + inward * 0.25 + Vector3(0, 0.45, 0), 0.14, 6)
+		var fp := p + inward * 0.25 + Vector3(0, 0.65, 0)
+		tg.sphere(flame, fp, 0.2, 8, Vector3(1.0, 1.6, 1.0))
+		asset.markers["torch_%d" % (n_t + i)] = Transform3D(Basis.IDENTITY, fp + Vector3(0, 0.25, 0))
+		lamps.append([fp, 5.5])
 	asset.add_part("torches", tg.commit())
-	# -- wall spires on the skirt
+	# H756: the torch pools (no real lights in the fight yet: Request R-ENV1),
+	# warm discs on the floor and a halo round each flame
+	var pools: Array = []
+	var hg := GKMesh.new()
+	var glow := role("glow_warm")
+	for lp in lamps:
+		var fp: Vector3 = lp[0]
+		var pool_r: float = lp[1]
+		pools.append({ "x": fp.x, "z": fp.z, "r": pool_r, "col": Color(1.0, 0.5, 0.14, 1.0) })
+		pools.append({ "x": fp.x, "z": fp.z, "r": pool_r * 0.35, "col": Color(0.5, 0.3, 0.12, 1.0) })
+		hg.tint = Color(0.12, 0.055, 0.015, 1.0)     # one faint halo; the emissive flame blooms (env glow)
+		hg.sphere(glow, fp, 0.7, 12)
+	hg.tint = Color.WHITE
+	asset.add_part("torch_pools", HHGenUtil.glow_discs(pools, glow, func(x: float, z: float) -> float: return a.height_at(x, z), 0.05), Transform3D.IDENTITY, false)
+	asset.add_part("torch_halos", hg.commit(), Transform3D.IDENTITY, false)
+	# -- H756: the tube's overhang. A lip leaning in over the rim with stalactites
+	# under it; the lip has only downward faces, so the fight camera (above it)
+	# sees straight through, and a low camera sees a tunnel mouth.
 	var wg := GKMesh.new()
-	for sp in L.spires:
-		var s: Dictionary = sp
-		var x := float(s.x)
-		var z := float(s.z)
-		var y := a.height_at(x, z) - 0.5
-		var ti := float(s.tint)
-		wg.tint = Color(ti, ti, ti)
-		wg.tube(wall_role, [Vector3(x, y, z), Vector3(x, y + float(s.h) * 0.6, z), Vector3(x, y + float(s.h), z)], [float(s.r), float(s.r) * 0.6, 0.05], 6, false)
+	var segs := 72
+	var lip_r := R + 1.5
+	for k in segs:
+		var a0 := TAU * float(k) / float(segs)
+		var a1 := TAU * float(k + 1) / float(segs)
+		var pts: Array = []
+		for ang in [a0, a1]:
+			var wob := sin(ang * 5.0 + float(L.wall_ph)) * 0.8 + sin(ang * 13.0) * 0.4
+			var r_out := R + 5.5
+			var y_out := a.height_at(cos(ang) * r_out, sin(ang) * r_out) + 0.5
+			var y_in := maxf(11.0, y_out - 1.5) + wob
+			pts.append([Vector3(cos(ang) * r_out, y_out, sin(ang) * r_out), Vector3(cos(ang) * (lip_r + wob * 0.6), y_in, sin(ang) * (lip_r + wob * 0.6))])
+		wg.tint = Color(0.4, 0.34, 0.3)
+		wg.quad(role("tube_lip"), pts[0][0], pts[1][0], pts[1][1], pts[0][1])          # faces down and in
+	var srng := HHGenUtil.dress_rng(int(q.seed), "cave-drip")
+	var drip := role("drip")
+	for i in 90:
+		var ang := srng.randf_range(0.0, TAU)
+		var t := srng.randf_range(0.0, 0.85)
+		var wob := sin(ang * 5.0 + float(L.wall_ph)) * 0.8 + sin(ang * 13.0) * 0.4
+		var r_out := R + 5.5
+		var y_out := a.height_at(cos(ang) * r_out, sin(ang) * r_out) + 0.5
+		var y_in := maxf(11.0, y_out - 1.5) + wob
+		var rr := lerpf(lip_r + wob * 0.6, r_out, t)
+		var y := lerpf(y_in, y_out, t) + 0.1
+		var ln := srng.randf_range(1.0, 4.2)
+		var ti := srng.randf_range(0.55, 0.9)
+		wg.tint = Color(ti, ti * 0.9, ti * 0.8)
+		var top := Vector3(cos(ang) * rr, y, sin(ang) * rr)
+		wg.tube(drip, [top, top - Vector3(0, ln * 0.6, 0), top - Vector3(0, ln, 0)], [srng.randf_range(0.25, 0.5), 0.14, 0.02], 5, false)
 	wg.tint = Color.WHITE
 	asset.add_part("spires", wg.commit())
+	# -- H756: dark puddles on the lowest terrace catch the torch glow
+	var pg2 := GKMesh.new()
+	var prng := HHGenUtil.dress_rng(int(q.seed), "cave-puddle")
+	var puddle := role("puddle")
+	var placed := 0
+	var tries := 0
+	while placed < 9 and tries < 200:
+		tries += 1
+		var ang := prng.randf_range(0.0, TAU)
+		var rr := sqrt(prng.randf()) * (R - 3.0)
+		var x := cos(ang) * rr
+		var z := sin(ang) * rr
+		var h := HHHex.from_world(Vector2(x, z), HHArena.HEX)
+		if not a.cells.has(h) or a.kind(h) != "floor" or int((L.levels as Dictionary).get(h, 9)) != 0 or (L.ramps as Dictionary).has(h):
+			continue
+		var c := a.world(h)
+		var rad := prng.randf_range(0.6, 1.0)
+		var poly := PackedVector3Array()
+		for k in 9:
+			var aa := -TAU * float(k) / 9.0
+			var rk := rad * prng.randf_range(0.7, 1.15)
+			poly.append(Vector3(x + cos(aa) * rk, c.y + 0.02, z + sin(aa) * rk * 0.8))
+		pg2.poly(puddle, poly)
+		placed += 1
+	if not pg2.is_empty():
+		asset.add_part("puddles", pg2.commit(), Transform3D.IDENTITY, false)
 	# -- markers and lights: dim cool light from the open top, warm torches
 	HHGenUtil.markers(asset, a, R * 0.95, R + 15.0)
 	var dark: float = q.darkness
-	asset.lights = { "sun_dir_deg": [-38.0, 20.0], "sun_energy": lerpf(1.1, 0.2, dark), "sun_color": "#8fa6c8",
-		"sky_top": "#0a0d13", "sky_horizon": "#1b2129", "ground_horizon": "#15181c", "ground_bottom": "#08090b", "ambient": lerpf(0.9, 0.24, dark),
-		"points": { "torch": { "color": "#ffb060", "energy": lerpf(2.0, 6.0, dark), "range": 20.0 } } }
+	# H756: a warm bounce fill (the reference is amber throughout) under a dim cool top light
+	asset.lights = { "sun_dir_deg": [-62.0, 20.0], "sun_energy": lerpf(1.0, 0.3, dark), "sun_color": "#a8b4c8",
+		"sky_top": "#07080a", "sky_horizon": "#140f0c", "ground_horizon": "#120d0a", "ground_bottom": "#060504",
+		"ambient": lerpf(0.9, 0.42, dark), "ambient_color": "#8a6448", "glow": 0.5,
+		"points": { "torch": { "color": "#ffa050", "energy": lerpf(2.0, 5.0, dark), "range": 12.0 } } }
 	asset.meta = { "terraces": T, "ramps": (L.ramps as Dictionary).size(), "repairs": L.repairs, "pillars": pillars.size(), "rocks": rocks.size(),
 		"shade": (L.shade as Array).size(), "walkable": a.walkable_count(), "cells": a.cells.size(),
 		"reach": HHGenUtil.reach_fraction(a, a.spawns.player[0]) }
