@@ -10,6 +10,18 @@ class_name HHDaggers
 ## Numbers live in TUNE (Lane A owns no HHTune keys; the integrator may lift them into HHTune,
 ## see DECISIONS-lane-A.md). Ticks are 30 Hz. Damage is HHSim.strike (HHFormulas.hit).
 
+static var _registered := false
+
+
+## H107: every number reads through HHTune under the "daggers_" prefix (the F1
+## panel edits them live); TUNE holds the defaults.
+static func _t(key: String) -> float:
+	if not _registered:
+		_registered = true
+		HHTune.register("daggers", TUNE)
+	return HHTune.value("daggers_" + key)
+
+
 const TUNE := {
 	# basics
 	"reach": 1,                 # melee: adjacent to the footprint
@@ -42,22 +54,22 @@ const TUNE := {
 
 
 static func basic() -> Dictionary:
-	return { "damage": float(TUNE.basic_dmg), "ticks": int(TUNE.basic_ticks), "reach": int(TUNE.reach), "windup": int(TUNE.basic_windup) }
+	return { "damage": float(_t("basic_dmg")), "ticks": int(_t("basic_ticks")), "reach": int(_t("reach")), "windup": int(_t("basic_windup")) }
 
 
 static func skills() -> Dictionary:
 	return {
-		"q": { "name": "Flourish", "cooldown": int(TUNE.q_cd), "text": "Spin: damage and your element on a wide area round you." },
+		"q": { "name": "Flourish", "cooldown": int(_t("q_cd")), "text": "Spin: damage and your element on a wide area round you." },
 		"w": { "name": "Elemental Exchange", "cooldown": int(HHTune.value("exchange_cd")), "text": "Throw the daggers up; attune to your backup element." },
-		"e": { "name": "Daggerleap", "cooldown": int(TUNE.e_cd), "text": "Leap to the cursor, spinning; a trail of your element behind you." },
-		"r": { "name": "Knifedance", "cooldown": int(TUNE.r_cd), "text": "6 s: take 25% more damage; every second lay your active, then backup element round you." },
+		"e": { "name": "Daggerleap", "cooldown": int(_t("e_cd")), "text": "Leap to the cursor, spinning; a trail of your element behind you." },
+		"r": { "name": "Knifedance", "cooldown": int(_t("r_cd")), "text": "6 s: take 25% more damage; every second lay your active, then backup element round you." },
 	}
 
 
 static func cast(sim: HHSim, u: Dictionary, key: String, aim: Vector2i) -> bool:
 	match key:
 		"q":
-			sim.begin_windup(u, "flourish", int(TUNE.q_windup), {}, Callable(HHDaggers, "_flourish"))
+			sim.begin_windup(u, "flourish", int(_t("q_windup")), {}, Callable(HHDaggers, "_flourish"))
 			return true
 		"w":
 			var a: String = u.element
@@ -66,11 +78,11 @@ static func cast(sim: HHSim, u: Dictionary, key: String, aim: Vector2i) -> bool:
 			sim._emit({ "type": "swap", "id": u.id, "element": u.element })
 			return true
 		"e":
-			var to := leap_target(sim, u, aim, int(TUNE.e_range))
+			var to := leap_target(sim, u, aim, int(_t("e_range")))
 			if to == u.hex:
 				return false
 			u["daggerleap_from"] = u.hex
-			sim.begin_leap(u, to, int(TUNE.e_air_ticks), Callable(HHDaggers, "_daggerleap_land"))
+			sim.begin_leap(u, to, int(_t("e_air_ticks")), Callable(HHDaggers, "_daggerleap_land"))
 			return true
 		"r":
 			if u.has("knifedance_until") and int(u.knifedance_until) > sim.tick:
@@ -99,10 +111,10 @@ static func leap_target(sim: HHSim, u: Dictionary, aim: Vector2i, range: int) ->
 
 
 static func _flourish(sim: HHSim, u: Dictionary, _data: Dictionary) -> void:
-	var area := sim.arena.area(u.hex, int(TUNE.q_radius))
+	var area := sim.arena.area(u.hex, int(_t("q_radius")))
 	for t in sim.units_in(area, u.id):
-		sim.strike(u, t, float(TUNE.q_dmg), sim.nearest_hex_of(t, u.hex), "flourish", float(TUNE.q_stagger))
-	sim.paint(area, u.element, u.id, int(TUNE.q_steps))
+		sim.strike(u, t, float(_t("q_dmg")), sim.nearest_hex_of(t, u.hex), "flourish", float(_t("q_stagger")))
+	sim.paint(area, u.element, u.id, int(_t("q_steps")))
 	sim._emit({ "type": "flourish", "id": u.id, "hex": u.hex, "hexes": area, "element": u.element })
 
 
@@ -113,38 +125,36 @@ static func _daggerleap_land(sim: HHSim, u: Dictionary) -> void:
 	for h in HHHex.line(from, u.hex):
 		if sim.arena.exists(h):
 			trail.append(h)
-	sim.paint(trail, u.element, u.id, int(TUNE.e_trail_steps))
-	var land := sim.arena.area(u.hex, int(TUNE.e_land_radius))
+	sim.paint(trail, u.element, u.id, int(_t("e_trail_steps")))
+	var land := sim.arena.area(u.hex, int(_t("e_land_radius")))
 	for t in sim.units_in(land, u.id):
-		sim.strike(u, t, float(TUNE.e_land_dmg), sim.nearest_hex_of(t, u.hex), "daggerleap", float(TUNE.e_land_stagger))
+		sim.strike(u, t, float(_t("e_land_dmg")), sim.nearest_hex_of(t, u.hex), "daggerleap", float(_t("e_land_stagger")))
 	sim._emit({ "type": "daggerleap", "id": u.id, "from": from, "hex": u.hex, "hexes": trail, "element": u.element })
 
 
 # ------------------------------------------------------------------ Knifedance
 
-## Knifedance runs on the sim's per-tick brain hook (sim.brains[u.id]): the
-## only per-tick callback the sim offers a weapon today. See the Request in
-## DECISIONS-lane-A.md (H103) for a proper weapon tick.
+## Knifedance runs on the sim's per-tick weapon hook (sim.hooks[u.id], H42).
 static func _knifedance_start(sim: HHSim, u: Dictionary) -> void:
 	var saved: Dictionary = (u.resist as Dictionary).duplicate()
 	u["knifedance_resist_saved"] = saved
-	var vuln := -float(TUNE.r_vuln_pct)
+	var vuln := -float(_t("r_vuln_pct"))
 	for el in HHFormulas.ELEMENTS:
 		u.resist[el] = float(saved.get(el, 0.0)) + vuln
-	u["knifedance_until"] = sim.tick + int(TUNE.r_ticks)
+	u["knifedance_until"] = sim.tick + int(_t("r_ticks"))
 	u["knifedance_next"] = sim.tick + 1                       # first pulse on the next tick
 	u["knifedance_pulse"] = 0
-	sim.brains[u.id] = KnifedanceTicker.new()
-	sim._emit({ "type": "knifedance", "id": u.id, "phase": "start", "ticks": int(TUNE.r_ticks) })
+	sim.hooks[u.id] = KnifedanceTicker.new()
+	sim._emit({ "type": "knifedance", "id": u.id, "phase": "start", "ticks": int(_t("r_ticks")) })
 
 
 static func _knifedance_pulse(sim: HHSim, u: Dictionary) -> void:
 	var n := int(u.knifedance_pulse)
 	var el: String = u.element if n % 2 == 0 else u.backup
-	var area := sim.arena.area(u.hex, int(TUNE.r_radius))
-	sim.paint(area, el, u.id, int(TUNE.r_steps))
+	var area := sim.arena.area(u.hex, int(_t("r_radius")))
+	sim.paint(area, el, u.id, int(_t("r_steps")))
 	u.knifedance_pulse = n + 1
-	u.knifedance_next = sim.tick + int(TUNE.r_every)
+	u.knifedance_next = sim.tick + int(_t("r_every"))
 	sim._emit({ "type": "knifedance", "id": u.id, "phase": "pulse", "element": el, "hexes": area })
 
 
@@ -155,8 +165,8 @@ static func _knifedance_end(sim: HHSim, u: Dictionary) -> void:
 	u.erase("knifedance_until")
 	u.erase("knifedance_next")
 	u.erase("knifedance_pulse")
-	if sim.brains.get(u.id) is KnifedanceTicker:
-		sim.brains.erase(u.id)
+	if sim.hooks.get(u.id) is KnifedanceTicker:
+		sim.hooks.erase(u.id)
 	sim._emit({ "type": "knifedance", "id": u.id, "phase": "end" })
 
 

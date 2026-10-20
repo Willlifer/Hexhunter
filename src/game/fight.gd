@@ -25,6 +25,7 @@ var hud: HHHud
 var sfx: HHSfx
 var debug: Label
 var player_id := "p1"
+var weapon := "lance"        # --weapon lance | daggers | bow
 var monster_id := ""
 var bodies := {}             # unit id -> Node3D
 var monster_bodies := {}     # unit id -> Lane E body (duck-typed)
@@ -46,7 +47,7 @@ func setup(p_arena: HHArena, seed: int, monster: String = "", p_asset: GKAsset =
 	sim = HHSim.new(arena, seed)
 	sim.sandbox = sandbox or autoplay
 	var start: Vector2i = arena.spawns.player[0]
-	sim.add_player(player_id, start, "fire", "water", "lance")
+	sim.add_player(player_id, start, "fire", "water", weapon)
 	if monster != "":
 		monster_id = monster
 		_add_monster(monster)

@@ -75,12 +75,28 @@ const DEFAULTS := {
 }
 
 static var _v := {}
+static var _ext := {}        # registered tables: "<prefix>_<key>" -> default (weapons, monsters)
+
+
+## A weapon or monster registers its TUNE dictionary under a prefix so the
+## F1 panel can edit it live and value("<prefix>_<key>") reads it.
+static func register(prefix: String, table: Dictionary) -> void:
+	for k in table:
+		var v: Variant = table[k]
+		if v is float or v is int:
+			_ext["%s_%s" % [prefix, k]] = float(v)
 
 
 static func value(key: String) -> float:
 	if _v.has(key):
 		return float(_v[key])
+	if _ext.has(key):
+		return float(_ext[key])
 	return float(DEFAULTS[key])
+
+
+static func has(key: String) -> bool:
+	return DEFAULTS.has(key) or _ext.has(key)
 
 
 static func list(key: String) -> Array:
@@ -98,4 +114,14 @@ static func reset() -> void:
 
 
 static func keys() -> Array:
-	return DEFAULTS.keys()
+	var out: Array = DEFAULTS.keys()
+	var ek := _ext.keys()
+	ek.sort()
+	out.append_array(ek)
+	return out
+
+
+static func default_of(key: String) -> Variant:
+	if DEFAULTS.has(key):
+		return DEFAULTS[key]
+	return _ext.get(key, 0.0)

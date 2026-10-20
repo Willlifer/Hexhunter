@@ -35,6 +35,7 @@ var charge: HHCharge
 var units := {}
 var order: Array = []
 var brains := {}
+var hooks := {}                # unit id -> Object with tick(sim, u): a weapon's per-tick work (Knifedance), H42
 var telegraphs: Array = []
 var events: Array = []
 var over := ""
@@ -183,6 +184,10 @@ func step(orders: Dictionary = {}) -> Array:
 		var u: Dictionary = units.get(id, {})
 		if not u.is_empty() and alive(u):
 			brains[id].tick(self, u)
+	for id in hooks.keys():
+		var u: Dictionary = units.get(id, {})
+		if not u.is_empty() and alive(u):
+			hooks[id].tick(self, u)
 	for id in order:
 		var u: Dictionary = units[id]
 		if alive(u):
@@ -239,6 +244,14 @@ func _orders(u: Dictionary, o: Dictionary) -> void:
 	if o.get("attack", false) and u.target != "":
 		u.attacking = true
 		_stop(u)
+	if o.has("move") and not (u.leap as Dictionary).is_empty() and bool((u.leap as Dictionary).get("air_control", false)):
+		var L: Dictionary = u.leap                   # H42: Arrowstorm steers in the air: retarget the landing
+		var want: Vector2i = o.move
+		var nb := blocked_for(u)
+		var dest := arena.nearest_walkable(arena.from_world(L.from), want, nb)
+		if HHHex.distance(arena.from_world(L.from), dest) <= int(L.get("range", 4)):
+			L.to = dest
+			_emit({ "type": "leap_steer", "id": u.id, "to": dest })
 	if o.has("move") and not held(u):
 		var goal: Vector2i = o.move
 		var blocked := blocked_for(u)
@@ -439,10 +452,10 @@ func _face_pos(u: Dictionary, p: Vector3) -> void:
 
 
 ## A vault (lance R): the unit flies to `to` over `total` ticks, untargetable.
-func begin_leap(u: Dictionary, to: Vector2i, total: int, on_land: Callable) -> void:
+func begin_leap(u: Dictionary, to: Vector2i, total: int, on_land: Callable, air_control: bool = false, steer_range: int = 4) -> void:
 	_stop(u)
 	u.progress = 0.0
-	u.leap = { "from": u.pos, "to": to, "ticks": 0, "total": maxi(1, total), "on_land": on_land }
+	u.leap = { "from": u.pos, "to": to, "ticks": 0, "total": maxi(1, total), "on_land": on_land, "air_control": air_control, "range": steer_range }
 	u.untargetable = true
 	_face(u, to)
 	_emit({ "type": "leap", "id": u.id, "to": to, "ticks": total })

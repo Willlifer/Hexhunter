@@ -7,6 +7,7 @@ extends Node
 ##                              its generator when the file carries a "gen" block)
 ##   --fight <monster>          put a monster in the arena (Lane E's brain and body
 ##                              when src/monster/<monster>.gd exists, else the stub)
+##   --weapon <id>              lance (default) | daggers | bow
 ##   --sandbox                  H20: left-click paints, keys 1-7 pick the element
 ##   --autoplay [--seconds s]   scripted run, then quit (the smoke test)
 ##   --shot <dir> [--count n] [--every s]   save n rendered frames to <dir>, then quit
@@ -43,6 +44,7 @@ func _ready() -> void:
 	var fight := HHFight.new()
 	fight.name = "Fight"
 	fight.sandbox = "--sandbox" in args
+	fight.weapon = _arg(args, "--weapon", "lance")
 	fight.autoplay = "--autoplay" in args or "--shot" in args
 	if "--seconds" in args:
 		fight.autoplay_seconds = float(_arg(args, "--seconds", "14"))

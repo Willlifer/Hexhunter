@@ -31,7 +31,7 @@ func _ready() -> void:
 	grid.columns = 2
 	sc.add_child(grid)
 	for k in HHTune.keys():
-		var dv: Variant = HHTune.DEFAULTS[k]
+		var dv: Variant = HHTune.default_of(str(k))
 		if not (dv is float or dv is int):
 			continue
 		var l := Label.new()

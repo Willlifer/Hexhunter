@@ -10,6 +10,18 @@ class_name HHBow
 ## Basics: ranged, reach 7, 8 ticks of wind-up, 55 every 30 ticks; the sim lays the element on the
 ## target's hex (H27). Numbers live in TUNE; ticks are 30 Hz; damage is HHSim.strike / HHFormulas.
 
+static var _registered := false
+
+
+## H107: every number reads through HHTune under the "bow_" prefix (the F1
+## panel edits them live); TUNE holds the defaults.
+static func _t(key: String) -> float:
+	if not _registered:
+		_registered = true
+		HHTune.register("bow", TUNE)
+	return HHTune.value("bow_" + key)
+
+
 const TUNE := {
 	# basics
 	"reach": 7,                 # hexes to the target's footprint
@@ -43,26 +55,26 @@ const TUNE := {
 
 
 static func basic() -> Dictionary:
-	return { "damage": float(TUNE.basic_dmg), "ticks": int(TUNE.basic_ticks), "reach": int(TUNE.reach), "windup": int(TUNE.basic_windup) }
+	return { "damage": float(_t("basic_dmg")), "ticks": int(_t("basic_ticks")), "reach": int(_t("reach")), "windup": int(_t("basic_windup")) }
 
 
 static func skills() -> Dictionary:
 	return {
-		"q": { "name": "Energized Shot", "cooldown": int(TUNE.q_cd), "text": "An arrow along the line to the cursor; lays your element as it flies, hits the first monster." },
+		"q": { "name": "Energized Shot", "cooldown": int(_t("q_cd")), "text": "An arrow along the line to the cursor; lays your element as it flies, hits the first monster." },
 		"w": { "name": "Elemental Exchange", "cooldown": int(HHTune.value("exchange_cd")), "text": "Flip the quiver; attune to your backup element." },
-		"e": { "name": "Arcing Shot", "cooldown": int(TUNE.e_cd), "text": "Lob an elemental bomb at the cursor; it bursts where it lands." },
-		"r": { "name": "Arrowstorm", "cooldown": int(TUNE.r_cd), "text": "Shoot up and leap high, untargetable; a storm of arrows and element where you land." },
+		"e": { "name": "Arcing Shot", "cooldown": int(_t("e_cd")), "text": "Lob an elemental bomb at the cursor; it bursts where it lands." },
+		"r": { "name": "Arrowstorm", "cooldown": int(_t("r_cd")), "text": "Shoot up and leap high, untargetable; a storm of arrows and element where you land." },
 	}
 
 
 static func cast(sim: HHSim, u: Dictionary, key: String, aim: Vector2i) -> bool:
 	match key:
 		"q":
-			var path := shot_line(sim, u, aim, int(TUNE.q_range))
+			var path := shot_line(sim, u, aim, int(_t("q_range")))
 			if path.is_empty():
 				return false
 			sim._face(u, path[0])
-			sim.begin_windup(u, "energized", int(TUNE.q_windup), { "line": path }, Callable(HHBow, "_energized_land"))
+			sim.begin_windup(u, "energized", int(_t("q_windup")), { "line": path }, Callable(HHBow, "_energized_land"))
 			return true
 		"w":
 			var a: String = u.element
@@ -71,17 +83,17 @@ static func cast(sim: HHSim, u: Dictionary, key: String, aim: Vector2i) -> bool:
 			sim._emit({ "type": "swap", "id": u.id, "element": u.element })
 			return true
 		"e":
-			var at := clamp_along(sim, u, aim, int(TUNE.e_range))
+			var at := clamp_along(sim, u, aim, int(_t("e_range")))
 			if not sim.arena.exists(at):
 				return false
 			sim._face(u, at)
-			var burst := sim.arena.area(at, int(TUNE.e_radius))
-			sim.telegraph(u.id, burst, int(TUNE.e_ticks), { "dmg_pct": float(TUNE.e_dmg_pct), "element": u.element,
-				"paint_steps": int(TUNE.e_steps), "stagger": float(TUNE.e_stagger), "name": "arcing shot" })
+			var burst := sim.arena.area(at, int(_t("e_radius")))
+			sim.telegraph(u.id, burst, int(_t("e_ticks")), { "dmg_pct": float(_t("e_dmg_pct")), "element": u.element,
+				"paint_steps": int(_t("e_steps")), "stagger": float(_t("e_stagger")), "name": "arcing shot" })
 			return true
 		"r":
-			var to := leap_target(sim, u, aim, int(TUNE.r_range))
-			sim.begin_leap(u, to, int(TUNE.r_air_ticks), Callable(HHBow, "_arrowstorm_land"))
+			var to := leap_target(sim, u, aim, int(_t("r_range")))
+			sim.begin_leap(u, to, int(_t("r_air_ticks")), Callable(HHBow, "_arrowstorm_land"), true)   # H42: steer while airborne
 			return true
 	return false
 
@@ -150,19 +162,19 @@ static func _energized_land(sim: HHSim, u: Dictionary, data: Dictionary) -> void
 		for t in sim.unit_at(h):
 			if t.id == u.id or not sim.targetable(t) or t.kind != "monster":
 				continue
-			sim.strike(u, t, float(TUNE.q_dmg), h, "energized shot", float(TUNE.q_stagger))
+			sim.strike(u, t, float(_t("q_dmg")), h, "energized shot", float(_t("q_stagger")))
 			hit = t.id
 			found = true
 			break
 		if found:
 			break
-	sim.paint(passed, u.element, u.id, int(TUNE.q_steps))
+	sim.paint(passed, u.element, u.id, int(_t("q_steps")))
 	sim._emit({ "type": "energized_shot", "id": u.id, "hexes": passed, "hit": hit, "element": u.element })
 
 
 static func _arrowstorm_land(sim: HHSim, u: Dictionary) -> void:
-	var area := sim.arena.area(u.hex, int(TUNE.r_radius))
+	var area := sim.arena.area(u.hex, int(_t("r_radius")))
 	for t in sim.units_in(area, u.id):
-		sim.strike(u, t, float(TUNE.r_dmg), sim.nearest_hex_of(t, u.hex), "arrowstorm", float(TUNE.r_stagger))
-	sim.paint(area, u.element, u.id, int(TUNE.r_steps))
+		sim.strike(u, t, float(_t("r_dmg")), sim.nearest_hex_of(t, u.hex), "arrowstorm", float(_t("r_stagger")))
+	sim.paint(area, u.element, u.id, int(_t("r_steps")))
 	sim._emit({ "type": "arrowstorm", "id": u.id, "hex": u.hex, "hexes": area, "element": u.element })
