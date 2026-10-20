@@ -53,3 +53,22 @@ cfg = { arena: "pond", monster: "swampfang", weapon: "lance",
 ## Reactions and the arena (H50, H51)
 Reaction damage = `sim.reaction_unit(source)` x a multiplier: a player's auto attack at the lance's cadence (`HHWeapons.basic_damage * lance_basic_ticks / basic_ticks`), or `reaction_unit_other` for a monster or the arena. Detonations carry `mult` (and `pct` = the same number, for old readers). All blasts of one `paint()` are gathered per unit and landed by `_land_reactions`: strongest in full + `reaction_chain_frac` of each other; it emits `reaction { id, amount, blasts, cause }`.
 `HHEnv` (`src/core/env.gd`, `sim.env`) ticks inside `step()` after projectiles. Its telegraphs have owner `"env"` and names `env_swell`, `env_vent`, `env_rockfall`, `env_sunbreak`, `env_gust`; the payload carries `env: true`.
+
+## Phase 4 contracts (H52, H53): co-op
+
+**Model (H52).** Host-authoritative state streaming. The host runs the only HHSim (brains, env, everything). A client never steps a sim: it holds a *mirror* HHSim (same arena, no brains) that the replicator overwrites from snapshots, so the view, HUD and bodies read it exactly as they read a local sim today. Clients send orders; the host applies each client's orders under that client's unit id on the next tick. Solo play never touches the network.
+
+**Party config.** The launch cfg gains `players: [{ peer: int, id: "p1".."p4", name, weapon, element, backup, upgrades }]` (solo: one entry, peer 1) and `local_id` (which unit this machine controls; solo "p1"). `cfg.net = "solo" | "host" | "client"`.
+
+**HHNet** (`src/net/net.gd`, Lane N): a Node the shell owns at `Shell/Net`. `host(port := 24631, max_peers := 3) -> Error`, `join(address, port := 24631) -> Error`, `leave()`, `is_host()`, `is_online()`, `peer_id()`, signals `peer_joined(peer)`, `peer_left(peer)`, `connected()`, `failed()`, `disconnected()`. ENetMultiplayerPeer on desktop; the transport is one function so Phase 5 can swap in WebSocketMultiplayerPeer.
+
+**HHSession** (`src/net/session.gd`, Lane N): the party before a fight. `members: { peer: { name, weapon, element, backup, upgrades, ready } }`; `set_mine(fields)` (each peer edits its own row; RPC to host, host rebroadcasts), `host_set(cfg_fields)` (arena, monster, seed: host only), `all_ready()`, `start()` (host only: builds the launch cfg with `players` and sends it; every peer emits `start_fight(cfg)` with its own `local_id`). Signals `changed()`, `start_fight(cfg)`.
+
+**HHSnapshot** (`src/net/snapshot.gd`, Lane N, node-free): `capture(sim) -> Dictionary` and `apply(sim, snap)`. Covers `tick`, `over`, every unit dictionary (Callables stripped: `leap.on_land`, `windup.on_done` become `null`; a mirror never resolves them), `charge.entries`, `telegraphs`, `projectiles`, `env.next_tick/count`. Full snapshot on join and every 30 ticks; deltas (changed units, changed charge hexes, telegraph adds/ends) every tick. Events the host's `step()` returned are forwarded alongside (the view, sfx and effects consume them on clients as on the host).
+
+**HHReplicator** (`src/net/replicator.gd`, Lane N): a Node the fight adds when `cfg.net != "solo"`. Host: `collect(peer) -> orders` merged into the next `step()`, then `publish(tick, events)`. Client: `send_order(order)`, `signal snapshot_applied(events)`. The fight never calls RPCs itself.
+
+**Sim (Lane S).** `add_player` for up to 4 hunters on `arena.spawns.player` (the arena JSON keeps one spawn; the sim fans out to the free walkable hexes around it); monster HP x `party_hp_mult` per extra hunter; co-op downed state: at 0 HP with an ally alive a hunter is `downed` (untargetable, no orders) and an ally standing adjacent for `revive_ticks` brings them back at `revive_hp_pct`; the fight is lost only when every hunter is down; solo keeps "fallen". Monsters spread pressure: a brain's target is the nearest *non-downed* hunter, with a threat bonus for the last hunter that hit it (`aggro_*` tune keys).
+
+**Game (Lane C).** `HHFight.setup_cfg` builds every hunter in `cfg.players`, controls `cfg.local_id`, and in client mode applies replicated state instead of stepping. Other hunters get bodies, nameplates and party frames on the HUD; a downed hunter shows a revive ring. Lobby: Host / Join panel, party list, ready toggles; host-only tiles for arena/monster/seed. Hunt loop: the host's map drives the hunt; every peer sees every hunter's token; the ambush plays everywhere; prep is each peer's own lobby (arena/monster locked); results roll each peer's own drops into its own save.
+

@@ -1,7 +1,7 @@
 # PLAN — Hexhunt
 
 Phases with gates. The author checks each gate before the next phase starts.
-Status: **Phase 3.5 visual pass built 2026-10-20: all five lanes merged (monsters MA/MB, effects FX, environment ENV, interface UI), plus reaction math H50 and arena events H51; 249/249. Awaiting the author's look (LEDGER L-22). Then Phase 4 co-op.**
+Status: **Visual pass passed 2026-10-20 ("No notes for now. Continue."). Phase 4 co-op running as three lanes (N net, S sim, C game), contract in guide/02 (H52, H53).**
 
 ## 0. Interview record
 
@@ -129,3 +129,12 @@ Merge rule: lane branch → `dev` by the integrator after that lane's suite and 
 | FX Effects | new `src/game/fx/**`, `src/monster/monster_body.gd`, `src/game/arena_view.gd`, `src/game/tile_fx.gd`, `shaders/**`, `tests/test_fx*.gd` | H700-H749 | wind-up effects for every monster attack (body + air + ground), breath vs charge, player skill wind-ups and impacts, L-4 standing cards, L-18 readability |
 | ENV Environment | `src/arena/**`, `arenas/*.json`, `src/kit/gk_materials.gd`, `src/game/hunt/world_map.gd`, `tests/test_arena_*.gd` | H750-H799 | arenas gauntlet-tested against `ref/arena_*.jpg`, world map landmarks and paths (L-20) |
 | UI Interface | `src/game/hud.gd`, `src/game/lobby/**`, `src/game/hunt/results.gd`, `src/game/hunt/ambush.gd` (title card only), `art/ui/**`, `tools/ui_*.gd`, `tests/test_lobby*.gd`, `tests/test_ui*.gd` | H800-H849 | HUD gauntlet-tested against `ref/ui_hud.jpg`, lobby thumbnails + element hint + run history (L-19), results polish |
+
+### Phase 4 lanes (2026-10-20)
+
+| Lane | Owns | Block | Delivers |
+|------|------|-------|----------|
+| N Net | `src/net/**`, `tests/test_net*.gd`, `tools/net_*.gd` | H850-H874 | HHNet (ENet), HHSession, HHSnapshot, HHReplicator; a two-peer loopback harness in one process; bandwidth numbers |
+| S Sim | `src/core/**`, `src/monster/{swampfang,colambros,rimeslithe,spirewalker}.gd` (target choice only), `tests/test_sim*.gd`, `tests/test_coop*.gd` | H875-H899 | up to 4 hunters, spawn fan-out, party HP scaling, downed + revive, aggro |
+| C Game | `src/game/**` (fight, shell, lobby, hud, hunt, boot), `launchers/**`, `tests/test_lobby*.gd`, `tests/test_play_coop*.gd` | H900-H949 | multi-hunter fight (bodies, nameplates, party frames, revive ring), host/join lobby, co-op hunt loop, `--host` / `--join` flags, Host.bat / Join.bat |
+
