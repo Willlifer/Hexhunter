@@ -1,0 +1,266 @@
+Godot Engine v4.7.stable.official.5b4e0cb0f - https://godotengine.org
+
+HHFight autoplay done: tick 750, player hp 3000 at (-1, 1), hash 575306044, log 252 lines
+  party: host as p1, 2 hunter(s), 750 steps taken here
+  p1 Host (bow): hp 3000 / 3000, downed 0 time(s)
+  p2 Guest (daggers): hp 3000 / 3000, downed 0 time(s)
+  swampfang hp 12449 / 32000
+  dealt by overheat: 10372
+  dealt by basic: 4133
+  dealt by fire: 2452
+  dealt by arcing shot: 1200
+  dealt by energized shot: 780
+  dealt by env_swell: 320
+  dealt by daggerleap: 292
+  brain: swampfang
+  net: host as p1
+  t28 p2 releases Q at level 1
+  t28 Flourish (fire)
+  t44 Daggerleap (fire)
+  t67 Knifedance (fire)
+  t98 douse (-3, 7)
+  t105 p1 releases Q at level 3
+  t105 Energized Shot (fire)
+  t125 p1 telegraphs arcing shot (7 hexes)
+  t125 Arcing Shot (fire)
+  t134 p2 releases Q at level 1
+  t134 Flourish (fire)
+  t136 Arrowstorm (fire)
+  t139 OVERHEAT (-1, 2)
+  t148 OVERHEAT (-2, -4)
+  t148 OVERHEAT (-2, -3)
+  t148 OVERHEAT (-1, -2)
+  t158 douse (-3, 1)
+  t158 douse (-3, 2)
+  t158 douse (-2, 1)
+  t158 douse (-2, 2)
+  t165 swampfang is aggravated
+  t188 OVERHEAT (-3, -3)
+  t188 OVERHEAT (-2, -2)
+  t195 OVERHEAT (-3, -1)
+  t195 OVERHEAT (-2, -1)
+  t195 OVERHEAT (-2, 3)
+  t195 OVERHEAT (-1, -1)
+  t195 OVERHEAT (-1, 0)
+  t195 OVERHEAT (-1, 1)
+  t195 OVERHEAT (-1, 3)
+  t195 OVERHEAT (0, 2)
+  t195 OVERHEAT (0, 3)
+  t195 OVERHEAT (0, 4)
+  t195 OVERHEAT (0, 5)
+  t195 douse (-4, 1)
+  t195 douse (-3, 0)
+  t195 douse (-3, 5)
+  t195 douse (-2, 0)
+  t195 douse (-2, 5)
+  t213 p2 hits swampfang 110
+  t218 douse (-3, -6)
+  t218 douse (-3, -5)
+  t218 douse (-3, -4)
+  t218 douse (-2, -5)
+  t218 douse (-2, -4)
+  t224 p2 combo 2
+  t225 Daggerleap (fire)
+  t239 p2 hits swampfang 90
+  t249 swampfang telegraphs death_roll_spin (72 hexes)
+  t253 p2 hits swampfang 110
+  t264 p2 combo 2
+  t271 p2 hits swampfang 143 combo 2
+  t282 p2 combo 3
+  t292 p2 hits swampfang 209 combo 3
+  t292 OVERHEAT (-5, -8)
+  t292 REACTION on swampfang: 742 (1 blast)
+  t301 p1 releases Q at level 3
+  t301 Energized Shot (fire)
+  t312 p1 hits swampfang 455
+  t312 OVERHEAT (-2, -3)
+  t312 OVERHEAT (-1, -2)
+  t312 OVERHEAT (-4, -8)
+  t312 OVERHEAT (-3, -3)
+  t312 OVERHEAT (-2, -2)
+  t312 OVERHEAT (-1, -4)
+  t312 OVERHEAT (-1, -1)
+  t312 OVERHEAT (0, 0)
+  t312 REACTION on swampfang: 468 (1 blast)
+  t312 douse (-2, -6)
+  t313 p2 hits swampfang 110
+  t313 OVERHEAT (-5, -8)
+  t313 REACTION on swampfang: 742 (1 blast)
+  t316 p2 dashes (1 left)
+  t321 p1 telegraphs arcing shot (7 hexes)
+  t321 Arcing Shot (fire)
+  t331 p2 dashes (0 left)
+  t334 swampfang EXPOSED 109 ticks
+  t338 p1 hits swampfang 130
+  t344 OVERHEAT (-4, -9)
+  t344 OVERHEAT (-4, -8)
+  t344 OVERHEAT (-4, -7)
+  t344 OVERHEAT (-3, -8)
+  t344 OVERHEAT (-3, -7)
+  t344 REACTION on swampfang: 748 (5 blasts)
+  t361 p2 releases Q at level 1
+  t361 Flourish (fire)
+  t368 p1 hits swampfang 130
+  t368 OVERHEAT (-4, -6)
+  t368 REACTION on swampfang: 468 (1 blast)
+  t395 p2 hits swampfang 165 REAR
+  t398 p1 hits swampfang 130
+  t406 Daggerleap (fire)
+  t420 OVERHEAT (-6, -9)
+  t420 REACTION on swampfang: 742 (1 blast)
+  t420 p2 hits swampfang 90
+  t425 p1 releases Q at level 1
+  t425 Energized Shot (fire)
+  t432 p1 hits swampfang 130
+  t432 OVERHEAT (-3, -6)
+  t432 OVERHEAT (-3, -5)
+  t432 OVERHEAT (-2, -4)
+  t432 OVERHEAT (-2, -3)
+  t432 OVERHEAT (-2, -1)
+  t432 OVERHEAT (-1, -2)
+  t432 OVERHEAT (-1, 0)
+  t432 REACTION on swampfang: 538 (2 blasts)
+  t434 p2 hits swampfang 110
+  t434 OVERHEAT (-5, -8)
+  t434 REACTION on swampfang: 742 (1 blast)
+  t445 p2 combo 2
+  t449 p1 hits swampfang 130
+  t449 OVERHEAT (-4, -6)
+  t449 REACTION on swampfang: 468 (1 blast)
+  t450 env telegraphs env_swell (61 hexes)
+  t452 p2 hits swampfang 143 combo 2
+  t455 swampfang telegraphs thrash_splash (42 hexes)
+  t463 p2 combo 3
+  t473 p2 hits swampfang 209 combo 3
+  t473 OVERHEAT (-6, -9)
+  t473 OVERHEAT (-6, -8)
+  t473 OVERHEAT (-6, -7)
+  t473 OVERHEAT (-5, -9)
+  t473 OVERHEAT (-5, -8)
+  t473 OVERHEAT (-5, -7)
+  t473 OVERHEAT (-4, -8)
+  t473 REACTION on swampfang: 965 (3 blasts)
+  t479 p1 hits swampfang 130
+  t479 OVERHEAT (-4, -6)
+  t479 REACTION on swampfang: 468 (1 blast)
+  t494 p2 hits swampfang 110
+  t501 p1 telegraphs arcing shot (7 hexes)
+  t501 Arcing Shot (fire)
+  t503 douse (-6, -7)
+  t503 douse (-6, -6)
+  t503 douse (-5, -9)
+  t503 douse (-5, -8)
+  t503 douse (-5, -7)
+  t503 douse (-5, -6)
+  t503 douse (-5, -5)
+  t503 douse (-4, -10)
+  t503 douse (-4, -9)
+  t503 douse (-4, -8)
+  t503 douse (-4, -7)
+  t503 douse (-4, -6)
+  t503 douse (-4, -5)
+  t503 douse (-4, -3)
+  t503 douse (-4, -2)
+  t503 douse (-3, -10)
+  t503 douse (-3, -9)
+  t503 douse (-3, -8)
+  t503 douse (-3, -7)
+  t503 douse (-3, -6)
+  t503 douse (-3, -5)
+  t503 douse (-3, -4)
+  t503 douse (-3, -3)
+  t503 douse (-3, -2)
+  t503 douse (-2, -8)
+  t503 douse (-2, -7)
+  t503 douse (-2, -6)
+  t503 douse (-2, -5)
+  t503 douse (-2, -4)
+  t503 douse (-2, -3)
+  t503 douse (-2, -2)
+  t503 douse (-1, -5)
+  t503 douse (-1, -4)
+  t503 douse (-1, -3)
+  t503 douse (-1, -2)
+  t503 douse (0, -4)
+  t503 douse (0, -2)
+  t505 p2 combo 2
+  t512 p2 hits swampfang 143 combo 2
+  t513 p2 dashes (0 left)
+  t518 p1 hits swampfang 130
+  t524 douse (-7, -9)
+  t524 douse (-7, -8)
+  t524 douse (-7, -7)
+  t524 douse (-6, -11)
+  t524 douse (-6, -10)
+  t524 douse (-6, -9)
+  t524 douse (-6, -8)
+  t524 douse (-5, -11)
+  t524 douse (-5, -10)
+  t524 swampfang EXPOSED 61 ticks
+  t543 p2 releases Q at level 1
+  t543 Flourish (fire)
+  t546 p1 releases Q at level 1
+  t546 Energized Shot (fire)
+  t553 p1 hits swampfang 130
+  t553 douse (-3, -5)
+  t553 douse (-2, -4)
+  t558 Knifedance (fire)
+  t570 p1 hits swampfang 130
+  t575 p2 hits swampfang 110
+  t586 p2 combo 2
+  t589 Daggerleap (fire)
+  t589 douse (-6, -11)
+  t589 douse (-6, -10)
+  t589 douse (-6, -9)
+  t589 douse (-5, -11)
+  t589 douse (-5, -10)
+  t589 douse (-5, -9)
+  t589 douse (-4, -10)
+  t597 swampfang telegraphs thrash_splash (42 hexes)
+  t600 p1 hits swampfang 195 REAR
+  t603 p2 hits swampfang 90
+  t617 p2 hits swampfang 110
+  t628 p2 combo 2
+  t630 p1 hits swampfang 195 REAR
+  t630 OVERHEAT (-4, -6)
+  t630 REACTION on swampfang: 468 (1 blast)
+  t635 p2 hits swampfang 143 combo 2
+  t635 OVERHEAT (-5, -8)
+  t635 REACTION on swampfang: 742 (1 blast)
+  t636 swampfang is threatened
+  t646 p2 combo 3
+  t649 douse (-7, -9)
+  t649 douse (-6, -10)
+  t649 douse (-6, -9)
+  t649 douse (-6, -8)
+  t649 douse (-5, -10)
+  t649 douse (-5, -9)
+  t649 douse (-5, -8)
+  t650 p2 dashes (1 left)
+  t660 p1 hits swampfang 195 REAR
+  t665 p2 dashes (0 left)
+  t666 swampfang EXPOSED 61 ticks
+  t690 p1 hits swampfang 195 REAR
+  t690 OVERHEAT (-4, -6)
+  t690 REACTION on swampfang: 468 (1 blast)
+  t699 p1 telegraphs arcing shot (7 hexes)
+  t699 Arcing Shot (fire)
+  t709 douse (-7, -11)
+  t709 douse (-6, -12)
+  t720 p1 hits swampfang 195 REAR
+  t722 OVERHEAT (-4, -8)
+  t722 OVERHEAT (-4, -7)
+  t722 REACTION on swampfang: 538 (2 blasts)
+  t740 p2 releases Q at level 2
+  t740 Flourish (fire)
+  t745 OVERHEAT (-4, -9)
+  t745 douse (-6, -11)
+  t745 douse (-6, -10)
+  t745 douse (-6, -9)
+  t745 douse (-5, -12)
+  t745 douse (-5, -11)
+  t745 douse (-5, -10)
+  t745 douse (-4, -12)
+  t745 douse (-4, -11)
+  t745 douse (-3, -12)
+  t745 douse (-3, -11)

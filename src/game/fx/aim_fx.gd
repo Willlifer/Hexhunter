@@ -19,7 +19,7 @@ extends Node3D
 ## the replicated charging.aim is used.
 
 const LIFT := 0.11
-const RING_W := 0.09
+const RING_W := 0.12
 const HEX_R := 1.0
 const NO_HEX := Vector2i(-9999, -9999)
 const ZONE_COL := Color(0.45, 1.0, 0.55)
@@ -125,8 +125,9 @@ func _ribbon(mi: MeshInstance3D, edges: Array, w: float, mat: Material) -> void:
 		var bi := b + (c - b).normalized() * w
 		var pts := [a, b, bi, ai]
 		var ys: Array = []
+		var floor_y := arena.surface(HHHex.from_world(Vector2(c.x, c.z))).y      # water and pads: the surface, not the bed
 		for p in pts:
-			ys.append(Vector3(p.x, arena.height_at(p.x, p.z) + LIFT, p.z))
+			ys.append(Vector3(p.x, maxf(arena.height_at(p.x, p.z), floor_y) + LIFT, p.z))
 		im.surface_add_vertex(ys[0])
 		im.surface_add_vertex(ys[1])
 		im.surface_add_vertex(ys[2])
@@ -159,7 +160,7 @@ func _sync_ring(sim: HHSim, me: Dictionary) -> void:
 	var key := "%s:%d" % [me.hex, reach]
 	if key != _ring_key:
 		_ring_key = key
-		var col := Color(1.0, 0.95, 0.75, 0.42) if str(me.weapon) != "daggers" else Color(1.0, 0.95, 0.75, 0.3)
+		var col := Color(1.0, 0.93, 0.65, 0.62) if str(me.weapon) != "daggers" else Color(1.0, 0.93, 0.65, 0.45)
 		_ring.set_meta("mat", _line_mat(col))
 		_ribbon(_ring, boundary(sim.arena.area(me.hex, reach)), RING_W, _ring.get_meta("mat"))
 
@@ -353,7 +354,9 @@ func _sync_exposed(sim: HHSim) -> void:
 			_exposed[id] = mi
 		var r := (float(m.size) + 0.9) * 1.6
 		var pulse := 0.5 + 0.5 * sin(_t * 12.0)
-		mi.position = (m.pos as Vector3) + Vector3(0, 0.25 + 0.15 * pulse, 0)
+		var base: Vector3 = m.pos
+		base.y = maxf(base.y, sim.arena.surface(m.hex).y)          # a swimmer: on the water, not the bed
+		mi.position = base + Vector3(0, 0.45 + 0.2 * pulse, 0)
 		mi.scale = Vector3(r, 1.0, r) * (1.0 + 0.05 * pulse)
 		(mi.material_override as StandardMaterial3D).albedo_color = Color(EXPOSED_COL.r, EXPOSED_COL.g, EXPOSED_COL.b, 0.55 + 0.4 * pulse)
 		mi.visible = true

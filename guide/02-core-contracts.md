@@ -24,6 +24,13 @@ The element grid. `entries: hex -> { h, v, marker, glaze, timer, source, permane
 
 Lane P adds casts (Q/E/R as orders with an aim hex) and the basic attack. Lane E adds a monster brain called from `step()` and telegraphs as hex sets with a countdown. Both go through `paint()` and `hurt()`.
 
+### Commit feel (H56-H58, Lane W H950-H970)
+- **Orders** added: `charge { skill: "q", aim }`, `charge_aim: Vector2i`, `release { skill: "q", aim }`, `dash: Vector3` (a world point), `potion: true | { aim }`. `cast` of q is an instant level-1 shot.
+- **Hunter fields** (all plain data, replicated with the unit): `charging { skill, ticks, level, aim }`, `dash { from, to, ticks, total }`, `dash_charges`, `dash_recharge`, `dash_recover`, `dash_iframes`, `heal_zone { hex, radius, left, total, pct_per_s }`, `potion_hex`, `recovery`, `flinch`, `combo { step, until, target }`, `queued { o, until }`. **Monster field**: `exposed` (ticks).
+- **Rules**: `held(u)` includes a dash, a recovery and a flinch; `escapable(u)` is a wind-up / recovery / charge; `break_commit(u, why)` is what the dash and the movement skills (`HHWeapons.ESCAPES`) do. `hurt(..., by, interrupt := true)`: a landed hit from a monster interrupts (`_interrupt`); guarded hits and reactions pass `interrupt = false`. `begin_recovery(u, ticks)` after every action. Basic strings: `HHWeapons.has_combo` / `combo_hit(weapon, step)`; weapons with a `combo(step)` func string their basics. Charged shapes: `HHWeapons.charge_shape(sim, u, aim, level) -> { hex: strength }` (each weapon's `q_shape`).
+- **Events**: `charge_start`, `charge_level`, `charge_release`, `charge_cancel`, `dash`, `dash_end`, `dash_ready`, `dodge`, `potion { hex, radius }`, `heal_zone_end`, `recovery`, `combo { step }`, `combo_reset`, `interrupted { what, skill }`, `exposed`, `exposed_end`; `strike` may carry `combo`, `heavy`, `level`; `windup` carries `step` and `level`.
+- **View**: `HHAimFx` (`src/game/fx/aim_fx.gd`, under the arena view) draws the range ring, the charge preview and pips, charge glows, heal zones, dash streaks and the exposed ring; the fight's hit-stop freezes bodies on heavy events. Review renders: `tools/feel_preview.gd` -> `design/feel/`.
+
 ## HHPhases (`phases.gd`)
 `start(script) -> state`, `check(state, hp_frac, tick) -> fired ids`, `rule(state, key, def)`, `countdown`. Triggers: `hp_below`, `after`, `delay_ticks`. A monster's calm / aggravated / threatened / enraged states are a phase script plus its own brain.
 

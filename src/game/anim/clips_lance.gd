@@ -34,8 +34,8 @@ const CLIPS := {
 }
 const SKILL_CLIPS := { "q": "plant", "w": "swap", "e": "guard", "r": "jump" }
 const WINDUP_CLIPS := { "basic": "strike", "pierce": "plant", "exchange": "swap" }
-## H57: the basic string, one clip per hit (thrust, sweeping slash, spinning slam); H56: the held charge pose.
-const COMBO_CLIPS := { 1: "strike", 2: "sweep", 3: "spin" }
+## H57: the basic string, one clip per hit (thrust, sweeping slash, overhead slam); H56: the held charge pose.
+const COMBO_CLIPS := { 1: "strike", 2: "sweep", 3: "slam" }
 const CHARGE_CLIP := "plant"
 const LANDING_CLIPS := { "jump": "slam" }
 
