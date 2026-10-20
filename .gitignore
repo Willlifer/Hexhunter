@@ -5,3 +5,5 @@
 design/art/shots/
 dist/
 .claude/
+tools/blender/monster_rig/__pycache__/
+art/monsters/blend/*.blend

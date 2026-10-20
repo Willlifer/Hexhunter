@@ -48,6 +48,7 @@ func _init(p_arena: HHArena, p_seed: int = 1) -> void:
 	seed = p_seed
 	rng.seed = p_seed
 	charge = HHCharge.new(arena)
+	charge.author_rows(arena.authored_rows())            # H43: the biome's permanent charge
 
 
 # ------------------------------------------------------------------ setup
@@ -215,6 +216,8 @@ func step(orders: Dictionary = {}) -> Array:
 		if int(u.guard) > 0:
 			u.guard = int(u.guard) - 1
 	charge.tick()
+	if tick % int(HHTune.value("authored_reform_every")) == 0:
+		charge.author_rows(arena.authored_rows(), true)  # H44: vents, lava and shade re-form
 	_check_over()
 	return events
 
@@ -661,9 +664,24 @@ func _guard_counter(u: Dictionary, attacker: Dictionary) -> void:
 
 # ------------------------------------------------------------------ ground
 
+## A blow or blast landing on destructible cells (pillars): damage them;
+## at 0 they break open (H44). Returns the hexes that broke.
+func damage_cells(hexes: Array, amount: float) -> Array:
+	var broke: Array = []
+	for h in hexes:
+		if arena.damage_cell(h, amount):
+			broke.append(h)
+			_emit({ "type": "cell_broken", "hex": h, "kind": arena.kind(h) })
+	return broke
+
+
 ## Lay `element` on `hexes` as `caster` and resolve what the ground did. The
 ## caster is immune to its own blasts and bursts (H33).
 func paint(hexes: Array, element: String, caster: String, steps: int = 1, fresh: bool = true) -> Dictionary:
+	if caster != "":
+		var u := unit(caster)
+		if not u.is_empty():
+			damage_cells(hexes, HHTune.value("pillar_paint_dmg") * float(steps))
 	var r := charge.apply(hexes, element, caster, steps, fresh)
 	_emit({ "type": "paint", "id": caster, "element": element, "hexes": hexes.duplicate(), "changed": r.changed.duplicate() })
 	for d in r.detonations:

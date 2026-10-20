@@ -20,6 +20,7 @@ var skirt_m := 12.0           ## scenery beyond the floor
 var cells := {}
 var hf := {}
 var spawns := { "player": [Vector2i(0, 8)], "monster": Vector2i(0, -6) }
+var authored: Array = []      ## permanent biome charge: [{ q, r, h, v, marker, glaze }] applied at fight start (H43)
 
 
 # ------------------------------------------------------------------ building
@@ -289,12 +290,14 @@ func to_dict() -> Dictionary:
 	for h in keys:
 		var c: Dictionary = cells[h]
 		var row := { "q": h.x, "r": h.y, "walkable": c.walkable, "kind": c.kind, "depth": c.depth }
-		if bool(c.get("cover", false)):
-			row["cover"] = true
+		for extra in ["cover", "hp", "kind_after", "sun"]:
+			if c.has(extra):
+				row[extra] = c[extra]
 		cl.append(row)
 	return { "id": id, "seed": seed, "radius_m": radius_m, "skirt_m": skirt_m,
 		"hf": { "cols": hf.cols, "rows": hf.rows, "step": hf.step, "origin": hf.origin, "data": Array(hf.data) },
-		"cells": cl, "spawns": { "player": spawns.player.map(func(h): return [h.x, h.y]), "monster": [spawns.monster.x, spawns.monster.y] } }
+		"cells": cl, "spawns": { "player": spawns.player.map(func(h): return [h.x, h.y]), "monster": [spawns.monster.x, spawns.monster.y] },
+		"authored": authored.duplicate(true) }
 
 
 static func from_dict(d: Dictionary) -> HHArena:
@@ -307,10 +310,44 @@ static func from_dict(d: Dictionary) -> HHArena:
 	if not h.is_empty():
 		a.hf = { "cols": int(h.cols), "rows": int(h.rows), "step": float(h.step), "origin": h.origin, "data": PackedFloat32Array(h.data) }
 	for c in d.get("cells", []):
-		a.cells[Vector2i(int(c.q), int(c.r))] = { "walkable": bool(c.walkable), "kind": str(c.kind), "depth": float(c.get("depth", 0.0)), "cover": bool(c.get("cover", false)) }
+		var cell := { "walkable": bool(c.walkable), "kind": str(c.kind), "depth": float(c.get("depth", 0.0)), "cover": bool(c.get("cover", false)) }
+		for extra in ["hp", "kind_after", "sun"]:
+			if c.has(extra):
+				cell[extra] = c[extra]
+		a.cells[Vector2i(int(c.q), int(c.r))] = cell
 	var sp: Dictionary = d.get("spawns", {})
 	if sp.has("player"):
 		a.spawns.player = sp.player.map(func(v): return Vector2i(int(v[0]), int(v[1])))
 	if sp.has("monster"):
 		a.spawns.monster = Vector2i(int(sp.monster[0]), int(sp.monster[1]))
+	a.authored = Array(d.get("authored", sp.get("authored", [])))
+	for row in d.get("extras", []):                  # Lane C/D's extras block: hp / kind_after / sun per cell
+		var eh := Vector2i(int(row.q), int(row.r))
+		if a.cells.has(eh):
+			for extra in ["hp", "kind_after", "sun"]:
+				if row.has(extra):
+					a.cells[eh][extra] = row[extra]
 	return a
+
+
+## The authored rows wherever a generator put them (H43: `authored`, or the
+## Lane C/D stand-in under spawns).
+func authored_rows() -> Array:
+	if not authored.is_empty():
+		return authored
+	return Array(spawns.get("authored", []))
+
+
+## A destructible cell (a pillar) loses hp; at 0 it becomes its kind_after
+## and walkable. Returns true when it broke (H44).
+func damage_cell(h: Vector2i, amount: float) -> bool:
+	var c: Dictionary = cells.get(h, {})
+	if c.is_empty() or not c.has("hp"):
+		return false
+	c.hp = float(c.hp) - amount
+	if float(c.hp) > 0.0:
+		return false
+	c.kind = str(c.get("kind_after", "floor"))
+	c.walkable = true
+	c.erase("hp")
+	return true

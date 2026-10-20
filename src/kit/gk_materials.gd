@@ -106,6 +106,29 @@ const ROLES := {
 	"cattail": { "a": "#5a3e26", "b": "#3e2a18", "rough": 0.95, "pat": "stipple", "scale": 40.0, "amt": 0.3, "world": true },
 	"pond_flower": { "a": "#e8c020", "b": "#c89a10", "c": "#f2d84a", "rough": 0.8, "pat": "plain", "scale": 4.0, "amt": 0.2, "world": true },
 	"meadow_grass": { "a": "#7a9a3e", "b": "#5e7e30", "c": "#9ab050", "rough": 1.0, "pat": "grass", "scale": 0.35, "amt": 0.45, "world": true },
+	# Hexhunt cave (Lane C/D, H222)
+	"cave_floor": { "a": "#4a4440", "b": "#3a3531", "c": "#5a534c", "rough": 0.95, "pat": "cobble", "scale": 0.6, "amt": 0.35, "world": true },
+	"cave_wall": { "a": "#2e2b29", "b": "#232120", "c": "#3c3836", "rough": 0.95, "pat": "blocks", "scale": 0.9, "amt": 0.4, "world": true },
+	"stalagmite": { "a": "#8c7d6a", "b": "#6f6254", "c": "#a69684", "rough": 0.85, "pat": "stipple", "scale": 1.2, "amt": 0.35, "world": true },
+	"cave_boulder": { "a": "#555049", "b": "#433f3a", "c": "#67625a", "rough": 0.92, "pat": "blocks", "scale": 0.5, "amt": 0.35, "world": true },
+	"frost": { "a": "#cfeaf2", "b": "#a9cfdd", "c": "#e8f6fa", "rough": 0.3, "spec": 0.9, "pat": "speckle", "scale": 2.0, "amt": 0.25, "world": true },
+	"torch_flame": { "a": "#ffb040", "b": "#ff7a18", "c": "#fff0a0", "rough": 0.2, "pat": "plain", "scale": 4.0, "amt": 0.2 },
+	"torch_post": { "a": "#4a3626", "b": "#352618", "rough": 0.95, "pat": "grain", "scale": 3.0, "amt": 0.4, "axis": [0, 1, 0] },
+	# Hexhunt glade (Lane C/D, H222)
+	"glade_grass": { "a": "#6fa03a", "b": "#55852c", "c": "#8fbf4e", "rough": 1.0, "pat": "grass", "scale": 0.35, "amt": 0.45, "world": true },
+	"sun_grass": { "a": "#b4d65a", "b": "#9cc24a", "c": "#d4e878", "rough": 1.0, "pat": "grass", "scale": 0.35, "amt": 0.35, "world": true },
+	"canopy": { "a": "#4c8a2c", "b": "#376a20", "c": "#78b040", "rough": 1.0, "pat": "grass", "scale": 1.2, "amt": 0.35, "world": true },
+	"glade_trunk": { "a": "#5a4634", "b": "#43342a", "c": "#6e5a46", "rough": 0.95, "pat": "grain", "scale": 3.0, "amt": 0.5, "world": true, "axis": [0, 1, 0] },
+	"glade_flower": { "a": "#f0e0f8", "b": "#d8b8e8", "c": "#ffffff", "rough": 0.8, "pat": "plain", "scale": 4.0, "amt": 0.2, "world": true },
+	"bush": { "a": "#3f6f2a", "b": "#2c5220", "c": "#558a36", "rough": 1.0, "pat": "grass", "scale": 2.0, "amt": 0.3, "world": true },
+	# Hexhunt caldera (Lane C/D, H222)
+	"basalt": { "a": "#2b2927", "b": "#201e1c", "c": "#3a3734", "rough": 0.95, "pat": "asphalt", "scale": 0.5, "amt": 0.35, "world": true },
+	"ash": { "a": "#7d7873", "b": "#67625e", "c": "#938e88", "rough": 1.0, "pat": "stipple", "scale": 1.0, "amt": 0.35, "world": true },
+	"snow": { "a": "#eef2f5", "b": "#d8e0e8", "c": "#ffffff", "rough": 0.7, "pat": "speckle", "scale": 1.5, "amt": 0.15, "world": true },
+	"lava": { "a": "#ff6a1a", "b": "#ff3a08", "c": "#ffd060", "rough": 0.4, "pat": "stipple", "scale": 0.8, "amt": 0.5, "world": true },
+	"lava_crust": { "a": "#3a2a24", "b": "#2a1c18", "c": "#5a3a2c", "rough": 0.95, "pat": "blocks", "scale": 0.4, "amt": 0.4, "world": true },
+	"vent_rim": { "a": "#4a3f3a", "b": "#372f2b", "c": "#6a5a50", "rough": 0.95, "pat": "stipple", "scale": 1.2, "amt": 0.4, "world": true },
+	"scoria": { "a": "#3b3330", "b": "#2b2522", "c": "#4d4440", "rough": 0.98, "pat": "blocks", "scale": 0.35, "amt": 0.45, "world": true },
 	"barrier": { "a": "#ff00ff", "b": "#ff00ff", "rough": 1.0, "pat": "plain", "scale": 1.0, "amt": 0.0, "world": true },
 }
 

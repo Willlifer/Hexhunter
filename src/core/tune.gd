@@ -61,6 +61,10 @@ const DEFAULTS := {
 	"lance_r_dmg": 260.0,
 	"lance_r_steps": 2.0,
 	"lance_r_stagger": 0.6,
+	# biome cells (H43-H44)
+	"authored_reform_every": 150.0,  # vents / lava / shade re-form every 5 s
+	"pillar_hp": 300.0,
+	"pillar_paint_dmg": 60.0,        # a cast or blow that lands on a pillar hex chips this much per element step
 	# potions (H40): T drinks one; a slow heal the ground can fight
 	"potion_count": 5.0,
 	"potion_windup": 15.0,       # 0.5 s to drink (a commitment)

@@ -124,7 +124,7 @@ func crossing_pct(hex: Vector2i) -> float:
 
 
 func can_hold(hex: Vector2i) -> bool:
-	return arena.exists(hex) and arena.kind(hex) != "rock"
+	return arena.exists(hex) and not arena.kind(hex) in ["rock", "pillar", "tree"]
 
 
 static func blast_mix(e: Dictionary) -> Dictionary:
@@ -144,11 +144,24 @@ static func blast_mix(e: Dictionary) -> Dictionary:
 
 ## Authored starting state: permanent charge or marker (a biome's lava pool,
 ## a pond's water).
-func author(hex: Vector2i, h: int, v: int, p_marker: String = "") -> void:
+func author(hex: Vector2i, h: int, v: int, p_marker: String = "", glaze: bool = false) -> void:
 	if not can_hold(hex):
 		return
 	entries[hex] = _entry(clampi(h, -AXIS_MAX, AXIS_MAX), clampi(v, -AXIS_MAX, AXIS_MAX), p_marker, "")
 	entries[hex].permanent = true
+	if glaze:
+		entries[hex].glaze = int(HHTune.value("charge_glaze_ticks"))
+		entries[hex].permanent_glaze = true
+
+
+## Apply an arena's authored rows (H43). `reform` = only re-lay what is missing
+## (vents and lava re-form after play changes them, H44).
+func author_rows(rows: Array, reform: bool = false) -> void:
+	for r in rows:
+		var hex := Vector2i(int(r.q), int(r.r))
+		if reform and entries.has(hex):
+			continue
+		author(hex, int(r.get("h", 0)), int(r.get("v", 0)), str(r.get("marker", "")), bool(r.get("glaze", false)))
 
 
 func clear(hex: Vector2i) -> void:
@@ -216,6 +229,8 @@ func tick() -> Array:
 	for hex in entries.keys():
 		var e: Dictionary = entries[hex]
 		if e.permanent:
+			if bool(e.get("permanent_glaze", false)) and int(e.glaze) <= 0:
+				e.glaze = int(HHTune.value("charge_glaze_ticks"))   # authored shade: the frost re-forms
 			continue
 		if int(e.glaze) > 0:
 			e.glaze = int(e.glaze) - 1

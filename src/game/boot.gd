@@ -81,7 +81,10 @@ func _load_arena(id: String, seed: int) -> Dictionary:
 				if ResourceLoader.exists(gp):
 					var s: GDScript = load(gp)
 					var both: Dictionary = s.build_both(gen.get("params", {}))
-					return { "arena": both.arena, "asset": both.asset }
+					var ar: HHArena = both.arena
+					if ar.authored.is_empty():
+						ar.authored = Array(d.get("authored", ar.spawns.get("authored", [])))
+					return { "arena": ar, "asset": both.asset }
 			return { "arena": HHArena.from_dict(d), "asset": null }
 		push_warning("boot: arena '%s' failed to parse, using round" % id)
 	return { "arena": HHArena.round_flat(seed), "asset": null }
