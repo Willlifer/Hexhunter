@@ -201,3 +201,65 @@ func test_weapons_from_lane_a_set(c: HHSelfTest.HHCheck) -> void:
 	c.ok(b.equip("daggers") and b.weapon_off != null, "daggers: off hand hung")
 	c.ok(b.equip("lance") and b.weapon_main != null and b.weapon_off == null, "lance: one glb")
 	b.free()
+
+
+## R-U3: the ward on the hunter while `immune` ticks run.
+func test_ward_from_immune(c: HHSelfTest.HHCheck) -> void:
+	var a := HHArena.round_flat(1, 25.0, 0.6)
+	var s := HHSim.new(a, 1)
+	s.add_player("p1", Vector2i(0, 0))
+	var b := HHPlayerBody.new()
+	if not b.build("lance"):
+		c.ok(false, "lance body builds")
+		b.free()
+		return
+	b.bind(s, "p1")
+	b.update(0.05)
+	c.ok(not b.ward_on, "no ward at rest")
+	c.ok(b.get_node_or_null("ward") == null, "no ward node built until needed")
+	s.unit("p1")["immune"] = 30
+	b.update(0.05)
+	c.ok(b.ward_on, "immune > 0: ward on")
+	var w := b.get_node_or_null("ward") as Node3D
+	c.ok(w != null and w.visible, "ward node visible")
+	s.unit("p1")["immune"] = 0
+	b.update(0.05)
+	c.ok(not b.ward_on and w != null and not w.visible, "ward hides when the ticks run out")
+	b.free()
+
+
+## R-U3: projectile markers, flashes and the player telegraph tint.
+func test_projectile_markers_and_player_tint(c: HHSelfTest.HHCheck) -> void:
+	var a := HHArena.round_flat(1, 25.0, 0.6)
+	var s := HHSim.new(a, 1)
+	s.add_player("p1", Vector2i(0, 0))
+	s.add_monster("swampfang", Vector2i(8, 0), 3000.0, 2, [])
+	var v := HHArenaView.new()
+	v.build(a)
+	v.sync(s, "p1", 0.05)
+	c.eq(v.proj_pool.size(), 0, "no markers without projectiles")
+	s.launch({ "owner": "p1", "from": Vector2i(0, 0), "dir": 0, "element": "fire", "every": 2, "max_hexes": 3, "dmg": 0.0 })
+	v.sync(s, "p1", 0.05)
+	c.eq(v.proj_pool.size(), 1, "one marker for one projectile")
+	c.ok((v.proj_pool[0] as MeshInstance3D).visible, "marker visible")
+	c.eq(v.flashes.size(), 1, "launch flash")
+	var col := ((v.proj_pool[0] as MeshInstance3D).material_override as StandardMaterial3D).albedo_color
+	c.ok(col.r > col.b, "marker takes the element's glow colour")
+	for i in 12:
+		s.step({})
+	v.sync(s, "p1", 0.05)
+	c.ok(not (v.proj_pool[0] as MeshInstance3D).visible, "marker hidden once the projectile ends")
+	c.ok(v.flashes.size() >= 1, "end flash raised")
+	v.sync(s, "p1", 1.0)
+	c.eq(v.flashes.size(), 0, "flashes fade out")
+	# telegraph tint
+	c.ok(HHArenaView.is_player_telegraph({ "owner": "p1", "payload": {} }, "p1"), "owner p1: player tint")
+	c.ok(HHArenaView.is_player_telegraph({ "owner": "", "payload": { "name": "bomblet" } }, "p1"), "bomblet: player tint")
+	c.ok(HHArenaView.is_player_telegraph({ "owner": "", "payload": { "name": "aftershock" } }, "p1"), "aftershock: player tint")
+	c.ok(not HHArenaView.is_player_telegraph({ "owner": "swampfang", "payload": { "name": "bite" } }, "p1"), "monster bite: monster tint")
+	s.telegraph("swampfang", [Vector2i(1, 0)], 30, { "name": "bite" })
+	s.telegraph("p1", [Vector2i(2, 0)], 30, { "name": "aftershock" })
+	v.sync(s, "p1", 0.05)
+	c.eq(v.tg_pool.size(), 2, "two telegraph hexes")
+	c.ok((v.tg_pool[0] as MeshInstance3D).material_override != (v.tg_pool[1] as MeshInstance3D).material_override, "the hunter's shape uses its own material")
+	v.free()

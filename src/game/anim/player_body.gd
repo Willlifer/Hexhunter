@@ -320,6 +320,61 @@ func bind(p_sim: HHSim, id: String) -> void:
 	unit_id = id
 
 
+## R-U3: the ward. While the bound unit's `immune` ticks are above zero (H552)
+## a pale gold ring and dome spin round the hunter; `ward_on` for tests.
+var ward_on := false
+var _ward: Node3D = null
+var _ward_t := 0.0
+
+
+func _draw_ward(delta: float) -> void:
+	var on := sim != null and unit_id != "" and int(sim.unit(unit_id).get("immune", 0)) > 0
+	ward_on = on
+	if _ward == null:
+		if not on:
+			return
+		_ward = Node3D.new()
+		_ward.name = "ward"
+		var ring := MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = 0.95
+		tm.outer_radius = 1.08
+		tm.rings = 24
+		tm.ring_segments = 8
+		ring.mesh = tm
+		ring.position.y = 0.12
+		ring.material_override = _ward_material(Color(1.0, 0.86, 0.35, 0.9))
+		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_ward.add_child(ring)
+		var dome := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 1.25
+		sm.height = 2.5
+		sm.radial_segments = 16
+		sm.rings = 8
+		dome.mesh = sm
+		dome.position.y = 1.15
+		dome.material_override = _ward_material(Color(1.0, 0.9, 0.5, 0.22))
+		dome.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_ward.add_child(dome)
+		add_child(_ward)
+	_ward.visible = on
+	if on:
+		_ward_t += delta
+		_ward.rotation.y = _ward_t * 2.2
+		_ward.scale = Vector3.ONE * (1.0 + 0.04 * sin(_ward_t * 9.0))
+
+
+static func _ward_material(c: Color) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.albedo_color = c
+	return m
+
+
 # ------------------------------------------------------------------ lookup
 
 func bone(bone_name: String) -> int:
@@ -555,6 +610,7 @@ func update(delta: float) -> void:
 		if _fade <= 0.0:
 			_prev_clip = ""
 	_apply(cur)
+	_draw_ward(delta)
 
 
 ## Ground speed from the body's own position delta (HHFight moves the node).
