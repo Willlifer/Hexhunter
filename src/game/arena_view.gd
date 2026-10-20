@@ -108,6 +108,9 @@ func _build_lights() -> void:
 		sun = stage.sun(asset.lights)
 		add_child(sun)
 		add_child(stage.sky(asset.lights))
+		if stage.has_method("point_lights"):
+			for l in stage.point_lights(asset):        # R-ENV1: cave torches, caldera lava pools cast real light
+				add_child(l)
 		return
 	sun = DirectionalLight3D.new()
 	sun.name = "Sun"

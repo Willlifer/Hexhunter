@@ -113,6 +113,7 @@ var _meteor := false
 var _shimmer: MultiMeshInstance3D
 var _shimmer_pts: Array = []
 var _kick := 0.0
+var _ground_key := Vector4.INF    # origin / reach / dir last pushed to the ground hexes
 var _whirls: Array = []           # ice: standing whirl centres
 var _origin := Vector3.ZERO       # ground origin of spreading patterns
 var _reach := 3.0
@@ -206,6 +207,7 @@ func begin(p_layer: Node, p_key: String, tg: Dictionary, p_start: int) -> void:
 	_kick = 0.0
 	_meteor = false
 	_whirls = []
+	_ground_key = Vector4.INF
 	_shard_data = []
 	_shimmer_pts = []
 	_shards.multimesh.visible_instance_count = 0
@@ -1036,6 +1038,7 @@ func _build_ground() -> void:
 		g.hex = h
 		g.end_at = -1.0
 		g.seed = rng.randf()
+		g.placed = false
 		var mis: Array = g.mis
 		while mis.size() < _modes.size():
 			var mi := MeshInstance3D.new()
@@ -1053,6 +1056,11 @@ func _build_ground() -> void:
 
 
 func _push_ground() -> void:
+	# origin / dir only when they moved (or a hex is new): ~900 uniform writes
+	# a frame on the widest areas otherwise
+	var key := Vector4(_origin.x, _origin.z, _reach, _dir.x * 7.0 + _dir.z)
+	var moved := key != _ground_key
+	_ground_key = key
 	for g in _ground:
 		var ck := 0.0
 		if g.end_at >= 0.0:
@@ -1068,9 +1076,11 @@ func _push_ground() -> void:
 				gp = 0.62 + 0.38 * p                    # frost from the knuckles the whole wind-up
 			mi.set_instance_shader_parameter("progress", gp)
 			mi.set_instance_shader_parameter("commit", ck)
-			mi.set_instance_shader_parameter("origin", Vector4(_origin.x, _origin.z, _reach, float(g.seed)))
-			mi.set_instance_shader_parameter("dir", Vector4(_dir.x, _dir.z, 0, 0))
+			if moved or not bool(g.get("placed", false)):
+				mi.set_instance_shader_parameter("origin", Vector4(_origin.x, _origin.z, _reach, float(g.seed)))
+				mi.set_instance_shader_parameter("dir", Vector4(_dir.x, _dir.z, 0, 0))
 			mi.visible = ck < 1.0
+		g.placed = true
 
 
 # ------------------------------------------------------------------ shards (ice)

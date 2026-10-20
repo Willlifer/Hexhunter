@@ -83,6 +83,20 @@ frost field bristling with shards, then they shatter and sink.
 - **The hunter:** Eruption's ring burst reads at 30 m. Pierce's wind-up is short, so
   the 50 % frame already shows the line streaks rather than the hand glow.
 
+## After the merge of the rebuilt monsters (dev d7a3a29)
+
+Everything was re-rendered on the new rigs, arenas and HUD and the pair and the ice
+sequence looked at again. Colambros now stands upright for ember_spit: the glow and
+smoke ride its raised mouth socket, so the breath reads even higher on screen; for the
+charge it drops to all fours and the dust comes off the hind feet. The ice sequence
+reads the same on the redressed cave, where the torches now cast real light (R-ENV1).
+Swampfang's and Spirewalker's sheets were swept; all sockets resolved. In the glade the
+preview's camera still sometimes has a tree crown between it and the action.
+
+Performance (`tools/fx_perf.gd`, windowed, vsync off, RX 9070): cave avg 78-80 fps,
+1 %-low 45 (89 / 55 with effects off); caldera avg 109, 1 %-low 69; point lights add
+nothing measurable.
+
 ## Honest observations
 
 1. The tiles still carry most of the shape. The effects give each attack a
