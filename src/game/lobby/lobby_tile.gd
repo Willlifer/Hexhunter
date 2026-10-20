@@ -111,10 +111,10 @@ func paint(pt: HHHud.Paint) -> void:
 		pt.frame(r, HHHud.GOLD, 2.0)
 		for i in 3:
 			pt.frame(r.grow(2.0 + i * 1.5), Color(HHHud.GOLD.r, HHHud.GOLD.g, HHHud.GOLD.b, 0.55 - i * 0.17), 1.5)
-		_badge(pt, "SELECTED", HHHud.GOLD)
+		_badge(pt, "LOCKED" if locked else "SELECTED", HHHud.GOLD)   # one badge: they overlapped
 	else:
 		pt.frame(r, HHHud.GOLD_DIM if _hov > 0.0 else Color(HHHud.GOLD_DIM.r, HHHud.GOLD_DIM.g, HHHud.GOLD_DIM.b, 0.6), 1.0)
-	if locked:
+	if locked and not selected:
 		_badge(pt, "LOCKED", Color(1, 0.85, 0.4))
 
 

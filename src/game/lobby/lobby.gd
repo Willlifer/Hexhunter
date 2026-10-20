@@ -61,6 +61,7 @@ var _runs_box: VBoxContainer
 var _tune: HHTunePanel
 var _recorded := false
 var _fight_btn: Button
+var _dice: Button
 
 ## Co-op (Lane C, H908-H912): the "Play together" section on the card.
 var coop := HHLobbyCoop.new()    ## the party logic; the shell's net + session are attached in _ready
@@ -321,6 +322,7 @@ func _build_card() -> void:
 			_refresh())
 	sh.add_child(_seed)
 	var dice := Button.new()
+	_dice = dice
 	dice.text = "Dice"
 	dice.tooltip_text = "Roll a random seed"
 	dice.pressed.connect(func():
@@ -477,6 +479,7 @@ func _refresh_coop() -> void:
 		"joining": _coop_status.text = "Joining %s ..." % coop.address
 		_: _coop_status.text = "Host a party, or type a friend's address and Join."
 	_ready_btn.set_pressed_no_signal(coop.ready)
+	_ready_btn.visible = coop.role != "host"         # the host's FIGHT readies the host
 	_ready_btn.text = "Ready (click to unready)" if coop.ready else "Ready up"
 	for ch in _party_box.get_children():
 		ch.queue_free()
@@ -766,6 +769,8 @@ func _refresh() -> void:
 		(_row_labels[i] as Label).add_theme_color_override("font_color", HHHud.GOLD if i == state.row else DIM)
 	_seed.set_value_no_signal(float(state.cfg.seed))
 	_seed.editable = not state.is_locked("seed")
+	if _dice != null:
+		_dice.disabled = state.is_locked("seed")
 	_pair.text = "%s in %s with the %s\n%s, backup %s" % [
 		HHRegistry.name_of("monster", str(state.cfg.monster)), HHRegistry.name_of("arena", str(state.cfg.arena)),
 		HHRegistry.name_of("weapon", str(state.cfg.weapon)).to_lower(),

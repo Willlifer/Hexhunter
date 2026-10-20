@@ -971,8 +971,8 @@ static func nameplate(pt: Paint, at: Vector2, u: Dictionary, name: String, id: S
 ## The local hunter is down: a band over the lower middle of the screen
 ## with the line the brief asks for, and who the camera now follows.
 func _down_banner(pt: Paint, size: Vector2) -> void:
-	var y := size.y * 0.62
-	var band := Rect2(size.x * 0.25, y - 30.0, size.x * 0.5, 60.0)
+	var y := size.y - 186.0                     # above the action bar, below the hunters
+	var band := Rect2(size.x * 0.5 - 270.0, y - 30.0, 540.0, 60.0)
 	plate(pt, band, true, true, 0.85)
 	pt.text(Vector2(size.x * 0.5, y + 4.0), "DOWN, an ally can revive you", 26, DOWN_RED.lightened(0.15), 1, 5, serif())
 	var rf := clampf(float(revive.get(player_id, 0.0)), 0.0, 1.0)
