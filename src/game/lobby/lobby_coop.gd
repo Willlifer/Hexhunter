@@ -30,9 +30,11 @@ var role := "solo"
 var my_name := "Hunter"
 var address := ""                    ## host: "lan-ip:port" to tell friends; client: where we joined
 var ready := false
+var port := HHParty.PORT             ## boot's --port (tests and smoke runs stay off the author's game)
 var _pushed_mine := {}
 var _pushed_host := {}
 var _wired: Array = []               # [object, signal, callable] to undo in detach()
+var wire: HHCoopWire = null          ## Lane C's own messages (the host setting out on a hunt)
 
 
 ## Bind to the shell's net + session (either may be null: Play together then
@@ -49,8 +51,14 @@ func attach(p_net: Object, p_session: Object) -> void:
 	_wire(net, "disconnected", _on_disconnected)
 	_wire(session, "changed", _on_changed)
 	_wire(session, "start_fight", _on_start_fight)
-	_wire(session, "message", _on_message)
+	wire = HHCoopWire.open(net, session)
+	wire.message.connect(_on_message)
+	var pn: Variant = net.get("player_name")
+	if pn is String and pn != "":
+		my_name = pn
 	if _call(net, "is_online", false):
+		if session.get("in_fight") == true and session.has_method("end_fight"):
+			session.end_fight()           # R-N3: back from a fight, the host takes joiners again
 		role = "host" if _call(net, "is_host", false) else "client"
 		var mine: Dictionary = members().get(my_peer(), {})
 		my_name = str(mine.get("name", my_name))
@@ -60,6 +68,9 @@ func attach(p_net: Object, p_session: Object) -> void:
 
 
 func detach() -> void:
+	if wire != null:
+		wire.close()
+		wire = null
 	for w in _wired:
 		var o: Object = w[0]
 		if is_instance_valid(o) and o.is_connected(w[1], w[2]):
@@ -99,13 +110,13 @@ func host_game(p_name: String) -> bool:
 		note.emit("Play together needs the network layer (src/net), which is not in this build yet")
 		return false
 	my_name = _clean_name(p_name)
-	var err: int = net.host(HHParty.PORT, HHParty.MAX - 1)
+	var err: int = net.host(port, HHParty.MAX - 1)
 	if err != OK:
-		note.emit("Could not host on port %d (error %d): is another Hexhunt already hosting?" % [HHParty.PORT, err])
+		note.emit("Could not host on port %d (error %d): is another Hexhunt already hosting?" % [port, err])
 		return false
 	role = "host"
 	ready = false
-	address = "%s:%d" % [_lan(), HHParty.PORT]
+	address = "%s:%d" % [_lan(), port]
 	note.emit("Hosting on %s: friends on your network join with that address" % address)
 	refreshed.emit()
 	return true
@@ -116,6 +127,8 @@ func join_game(p_address: String, p_name: String) -> bool:
 		note.emit("Play together needs the network layer (src/net), which is not in this build yet")
 		return false
 	var ap := HHParty.parse_address(p_address)
+	if not ":" in p_address:
+		ap[1] = port
 	if str(ap[0]) == "":
 		note.emit("Type the host's address first (it shows on the host's lobby)")
 		return false
@@ -155,7 +168,8 @@ func _on_connected() -> void:
 
 
 func _on_failed() -> void:
-	_to_solo("Could not connect to %s" % address)
+	var why: Variant = net.get("last_error") if net != null else null
+	_to_solo("Could not connect to %s%s" % [address, (": %s" % why) if why is String and why != "" else ""])
 
 
 func _on_disconnected() -> void:
@@ -199,7 +213,7 @@ func members() -> Dictionary:
 func host_cfg() -> Dictionary:
 	if session == null:
 		return {}
-	for k in ["host_cfg", "cfg"]:
+	for k in ["fields", "host_cfg", "cfg"]:
 		var v: Variant = session.get(k)
 		if v is Dictionary:
 			return v
@@ -212,11 +226,21 @@ func party_rows() -> Array:
 	var ms := members()
 	var peers := ms.keys()
 	peers.sort()
+	var order: Variant = session.get("joined") if session != null else null
+	if order is Array and not (order as Array).is_empty():   # HHSession: join order (host p1, then p2..)
+		var j: Array = (order as Array).filter(func(p): return ms.has(p))
+		for p in peers:
+			if not p in j:
+				j.append(p)
+		peers = j
 	var ids := HHParty.assign_ids(peers)
 	var out: Array = []
 	for peer in peers:
 		var r: Dictionary = ms[peer]
-		out.append({ "peer": int(peer), "id": str(ids.get(int(peer), "")), "name": str(r.get("name", "Hunter")),
+		var uid := str(ids.get(int(peer), ""))
+		if session.has_method("unit_id") and str(session.unit_id(int(peer))) != "":
+			uid = str(session.unit_id(int(peer)))
+		out.append({ "peer": int(peer), "id": uid, "name": str(r.get("name", "Hunter")),
 			"weapon": str(r.get("weapon", "lance")), "element": str(r.get("element", "fire")), "backup": str(r.get("backup", "water")),
 			"ready": bool(r.get("ready", false)), "host": int(peer) == 1, "me": int(peer) == my_peer() })
 	return out
@@ -292,14 +316,17 @@ func start(state: HHLobbyState) -> bool:
 		return false
 	ready = true
 	push(state)
-	session.start()
+	var err: Variant = session.start()
+	if err is int and err != OK:
+		note.emit("The party could not start (error %d): everyone must be ready" % err)
+		return false
 	return true
 
 
 ## Tell the party the host started a hunt (clients' lobbies follow).
 func broadcast_hunt(data: Dictionary) -> void:
-	if role == "host" and session != null and session.has_method("broadcast"):
-		session.broadcast("hunt", data)
+	if role == "host" and wire != null:
+		wire.send("hunt", data)
 
 
 ## This peer's launch cfg from the session's start cfg: our own lobby cfg
@@ -315,7 +342,8 @@ func launch_cfg(state: HHLobbyState, started_cfg: Dictionary, extras: Dictionary
 	if not c.has("players"):
 		c.players = build_players()
 	if not c.has("local_id"):
-		c.local_id = str(HHParty.assign_ids(members().keys()).get(my_peer(), "p1"))
+		var mine := party_rows().filter(func(r): return bool(r.me))
+		c.local_id = str(mine[0].id) if not mine.is_empty() else "p1"
 	var me := HHParty.entry(c, str(c.local_id))
 	for k in MINE_KEYS:
 		if me.has(k):

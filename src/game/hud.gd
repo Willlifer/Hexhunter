@@ -616,6 +616,7 @@ var font: Font
 var party: Array = []               ## [{ id, name }] in slot order: the party frames at the left
 var plates: Array = []              ## [{ id, pos: Vector2 }] where each hunter's nameplate sits this frame
 var revive := {}                    ## hunter id -> revive progress 0..1 (from the sim's revive events)
+var gone := {}                      ## hunter id -> true: that peer disconnected mid-fight (its hunter idles on the host)
 var spectating := ""                ## the ally the camera follows while the local hunter is down
 var _t := 0.0
 var _ghost := -1.0                  ## the monster bar's trailing (recent damage) fraction
@@ -711,7 +712,7 @@ func paint(pt: Paint, size: Vector2) -> bool:
 	_monster_plate(pt, L.monster)
 	if party.size() > 1:
 		for pl in plates:
-			nameplate(pt, pl.pos, sim.unit(str(pl.id)), _party_name(str(pl.id)), str(pl.id), float(revive.get(str(pl.id), 0.0)), str(pl.id) == player_id)
+			nameplate(pt, pl.pos, sim.unit(str(pl.id)), _party_name(str(pl.id)), str(pl.id), float(revive.get(str(pl.id), 0.0)), str(pl.id) == player_id, gone.has(str(pl.id)))
 		party_frames(pt, size)
 		if bool(p.get("downed", false)) and sim.over == "":
 			_down_banner(pt, size)
@@ -918,14 +919,14 @@ func party_frames(pt: Paint, size: Vector2) -> void:
 		var r: Rect2 = rects[i]
 		var col := HHParty.slot_color(id)
 		var down := bool(u.get("downed", false))
-		var gone := not down and not u.is_empty() and float(u.hp) <= 0.0
+		var dead := not down and not u.is_empty() and float(u.hp) <= 0.0
 		plate(pt, r, false, false, 0.88)
 		pt.rect(Rect2(r.position + Vector2(0, 3), Vector2(4, r.size.y - 6)), col)
 		if id == player_id:
 			pt.frame(r.grow(-1.0), Color(col.r, col.g, col.b, 0.55), 1.0)
-		var name_col := Color(1, 0.95, 0.85) if not (down or gone) else Color(1, 0.95, 0.85, 0.55)
+		var name_col := Color(1, 0.95, 0.85) if not (down or dead or gone.has(id)) else Color(1, 0.95, 0.85, 0.55)
 		pt.text(Vector2(r.position.x + 14, r.position.y + 19), str(party[i].name), 16, name_col, 0, 3, serif())
-		var tag := "YOU" if id == player_id else id.to_upper()
+		var tag := "YOU" if id == player_id else ("DISCONNECTED" if gone.has(id) else id.to_upper())
 		pt.text(Vector2(r.end.x - 10, r.position.y + 17), tag, 11, Color(col.r, col.g, col.b, 0.9), 2, 3)
 		var bar := Rect2(r.position.x + 14, r.position.y + 28, r.size.x - 28, 9)
 		var frac := clampf(float(u.get("hp", 0.0)) / maxf(1.0, float(u.get("max_hp", 1.0))), 0.0, 1.0)
@@ -944,7 +945,7 @@ func party_frames(pt: Paint, size: Vector2) -> void:
 ## A hunter's nameplate over its head: the name in its slot colour over a
 ## small HP bar; a downed hunter's bar becomes the revive bar with a DOWN
 ## tag. The local hunter's plate is smaller and has no name (the HUD's orb says it all).
-static func nameplate(pt: Paint, at: Vector2, u: Dictionary, name: String, id: String, revive_frac: float, mine: bool) -> void:
+static func nameplate(pt: Paint, at: Vector2, u: Dictionary, name: String, id: String, revive_frac: float, mine: bool, left: bool = false) -> void:
 	if u.is_empty():
 		return
 	var col := HHParty.slot_color(id)
@@ -963,6 +964,8 @@ static func nameplate(pt: Paint, at: Vector2, u: Dictionary, name: String, id: S
 		pt.rect(bar, Color(0.12, 0.05, 0.04))
 		pt.rect(Rect2(bar.position, Vector2(bar.size.x * frac, bar.size.y)), Color(0.42, 0.9, 0.44))
 	pt.line(Vector2(bar.position.x, bar.position.y - 1.5), Vector2(bar.end.x, bar.position.y - 1.5), Color(col.r, col.g, col.b, 0.9), 1.0)
+	if left:
+		pt.text(Vector2(at.x, bar.end.y + (30.0 if down else 15.0)), "DISCONNECTED", 12, Color(0.75, 0.75, 0.78), 1, 4, serif())
 
 
 ## The local hunter is down: a band over the lower middle of the screen

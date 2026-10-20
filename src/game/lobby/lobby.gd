@@ -148,6 +148,7 @@ func _boot_coop() -> void:
 	if bool(b.get("autoplay", false)):
 		_auto = b
 	var nm := str(b.get("name", "Host" if str(b.get("mode", "")) == "host" else "Guest"))
+	coop.port = int(b.get("port", HHParty.PORT))
 	_name_edit.text = nm
 	if str(b.get("mode", "")) == "host":
 		coop.host_game(nm)
@@ -688,7 +689,8 @@ func _fight() -> void:
 
 ## The session started the fight: this peer launches its own cfg (H911).
 func _on_coop_started(cfg: Dictionary) -> void:
-	state.save_last()
+	if _auto.is_empty():                       # a smoke run never touches the player's last pick
+		state.save_last()
 	var extras := {}
 	if not _auto.is_empty():
 		extras = { "autoplay": true, "autoplay_seconds": float(_auto.get("seconds", 30.0)) }

@@ -33,7 +33,7 @@ var immediate := false         ## tests: transition inside the finished signal, 
 ## near the stir), every peer sees every token (each peer moves its own and
 ## broadcasts it), the ambush plays everywhere, prep is each peer's own lobby
 ## (the lobby's own co-op ready gate starts the fight), results are each
-## peer's own. Messages ride HHSession.broadcast / message (R-C3):
+## peer's own. Messages ride HHCoopWire (one HHNet message kind, relayed by the host):
 ##   "token"    { x, z, name, weapon }      every peer, ~8 Hz while moving
 ##   "approach" { monster, arena, site }    host -> all
 ##   "leave"    {}                          a peer left the map hunt
@@ -41,6 +41,7 @@ var role := "solo"             ## "solo" | "host" | "client"
 var session: Object = null
 var net: Object = null
 var tokens := {}               ## peer -> the last "token" data (applied to each new map)
+var wire: HHCoopWire = null    ## party messages (HHNet kind 40, relayed by the host; R-C3 is now Lane C's own)
 var end_note := ""             ## why the hunt ended on its own (the host left)
 var _pending_approach := {}
 var _over := false             # the loop ended: late results (a fight finishing as the host leaves) are ignored    # a client's approach that arrived off the map (applied when it is back)
@@ -72,22 +73,22 @@ func _attach_coop() -> void:
 	session = s
 	role = "host" if n.is_host() else "client"
 	state.cfg.net = role
-	if session.has_signal("message"):
-		session.connect("message", _on_message)
+	wire = HHCoopWire.open(net, session)
+	wire.message.connect(_on_message)
 	if net.has_signal("disconnected"):
 		net.connect("disconnected", _on_disconnected)
 
 
 func _exit_tree() -> void:
-	if session != null and is_instance_valid(session) and session.is_connected("message", _on_message):
-		session.disconnect("message", _on_message)
+	if wire != null:
+		wire.close()
 	if net != null and is_instance_valid(net) and net.has_signal("disconnected") and net.is_connected("disconnected", _on_disconnected):
 		net.disconnect("disconnected", _on_disconnected)
 
 
 func _send(kind: String, data: Dictionary) -> void:
-	if session != null and session.has_method("broadcast"):
-		session.broadcast(kind, data)
+	if wire != null:
+		wire.send(kind, data)
 
 
 func _on_message(peer: int, kind: String, data: Dictionary) -> void:

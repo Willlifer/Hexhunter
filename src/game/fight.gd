@@ -85,6 +85,9 @@ var _host_left := false
 var _down_prev := {}         # hunter id -> downed last frame
 var _peer_unit := {}         # peer -> hunter id (host: whose orders go where)
 var _bot_t := 0.0
+var _drawn := {}             # unit id -> the position drawn last frame (client interpolation, H918)
+const INTERP_S := 0.065      ## a client's bodies close this much of the gap to the mirror per e-fold (s): ticks land in bursts
+const INTERP_SNAP_M := 4.0   ## farther than this (a leap, a full snapshot after a gap): jump, don't slide
 
 
 ## Build the fight from a launch config (guide/02 "Launch config"). Keys
@@ -210,30 +213,32 @@ func _add_monster(id: String) -> void:
 		_log.append("brain: %s" % id)
 
 
-## Host / client: the replicator (Lane N's, else the stub) bound to this sim.
+## Host / client: Lane N's HHReplicator (R-N1) when the fight runs under a
+## shell with an HHNet, else the stub (tests, captures).
 func _build_replicator() -> void:
+	net = _find_net()
 	var r: Node = null
-	if ResourceLoader.exists(REPLICATOR_PATH):
-		var s: GDScript = load(REPLICATOR_PATH)
-		if s != null:
-			r = s.new()
+	if net is HHNet:
+		r = HHReplicator.attach(self, sim, cfg)        # client: clears the mirror's brains / hooks
 	if r == null:
 		r = HHCoopStubReplicator.new()
-	r.name = "Replicator"
-	add_child(r)
-	net = _find_net()
-	if r.has_method("bind"):
+		r.name = "Replicator"
+		add_child(r)
 		r.bind(sim, cfg, net)
-	if r.has_signal("snapshot_applied"):
-		r.connect("snapshot_applied", _on_snapshot)
 	replicator = r
-	if net != null and net.has_signal("disconnected") and net_mode == "client":
-		net.connect("disconnected", _on_host_left)
+	if net_mode == "client":
+		r.connect("snapshot_applied", _on_snapshot)
+		if r.has_signal("lost"):
+			r.connect("lost", _on_host_left)
 	_log.append("net: %s as %s" % [net_mode, player_id])
 
 
 ## The shell's HHNet (Shell/Net, guide/02), when the fight runs under a shell that has one.
 func _find_net() -> Object:
+	if is_inside_tree():
+		var hn := HHNet.find(self)
+		if hn != null:
+			return hn
 	var p := get_parent()
 	while p != null:
 		var n: Variant = p.get("net")
@@ -244,6 +249,8 @@ func _find_net() -> Object:
 
 
 func _on_host_left() -> void:
+	if _finished:
+		return
 	_host_left = true
 	_log.append("the host left")
 	_finish("abort")
@@ -368,26 +375,17 @@ func _process(delta: float) -> void:
 		_finish_autoplay()
 
 
-## This tick's orders. Solo / host: the local input plus (host) each remote
-## peer's queued order, only ever under that peer's own hunter; returned for
-## step(). Client: the local hunter's order goes to the host; returns {}.
+## This tick's orders for step(): the local input plus (host) every remote
+## peer's queued order, each only ever under that peer's own hunter
+## (HHReplicator.merge, R-N1). A client never gets here: its orders went
+## out in `_order`.
 func _flush_orders() -> Dictionary:
 	var orders := _pending
 	_pending = {}
 	if net_mode == "client":
-		if replicator != null and orders.has(player_id):
-			replicator.send_order(orders[player_id])
 		return {}
 	if net_mode == "host" and replicator != null:
-		for peer in _peer_unit:
-			var id: String = _peer_unit[peer]
-			if id == player_id:
-				continue
-			var o: Variant = replicator.collect(int(peer))
-			if o is Dictionary and not (o as Dictionary).is_empty():
-				var cur: Dictionary = orders.get(id, {})
-				cur.merge(o, true)
-				orders[id] = cur
+		orders = replicator.merge(orders)
 	return orders
 
 
@@ -481,6 +479,38 @@ func revive_frac(id: String) -> float:
 	return float((revive.get(id, {}) as Dictionary).get("frac", 0.0))
 
 
+## Where a unit is drawn this frame: its sim position, except on a client,
+## where the mirror moves only when ticks land (up to 3-4 in one frame) and
+## the drawn position eases toward it over ~INTERP_S (Lane N's report, H918).
+func draw_pos(id: String, target: Vector3, delta: float) -> Vector3:
+	var cur: Vector3 = _drawn.get(id, target)
+	if net_mode != "client" or cur.distance_to(target) > INTERP_SNAP_M:
+		cur = target
+	else:
+		cur = cur.lerp(target, 1.0 - exp(-delta / INTERP_S))
+	_drawn[id] = cur
+	return cur
+
+
+## Hunters whose peer has left the party mid-fight (their hunter stands idle
+## on the host): the ids, for "DISCONNECTED" on the nameplate and party frame.
+## Read from the session's members (the host drops a leaver and rebroadcasts).
+func gone_ids() -> Dictionary:
+	var out := {}
+	if net == null or net_mode == "solo" or not net.has_method("is_online") or not net.is_online():
+		return out
+	var s: Variant = net.get("session")
+	if not s is Object or s == null:
+		return out
+	var ms: Variant = s.get("members")
+	if not ms is Dictionary or (ms as Dictionary).is_empty():
+		return out
+	for pe in party:
+		if not (ms as Dictionary).has(int(pe.peer)):
+			out[str(pe.id)] = true
+	return out
+
+
 ## The unit the camera follows: the local hunter, or while it is down the
 ## nearest standing ally (spectate-follow).
 func follow_id() -> String:
@@ -506,7 +536,7 @@ func _draw(delta: float) -> void:
 	for id in bodies:
 		var u: Dictionary = sim.units[id]
 		var node: Node3D = bodies[id]
-		node.position = u.pos
+		node.position = draw_pos(str(id), u.pos, delta)
 		node.rotation.y = float(u.facing)
 		node.visible = sim.alive(u) or u.kind == "monster" or is_downed(u)
 		if monster_bodies.has(id) and (monster_bodies[id] as Node).has_method("update"):
@@ -521,7 +551,7 @@ func _draw(delta: float) -> void:
 	for id in marks:
 		var u := sim.unit(str(id))
 		var mk: HHHunterMark = marks[id]
-		mk.position = u.pos
+		mk.position = _drawn.get(str(id), u.pos)
 		mk.visible = sim.alive(u) or is_downed(u)
 		mk.set_downed(is_downed(u))
 		mk.set_revive(revive_frac(str(id)))
@@ -529,7 +559,7 @@ func _draw(delta: float) -> void:
 	if spectating == player_id:
 		spectating = ""
 	var p := sim.unit(player_id)
-	camera.follow(sim.unit(spectating).pos if spectating != "" else p.pos)
+	camera.follow(_drawn.get(spectating if spectating != "" else player_id, p.pos))
 	view.sync(sim, player_id, delta)
 	_sync_hud_party()
 	var lines := PackedStringArray()
@@ -557,12 +587,13 @@ func _sync_hud_party() -> void:
 		rev[id] = revive_frac(id)
 		if not (sim.alive(u) or is_downed(u)) or camera.cam == null:
 			continue
-		var head: Vector3 = (u.pos as Vector3) + Vector3(0, HHLook.RIG_HEIGHT * (0.62 if is_downed(u) else 1.0) + PLATE_LIFT, 0)
+		var head: Vector3 = (_drawn.get(id, u.pos) as Vector3) + Vector3(0, HHLook.RIG_HEIGHT * (0.62 if is_downed(u) else 1.0) + PLATE_LIFT, 0)
 		if camera.cam.is_position_behind(head):
 			continue
 		plates.append({ "id": id, "pos": camera.cam.unproject_position(head) })
 	hud.plates = plates
 	hud.revive = rev
+	hud.gone = gone_ids()
 	hud.spectating = spectating
 
 
@@ -711,8 +742,13 @@ func _monster_at(hex: Vector2i) -> String:
 	return ""
 
 
-## Input only ever drives the local hunter (cfg.local_id).
+## Input only ever drives the local hunter (cfg.local_id). A client sends
+## it to the host at once (R-N1).
 func _order(o: Dictionary) -> void:
+	if net_mode == "client":
+		if replicator != null:
+			replicator.send_order(o)
+		return
 	var cur: Dictionary = _pending.get(player_id, {})
 	cur.merge(o, true)
 	_pending[player_id] = cur

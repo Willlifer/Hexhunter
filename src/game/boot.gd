@@ -19,6 +19,7 @@ extends Node
 ##   --bench                    Lane C's arena bench (src/arena/bench/bench.gd)
 ##   --host [--name X]          co-op: open the lobby already hosting a party (H914)
 ##   --join <address> [--name X]   co-op: open the lobby already joined to that host
+##       [--port N] on either: not the default 24631 (smoke runs stay off a real game)
 ##       with --autoplay [--peers n] [--seconds s]: the host starts the fight once n
 ##       hunters are in and ready (guests ready at once); each process's bot drives
 ##       its own hunter, prints its summary and quits (the two-process smoke test).
@@ -76,7 +77,7 @@ func _ready() -> void:
 		var host := "--host" in args
 		shell.coop_boot = { "mode": "host" if host else "join", "address": _arg(args, "--join", ""),
 			"name": _arg(args, "--name", "Host" if host else "Guest"), "autoplay": "--autoplay" in args,
-			"peers": int(_arg(args, "--peers", "2")), "seconds": float(_arg(args, "--seconds", "30")) }
+			"peers": int(_arg(args, "--peers", "2")), "port": int(_arg(args, "--port", str(HHParty.PORT))), "seconds": float(_arg(args, "--seconds", "30")) }
 		shell.go_lobby(lc)
 		return
 	if "--hunt" in args:                                            # H612: straight onto the world map
