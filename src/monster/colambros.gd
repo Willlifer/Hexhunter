@@ -762,17 +762,10 @@ func _idle_clip(u: Dictionary) -> String:
 	return "bald_idle" if is_bald(u) else "aggravated_idle"
 
 
+## The hunter it goes for: the sim's one aggro rule (H53: nearest standing,
+## with a threat bonus for the last hunter that hit it).
 func _nearest_player(sim: HHSim, u: Dictionary) -> Dictionary:
-	var best := {}
-	var best_d := 1 << 30
-	for p in sim.players():
-		if not sim.alive(p):
-			continue
-		var d := HHHex.distance(u.hex, p.hex)
-		if d < best_d:
-			best_d = d
-			best = p
-	return best
+	return sim.monster_target(u)
 
 
 func _edge_dist(u: Dictionary, p: Dictionary) -> int:

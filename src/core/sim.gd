@@ -17,7 +17,19 @@ extends RefCounted
 ##   run, target, attacking, stagger, statuses, cooldowns { q w e r basic },
 ##   crossed, weapon, guard, leap, windup { left, total, kind, data },
 ##   allowed_kinds, untargetable, resist, upgrades (skill -> [ids], H550),
-##   immune (ticks that hurt() skips, H552) }
+##   immune (ticks that hurt() skips, H552),
+##   co-op (H53, Lane S): downed (bool: a hunter at 0 HP with an ally up; hp
+##   stays 0 so every alive() check skips it), revive (float ticks of revive
+##   progress), revive_by (id of the ally reviving, "" = none), hurt_tick (last
+##   tick hurt() landed), aggro_id / aggro_tick (monsters: the hunter that hit
+##   it last and when), party_scale (monsters: the HP factor applied) }
+##
+## Co-op (H53): up to 4 hunters. add_player fans hunters 2..4 out round the
+## spawn; monster HP scales with the party (scale_for_party); a hunter at 0 HP
+## with another standing is downed, not dead, and an ally next to it for
+## revive_ticks brings it back; `over` is "dead" only when no hunter stands.
+## Brains pick their prey with monster_target(). Hunters never hurt each other
+## (party_friendly_fire 0): H33's "your own element" covers the whole party.
 ##
 ## Orders per unit per tick (all optional):
 ##   { move: Vector2i, move_pos: Vector3 (the exact point), stop: true,
@@ -57,8 +69,13 @@ func _init(p_arena: HHArena, p_seed: int = 1) -> void:
 
 # ------------------------------------------------------------------ setup
 
+## A hunter. The first one stands on `hex`; later ones (H53) fan out from it
+## to a free, safe hex (party_spawn), so every arena's single spawn seats four.
+## Every hunter faces the monster's spawn. Monster HP rescales (scale_for_party).
 func add_player(id: String, hex: Vector2i, element: String = "fire", backup: String = "water", weapon: String = "lance", upgrades: Dictionary = {}) -> Dictionary:
-	var u := _unit(id, "player", hex)
+	var at := party_spawn(hex)
+	var u := _unit(id, "player", at)
+	_face_pos(u, arena.stand(arena.spawns.get("monster", at)))
 	var ups := {}                                        # H550: skill -> Array of upgrade ids, copied
 	for k in upgrades:
 		ups[str(k)] = Array(upgrades[k]).duplicate()
@@ -72,6 +89,7 @@ func add_player(id: String, hex: Vector2i, element: String = "fire", backup: Str
 	u.run = true
 	u.potions = int(HHTune.value("potion_count"))
 	u.cooldowns["t"] = 0
+	scale_for_party()
 	return u
 
 
@@ -82,7 +100,134 @@ func add_monster(id: String, hex: Vector2i, hp: float = 20000.0, size: int = 2, 
 	u.size = size
 	u.reach = size + 1
 	u.allowed_kinds = allowed_kinds
+	u.party_scale = 1.0
+	scale_for_party()
 	return u
+
+
+# ------------------------------------------------------------------ party (H53)
+
+## Monster HP factor for the current party: 1 + party_hp_mult per extra hunter.
+func party_factor() -> float:
+	return 1.0 + HHTune.value("party_hp_mult") * float(maxi(0, players().size() - 1))
+
+
+## Rescale every monster's max HP (and HP, proportionally) to the party.
+## Called by add_player and add_monster, so callers never need to; idempotent:
+## a monster remembers the factor it carries (party_scale) and only the change
+## is applied, so solo (factor 1) never touches HP and a test that set HP by
+## hand keeps it.
+func scale_for_party() -> void:
+	var f := party_factor()
+	for m in monsters():
+		var cur := float(m.get("party_scale", 1.0))
+		if absf(f - cur) < 1e-6:
+			continue
+		m.max_hp = float(m.max_hp) * f / cur
+		m.hp = float(m.hp) * f / cur
+		m.party_scale = f
+		_emit({ "type": "party_scale", "id": m.id, "factor": f, "max_hp": m.max_hp })
+
+
+## Where a new hunter stands: `want` when no hunter is within party_spawn_min
+## of it, else the best safe hex round it: walkable plain ground (floor, pad,
+## sun; never water, lava, rock, vents, shade), no charge on it, clear of the
+## monster's spawn, reachable from `want` by a short path, party_spawn_min+
+## from every hunter. Preference: party_spawn_min..max from its NEAREST hunter
+## (the party stands 2-3 apart), then closest to `want`, then abreast of
+## `want` (same distance to the monster spawn), then hex order. A thin spawn
+## (the pond's shore) strings the party along it rather than into the water.
+## Deterministic; never consumes the RNG.
+func party_spawn(want: Vector2i) -> Vector2i:
+	var others := players()
+	var min_d := int(HHTune.value("party_spawn_min"))
+	if others.all(func(o): return HHHex.distance(o.hex, want) >= min_d):
+		return want
+	var max_d := int(HHTune.value("party_spawn_max"))
+	var mon: Vector2i = arena.spawns.get("monster", want)
+	var mon_d := HHHex.distance(want, mon)
+	var blocked := {}
+	for m in monsters():
+		for h in footprint(m):
+			blocked[h] = true
+	var best := want
+	var best_key := []
+	for r in range(1, max_d * 2 + 3):
+		for h in arena.ring(want, r):
+			if not _spawn_ok(h, blocked, mon):
+				continue
+			var near := 1 << 30
+			for o in others:
+				near = mini(near, HHHex.distance(o.hex, h))
+			if near < min_d:
+				continue
+			var p := arena.path(want, h, blocked)
+			if p.is_empty() or p.size() > r + 3:
+				continue
+			var band := 0 if near <= max_d else 1
+			var key := [band, r, absi(HHHex.distance(h, mon) - mon_d), h.y, h.x]
+			if best_key.is_empty() or _key_less(key, best_key):
+				best_key = key
+				best = h
+	return best
+
+
+const SPAWN_KINDS := ["floor", "pad", "sun"]
+
+
+func _spawn_ok(h: Vector2i, blocked: Dictionary, mon: Vector2i) -> bool:
+	return arena.walkable(h) and arena.kind(h) in SPAWN_KINDS and not blocked.has(h) \
+		and charge.at(h).is_empty() and HHHex.distance(h, mon) > 4
+
+
+static func _key_less(a: Array, b: Array) -> bool:
+	for i in a.size():
+		if a[i] != b[i]:
+			return a[i] < b[i]
+	return false
+
+
+## Hunters standing (alive and not downed).
+func standing_players() -> Array:
+	return players().filter(func(p): return alive(p) and not bool(p.get("downed", false)))
+
+
+## Two different hunters, with friendly fire off (party_friendly_fire 0):
+## they never hurt, slow or blast each other (H33 extended to the party).
+func allies(a_id: String, b_id: String) -> bool:
+	if a_id == b_id or a_id == "" or b_id == "" or HHTune.value("party_friendly_fire") > 0.5:
+		return false
+	return str(unit(a_id).get("kind", "")) == "player" and str(unit(b_id).get("kind", "")) == "player"
+
+
+## The ground under `u` counts as its own when it or an ally painted it.
+func _ground_owner(u: Dictionary, hex: Vector2i) -> String:
+	var src := str(charge.at(hex).get("source", ""))
+	return src if allies(src, u.id) else str(u.id)
+
+
+## H53 aggro: the hunter a monster goes for. The nearest standing hunter (hex
+## distance), where the one that hit `m` last (aggro_id) counts as
+## aggro_hit_bonus_hexes closer for aggro_memory_ticks after that hit. Ties go
+## to the earlier hunter in `order`. Solo it is exactly the old nearest-alive
+## pick. {} when nobody stands.
+func monster_target(m: Dictionary) -> Dictionary:
+	var hot := str(m.get("aggro_id", ""))
+	if hot != "" and tick - int(m.get("aggro_tick", -1)) > int(HHTune.value("aggro_memory_ticks")):
+		hot = ""
+	var bonus := HHTune.value("aggro_hit_bonus_hexes")
+	var best := {}
+	var best_s := INF
+	for p in players():
+		if not alive(p) or bool(p.get("downed", false)):
+			continue
+		var s := float(HHHex.distance(m.hex, p.hex))
+		if p.id == hot:
+			s -= bonus
+		if s < best_s:
+			best_s = s
+			best = p
+	return best
 
 
 func _unit(id: String, kind: String, hex: Vector2i) -> Dictionary:
@@ -93,6 +238,7 @@ func _unit(id: String, kind: String, hex: Vector2i) -> Dictionary:
 		"stagger": 0, "statuses": {}, "cooldowns": { "q": 0, "w": 0, "e": 0, "r": 0, "basic": 0 },
 		"crossed": hex, "weapon": "", "guard": 0, "leap": {}, "windup": {}, "allowed_kinds": [],
 		"untargetable": false, "resist": {}, "potions": 0, "regen": {}, "upgrades": {}, "immune": 0,
+		"downed": false, "revive": 0.0, "revive_by": "", "hurt_tick": -1, "aggro_id": "", "aggro_tick": -1,
 	}
 	units[id] = u
 	order.append(id)
@@ -231,6 +377,7 @@ func step(orders: Dictionary = {}) -> Array:
 	charge.tick()
 	if tick % int(HHTune.value("authored_reform_every")) == 0:
 		charge.author_rows(arena.authored_rows(), true)  # H44: vents, lava and shade re-form
+	_revives()
 	_check_over()
 	return events
 
@@ -380,9 +527,11 @@ func _walk_free(u: Dictionary) -> void:
 			_face_pos(u, unit(u.target).pos)
 		return
 	# string-pull: skip waypoints while the straight run to a later one is clear
-	while path.size() >= 2 and clear_line(u.hex, path[1], blocked):
+	# (not right after a clipped corner: then follow hex centres for a moment)
+	var pull := tick >= int(u.get("unpull_until", 0))
+	while pull and path.size() >= 2 and clear_line(u.hex, path[1], blocked):
 		path.pop_front()
-	if path.size() == 1 and goal != NO_POS and clear_line(u.hex, arena.from_world(goal), blocked):
+	if pull and path.size() == 1 and goal != NO_POS and clear_line(u.hex, arena.from_world(goal), blocked):
 		path.pop_front()
 	var target: Vector3
 	if path.is_empty():
@@ -394,7 +543,7 @@ func _walk_free(u: Dictionary) -> void:
 	var mps := HHTune.value("run_mps") if u.run else HHTune.value("walk_mps")
 	if u.statuses.has("slow"):
 		mps *= HHTune.value("slow_mult")
-	var step := mps * charge.move_mult(u.hex, u.id) * TICK
+	var step := mps * charge.move_mult(u.hex, _ground_owner(u, u.hex)) * TICK
 	var from: Vector3 = u.pos
 	var flat := Vector3(target.x - from.x, 0.0, target.z - from.z)
 	var dist := flat.length()
@@ -405,6 +554,16 @@ func _walk_free(u: Dictionary) -> void:
 		next = from + flat / dist * step
 	var nh := arena.from_world(next)
 	if nh != u.hex and (not arena.walkable(nh) or blocked.has(nh) or absf(arena.hex_height(nh) - arena.hex_height(u.hex)) > HHTune.value("max_step_m")):
+		var centre := arena.stand(u.hex)
+		var off := Vector3(centre.x - from.x, 0.0, centre.z - from.z)
+		if pull and not path.is_empty() and nh != path[0] and off.length() > 1e-3:
+			# H880: the string-pulled run clipped a corner hex the hex line missed
+			# (it is tested centre to centre, the hunter is off-centre). Step back
+			# toward this hex's centre and follow hex centres for a moment instead
+			# of stopping: stopping re-paths into the same clip every tick.
+			u.unpull_until = tick + 15
+			u.pos = centre if off.length() <= step else from + off / off.length() * step
+			return
 		_stop(u)                                      # the edge, a cliff, the monster's body
 		_emit({ "type": "blocked", "id": u.id, "hex": nh })
 		return
@@ -524,14 +683,14 @@ func _windup(u: Dictionary) -> void:
 
 func _enter(u: Dictionary, hex: Vector2i) -> void:
 	var pct := charge.crossing_pct(hex)
-	if pct > 0.0 and u.crossed != hex and not charge.owned_by(hex, u.id):
+	if pct > 0.0 and u.crossed != hex and not charge.owned_by(hex, _ground_owner(u, hex)):
 		hurt(u, HHFormulas.tile_damage(u.max_hp, pct, resist_of(u, "fire")).value, "fire_cross")
 	u.crossed = hex
 
 
 func _ground(u: Dictionary) -> void:
 	var s := charge.standing(u.hex)
-	var mine: bool = str(s.source) == u.id                 # H33: your own element never hurts you
+	var mine: bool = str(s.source) == u.id or allies(str(s.source), u.id)   # H33: your own (or your party's) element never hurts you
 	if float(s.fire) > 0.0 and not mine:
 		hurt(u, HHFormulas.tile_damage(u.max_hp, float(s.fire), resist_of(u, "fire")).value, "fire")
 	if float(s.drain) > 0.0 and not mine:
@@ -616,12 +775,14 @@ func _basic_land(_sim: HHSim, u: Dictionary, data: Dictionary) -> void:
 ## One blow from `u` on `t` landing on `hex`: rear multiplier (a brain may
 ## expose rear_mult), resistance, then hurt.
 func strike(u: Dictionary, t: Dictionary, base: float, hex: Vector2i, cause: String, stagger: float = 0.0) -> float:
+	if allies(str(u.get("id", "")), str(t.get("id", ""))):
+		return 0.0                                       # H53: a hunter's blow passes through an ally
 	var mult := 1.0
 	var brain: Variant = brains.get(t.id)
 	if brain != null and brain.has_method("rear_mult"):
 		mult = float(brain.rear_mult(t, u.hex))
 	var dmg: float = HHFormulas.hit(base, mult, resist_of(t, u.element)).value
-	hurt(t, dmg, cause, stagger)
+	hurt(t, dmg, cause, stagger, str(u.id))
 	_emit({ "type": "strike", "id": u.id, "target": t.id, "hex": hex, "amount": dmg, "cause": cause, "rear": mult > 1.0 })
 	return dmg
 
@@ -654,6 +815,8 @@ func _resolve_telegraph(tg: Dictionary) -> void:
 	var hit: Array = []
 	var cause := str(p.get("name", p.get("clip", "telegraph")))
 	for u in units_in(tg.hexes, "" if bool(p.get("self_hit", false)) else str(tg.owner)):
+		if allies(str(tg.owner), u.id):
+			continue                                     # H53: a hunter's telegraph (arcing shot, echo) spares allies
 		var pct := float(p.get("dmg_pct", 0.0))
 		var el := str(p.get("element", ""))
 		if pct > 0.0:
@@ -661,9 +824,9 @@ func _resolve_telegraph(tg: Dictionary) -> void:
 			if int(u.guard) > 0:
 				dmg *= 1.0 - HHTune.value("guard_reduce")
 				_guard_counter(u, owner)
-				hurt(u, dmg, cause, 0.0)
+				hurt(u, dmg, cause, 0.0, str(tg.owner))
 			else:
-				hurt(u, dmg, cause, float(p.get("stagger", 0.0)))
+				hurt(u, dmg, cause, float(p.get("stagger", 0.0)), str(tg.owner))
 		if str(p.get("status", "")) != "" and int(u.guard) <= 0:
 			apply_status(u, str(p.status), int(p.get("status_ticks", 90)))
 		if int(u.guard) <= 0:
@@ -788,12 +951,16 @@ func paint(hexes: Array, element: String, caster: String, steps: int = 1, fresh:
 		_emit({ "type": "overheat", "hex": o.hex, "ring": o.ring })
 		var unit_o := reaction_unit(str(o.source))
 		for u in units_in(o.ring, str(o.source)):
-			_react(hits, u, unit_o * float(o.mult) * (1.0 - resist_of(u, "fire") / 100.0), "overheat", 0.0)
+			if allies(str(o.source), u.id):
+				continue
+			_react(hits, u, unit_o * float(o.mult) * (1.0 - resist_of(u, "fire") / 100.0), "overheat", 0.0, str(o.source))
 	for o in r.overfreeze:
 		_emit({ "type": "overfreeze", "hex": o.hex, "ring": o.ring })
 		var unit_f := reaction_unit(str(o.source))
 		for u in units_in([o.hex] + o.ring, str(o.source)):
-			_react(hits, u, unit_f * float(o.mult) * (1.0 - resist_of(u, "ice") / 100.0), "overfreeze", 0.0)
+			if allies(str(o.source), u.id):
+				continue
+			_react(hits, u, unit_f * float(o.mult) * (1.0 - resist_of(u, "ice") / 100.0), "overfreeze", 0.0, str(o.source))
 			apply_status(u, "slow", int(HHTune.value("overfreeze_slow_ticks")))
 	_land_reactions(hits)
 	for g in r.gales:
@@ -819,22 +986,22 @@ func _blast(hits: Dictionary, hex: Vector2i, mult: float, cause: String, mix: Di
 	var unit_d := reaction_unit(source)
 	var seen := {}
 	for u in unit_at(hex):
-		if not targetable(u) or u.id == source:
+		if not targetable(u) or u.id == source or allies(source, u.id):
 			continue
 		seen[u.id] = true
-		_react(hits, u, unit_d * mult * (1.0 - resist_of(u, "thunder") / 100.0), cause, HHTune.value("detonate_stagger"))
+		_react(hits, u, unit_d * mult * (1.0 - resist_of(u, "thunder") / 100.0), cause, HHTune.value("detonate_stagger"), source)
 	var ring_mult: float = HHFormulas.detonation_ring_pct(mult).value
 	for n in arena.ring(hex, 1):
 		for u in unit_at(n):
-			if not seen.has(u.id) and targetable(u) and u.id != source:
+			if not seen.has(u.id) and targetable(u) and u.id != source and not allies(source, u.id):
 				seen[u.id] = true
-				_react(hits, u, unit_d * ring_mult * (1.0 - resist_of(u, "thunder") / 100.0), cause, 0.0)
+				_react(hits, u, unit_d * ring_mult * (1.0 - resist_of(u, "thunder") / 100.0), cause, 0.0, source)
 
 
-func _react(hits: Dictionary, u: Dictionary, amount: float, cause: String, stagger: float) -> void:
+func _react(hits: Dictionary, u: Dictionary, amount: float, cause: String, stagger: float, source: String = "") -> void:
 	if not hits.has(u.id):
 		hits[u.id] = []
-	(hits[u.id] as Array).append({ "amount": amount, "cause": cause, "stagger": stagger })
+	(hits[u.id] as Array).append({ "amount": amount, "cause": cause, "stagger": stagger, "source": source })
 
 
 ## Every unit a paint's reactions caught takes its strongest blast in full plus
@@ -855,15 +1022,21 @@ func _land_reactions(hits: Dictionary) -> void:
 		for i in range(1, list.size()):
 			total += float(list[i].amount) * HHTune.value("reaction_chain_frac")
 		_emit({ "type": "reaction", "id": u.id, "amount": total, "blasts": list.size(), "cause": top.cause })
-		hurt(u, total, str(top.cause), float(top.stagger))
+		hurt(u, total, str(top.cause), float(top.stagger), str(top.get("source", "")))
 
 
-func hurt(u: Dictionary, amount: float, cause: String, stagger: float = 0.0) -> void:
+## `by` (optional): the unit that dealt it. A hunter's hit on a monster is
+## remembered for aggro (aggro_id / aggro_tick, monster_target).
+func hurt(u: Dictionary, amount: float, cause: String, stagger: float = 0.0, by: String = "") -> void:
 	if not alive(u) or amount <= 0.0:
 		return
 	if int(u.immune) > 0:                                # H552: immunity ticks skip the whole hit
 		_emit({ "type": "immune", "id": u.id, "amount": amount, "cause": cause })
 		return
+	u.hurt_tick = tick
+	if by != "" and u.kind == "monster" and str(unit(by).get("kind", "")) == "player":
+		u.aggro_id = by
+		u.aggro_tick = tick
 	u.hp = maxf(0.0, float(u.hp) - amount)
 	if stagger > 0.0:
 		var st := int(HHFormulas.stagger_ticks(stagger).value)
@@ -879,7 +1052,72 @@ func hurt(u: Dictionary, amount: float, cause: String, stagger: float = 0.0) -> 
 		u.leap = {}
 		u.windup = {}
 		u.untargetable = false
-		_emit({ "type": "death", "id": u.id, "cause": cause })
+		if u.kind == "player" and standing_players().any(func(o): return o.id != u.id):
+			_down(u, cause)                              # H53: an ally stands, so this hunter can be revived
+		else:
+			_emit({ "type": "death", "id": u.id, "cause": cause })
+
+
+# ------------------------------------------------------------------ downed and revive (H53)
+
+## A hunter at 0 HP with an ally standing. HP stays 0, so every alive() check
+## (orders, brains, hooks, targeting, ground, statuses) already skips it.
+func _down(u: Dictionary, cause: String) -> void:
+	u.downed = true
+	u.revive = 0.0
+	u.revive_by = ""
+	u.target = ""
+	u.attacking = false
+	u.stagger = 0
+	u.regen = {}
+	var names: Array = (u.statuses as Dictionary).keys()
+	names.sort()
+	for name in names:
+		_emit({ "type": "status_end", "id": u.id, "status": name })
+	u.statuses = {}
+	_emit({ "type": "downed", "id": u.id, "cause": cause })
+
+
+## Each tick, after all damage: a downed hunter with an ally standing within
+## 1 hex gains a tick of revive progress, unless one of those allies was hurt
+## this tick (progress back to 0: "revive_interrupted"); with nobody by it the
+## progress decays (revive_decay per tick). At revive_ticks it stands up with
+## revive_hp_pct of max HP. Emits revive_progress every revive_event_every.
+func _revives() -> void:
+	for id in order:
+		var d: Dictionary = units[id]
+		if not bool(d.get("downed", false)):
+			continue
+		var helpers: Array = standing_players().filter(func(o): return o.id != d.id and HHHex.distance(o.hex, d.hex) <= 1)
+		var before := float(d.revive)
+		if helpers.is_empty():
+			d.revive = maxf(0.0, before - HHTune.value("revive_decay"))
+			d.revive_by = ""
+			continue
+		if helpers.any(func(o): return int(o.hurt_tick) == tick):
+			d.revive = 0.0
+			d.revive_by = ""
+			if before > 0.0:
+				_emit({ "type": "revive_interrupted", "id": d.id, "by": str(helpers[0].id) })
+			continue
+		var need := HHTune.value("revive_ticks")
+		d.revive = before + 1.0
+		d.revive_by = str(helpers[0].id)
+		var every := maxi(1, int(HHTune.value("revive_event_every")))
+		if int(floor(float(d.revive))) / every > int(floor(before)) / every:
+			_emit({ "type": "revive_progress", "id": d.id, "by": d.revive_by, "progress": d.revive, "total": need, "frac": minf(1.0, float(d.revive) / need) })
+		if float(d.revive) >= need:
+			_revive(d)
+
+
+func _revive(d: Dictionary) -> void:
+	var by := str(d.revive_by)
+	d.downed = false
+	d.revive = 0.0
+	d.revive_by = ""
+	d.hp = float(d.max_hp) * HHTune.value("revive_hp_pct") / 100.0
+	d.crossed = d.hex                                     # standing up on burning ground is not "entering" it
+	_emit({ "type": "revived", "id": d.id, "by": by, "hp": d.hp })
 
 
 func heal(u: Dictionary, amount: float, cause: String) -> void:
@@ -916,7 +1154,8 @@ func state_hash() -> int:
 	for id in order:
 		var u: Dictionary = units[id]
 		var p: Vector3 = u.pos
-		parts.append("%s:%s:%d:%.2f,%.2f:%s:%d:%d:%d" % [id, u.hex, int(u.hp), p.x, p.z, u.element, int(u.stagger), int(u.guard), int(u.immune)])
+		parts.append("%s:%s:%d:%.2f,%.2f:%s:%d:%d:%d:%d:%d" % [id, u.hex, int(u.hp), p.x, p.z, u.element, int(u.stagger), int(u.guard), int(u.immune),
+			1 if bool(u.get("downed", false)) else 0, int(float(u.get("revive", 0.0)) * 10.0)])
 	var keys := charge.entries.keys()
 	keys.sort()
 	for h in keys:

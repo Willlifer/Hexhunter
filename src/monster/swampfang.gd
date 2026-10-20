@@ -155,10 +155,11 @@ func tick(sim: HHSim, u: Dictionary) -> void:
 	for pid in HHPhases.check(phase_state, hp_frac, sim.tick):
 		_on_phase(sim, u, str(pid))
 	var p := _nearest_player(sim, u)
-	if _potion_seen(sim) and sim.tick - darkness_at >= int(TUNE.darkness_cd_ticks) and not p.is_empty():
+	var drinker := _potion_drinker(sim)
+	if not drinker.is_empty() and sim.tick - darkness_at >= int(TUNE.darkness_cd_ticks) and not p.is_empty():
 		if state == "calm":
 			_force_phase(sim, u, "aggravated")        # a potion wakes it (H40)
-		_darkness(sim, u, p)
+		_darkness(sim, u, drinker)                   # H53: over the hunter who drank, not the one it hunts
 		return
 	if state == "calm":
 		if (not p.is_empty() and _edge_dist(u, p) <= int(TUNE.aggro_hexes)):
@@ -270,10 +271,15 @@ func _emit_state(sim: HHSim, u: Dictionary) -> void:
 
 ## H40: a player drank a potion this tick.
 func _potion_seen(sim: HHSim) -> bool:
+	return not _potion_drinker(sim).is_empty()
+
+
+## H53: the standing hunter who drank this tick (the first in order), or {}.
+func _potion_drinker(sim: HHSim) -> Dictionary:
 	for pl in sim.players():
-		if sim.tick - int(pl.get("potion_tick", -100000)) <= 1:
-			return true
-	return false
+		if sim.alive(pl) and sim.tick - int(pl.get("potion_tick", -100000)) <= 1:
+			return pl
+	return {}
 
 
 ## H40: monsters don't like potions: darkness over the drinker's ground
@@ -652,17 +658,10 @@ func _ensure(u: Dictionary) -> void:
 		u["untargetable"] = false
 
 
+## The hunter it goes for: the sim's one aggro rule (H53: nearest standing,
+## with a threat bonus for the last hunter that hit it).
 func _nearest_player(sim: HHSim, u: Dictionary) -> Dictionary:
-	var best := {}
-	var best_d := 1 << 30
-	for p in sim.players():
-		if not sim.alive(p):
-			continue
-		var d := HHHex.distance(u.hex, p.hex)
-		if d < best_d:
-			best_d = d
-			best = p
-	return best
+	return sim.monster_target(u)
 
 
 ## Hexes between the footprint edge and the player's hex (0 = touching).
