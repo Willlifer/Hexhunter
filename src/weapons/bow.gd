@@ -2,6 +2,7 @@ class_name HHBow
 ## The winged recurve bow (kickoff §6, Lane A). Held in the left hand; the arrow is art/weapons/arrow.glb.
 ##   Q Energized shot  an arrow along the line to the cursor, up to 10 hexes: lays the element on every
 ##                     hex it passes and hits the first monster in its way. 3 s.
+##                     H56: hold to draw (walk slowed); levels in q_shape; full draw is a 3-wide piercing band.
 ##   W Exchange        flip the quiver, attune to the backup element. 1 s (HHTune exchange_cd).
 ##   E Arcing shot     a lobbed elemental bomb: a radius-1 player telegraph on the cursor hex that
 ##                     lands after 24 ticks (the monster can see it coming), damage + 2 steps. 6 s.
@@ -35,6 +36,16 @@ const TUNE := {
 	"q_dmg": 130.0,
 	"q_steps": 1,               # element on every hex passed
 	"q_stagger": 0.15,
+	# Q charged (H56, Lane W H95x): hold to draw; you may walk while drawing, slowed (HHTune charge_move_mult)
+	"q_l2_steps": 2,            # level 2 (held 1.5 s): the same line at strength 2 ...
+	"q_l2_mult": 1.8,           # ... x q_dmg
+	"q_l2_stagger": 0.25,
+	"q_l3_centre_steps": 3,     # level 3 (3 s, looses itself): a 3-wide line, the centre at strength 3 ...
+	"q_l3_side_steps": 2,       # ... the side lines at strength 2
+	"q_l3_mult": 3.5,           # ... x q_dmg, on every monster in the band (it flies through, full range)
+	"q_l3_stagger": 0.5,
+	"q_l3_half_m": 1.8,         # the band: hexes within this many metres of the shot's axis (one hex a side)
+	"q_l3_windup": 12,          # the heavy release winds up a little longer than q_windup
 	# E Arcing shot
 	"e_cd": 180,                # 6 s
 	"e_range": 9,               # how far the lob reaches; the aim clamps along the line
@@ -52,7 +63,7 @@ const TUNE := {
 	"r_steps": 2,
 	"r_stagger": 0.5,
 	# upgrades (H550)
-	"up_q_double_steps": 2,     # energized_double: steps of element on every hex of the line (x2)
+	"up_q_double_steps": 2,     # energized_double: steps on a tap's line (x2); every charged level gains the same +1, capped at 3
 	"up_e_echo_dist": 3,        # arcing_twice: the six bomblets land this far from the first burst's centre
 	"up_e_echo_radius": 1,      # arcing_twice: each bomblet's radius (1 = 7 hexes)
 	"up_e_echo_ticks": 15,      # arcing_twice: bomblets land this many ticks after the first burst
@@ -75,14 +86,55 @@ static func skills() -> Dictionary:
 	}
 
 
-static func cast(sim: HHSim, u: Dictionary, key: String, aim: Vector2i) -> bool:
+## H56: the charged shot's footprint, { hex: strength }, on a miss (the
+## level 1-2 arrow stops at the first monster it meets; see _energized_land).
+##   1 (tap)  the q_range line at q_steps (1)
+##   2        the same line at q_l2_steps (2)
+##   3        a 3-wide line: centre q_l3_centre_steps (3), sides q_l3_side_steps (2)
+## Overcharged Shot (energized_double) adds the same +1 at every level, capped at 3.
+static func q_shape(sim: HHSim, u: Dictionary, aim: Vector2i, level: int) -> Dictionary:
+	var line := shot_line(sim, u, aim, int(_t("q_range")))
+	var extra := int(_t("up_q_double_steps")) - int(_t("q_steps")) if HHUpgrades.has(u, "energized_double") else 0
+	var out := {}
+	match level:
+		2:
+			for h in line:
+				out[h] = mini(3, int(_t("q_l2_steps")) + extra)
+		3:
+			for h in HHWeapons.side_band(sim, u, line, float(_t("q_l3_half_m"))):
+				out[h] = mini(3, int(_t("q_l3_side_steps")) + extra)
+			for h in line:
+				out[h] = mini(3, int(_t("q_l3_centre_steps")) + extra)
+		_:
+			for h in line:
+				out[h] = mini(3, int(_t("q_steps")) + extra)
+	return out
+
+
+static func q_mult(level: int) -> float:
+	match level:
+		2: return float(_t("q_l2_mult"))
+		3: return float(_t("q_l3_mult"))
+	return 1.0
+
+
+static func q_stagger(level: int) -> float:
+	match level:
+		2: return float(_t("q_l2_stagger"))
+		3: return float(_t("q_l3_stagger"))
+	return float(_t("q_stagger"))
+
+
+static func cast(sim: HHSim, u: Dictionary, key: String, aim: Vector2i, level: int = 1) -> bool:
 	match key:
 		"q":
 			var path := shot_line(sim, u, aim, int(_t("q_range")))
 			if path.is_empty():
 				return false
 			sim._face(u, path[0])
-			sim.begin_windup(u, "energized", int(_t("q_windup")), { "line": path }, Callable(HHBow, "_energized_land"))
+			var ticks := int(_t("q_l3_windup")) if level >= 3 else int(_t("q_windup"))
+			sim.begin_windup(u, "energized", ticks, { "line": path, "level": level, "shape": q_shape(sim, u, aim, level) },
+				Callable(HHBow, "_energized_land"))
 			return true
 		"w":
 			HHWeapons.exchange(sim, u)
@@ -183,25 +235,47 @@ static func leap_target(sim: HHSim, u: Dictionary, aim: Vector2i, range: int) ->
 	return to
 
 
+## Levels 1-2: the arrow flies the line and stops in the first monster it
+## meets, painting the hexes it passed. Level 3: the band flies the whole
+## range through everything, every monster in it struck once.
 static func _energized_land(sim: HHSim, u: Dictionary, data: Dictionary) -> void:
 	var line: Array = data.line
-	var passed: Array = []
+	var level := int(data.get("level", 1))
+	var shape: Dictionary = data.get("shape", {})
+	if shape.is_empty():
+		shape = {}
+		for h in line:
+			shape[h] = int(_t("q_steps"))
+	var dmg := float(_t("q_dmg")) * q_mult(level)
 	var hit := ""
-	for h in line:
-		passed.append(h)
-		var found := false
-		for t in sim.unit_at(h):
-			if t.id == u.id or not sim.targetable(t) or t.kind != "monster":
+	var painted := {}
+	if level >= 3:
+		for t in sim.units_in(shape.keys(), u.id):
+			if t.kind != "monster":
 				continue
-			sim.strike(u, t, float(_t("q_dmg")), h, "energized shot", float(_t("q_stagger")))
-			hit = t.id
-			found = true
-			break
-		if found:
-			break
-	var steps := int(_t("up_q_double_steps")) if HHUpgrades.has(u, "energized_double") else int(_t("q_steps"))
-	sim.paint(passed, u.element, u.id, steps)
-	sim._emit({ "type": "energized_shot", "id": u.id, "hexes": passed, "hit": hit, "element": u.element, "steps": steps })
+			sim.strike(u, t, dmg, sim.nearest_hex_of(t, u.hex), "energized shot", q_stagger(level))
+			if hit == "":
+				hit = t.id
+		painted = shape
+	else:
+		for h in line:
+			painted[h] = int(shape.get(h, 1))
+			var found := false
+			for t in sim.unit_at(h):
+				if t.id == u.id or not sim.targetable(t) or t.kind != "monster":
+					continue
+				sim.strike(u, t, dmg, h, "energized shot", q_stagger(level))
+				hit = t.id
+				found = true
+				break
+			if found:
+				break
+	HHWeapons.paint_shape(sim, u, painted)
+	var steps := 0
+	for h in painted:
+		steps = maxi(steps, int(painted[h]))
+	sim._emit({ "type": "energized_shot", "id": u.id, "hexes": painted.keys(), "hit": hit, "element": u.element, "steps": steps,
+		"level": level, "shape": painted })
 
 
 static func _arrowstorm_land(sim: HHSim, u: Dictionary) -> void:

@@ -297,7 +297,7 @@ func test_potion_cleanse(c: HHSelfTest.HHCheck) -> void:
 	c.eq(up.size(), 1, "cleansed")
 	c.eq((up[0].cleared as Array).size(), 3, "three cleared")
 	c.eq((p.statuses as Dictionary).size(), 0, "no statuses left")
-	c.ok(not (p.regen as Dictionary).is_empty(), "the heal still runs")
+	c.ok(not (p.heal_zone as Dictionary).is_empty(), "the heal zone still runs (H56)")
 	var t := _sim("lance", {})
 	var q := t.unit("p1")
 	t.apply_status(q, "burn", 600)

@@ -57,11 +57,11 @@ func test_flourish(c: HHSelfTest.HHCheck) -> void:
 		for e in s.step():
 			if e.type == "flourish":
 				fired = true
-				c.eq((e.hexes as Array).size(), 19, "radius-2 area")
+				c.eq((e.hexes as Array).size(), 7, "a tap (level 1, H56): radius-1 area")
 	c.ok(fired, "flourish landed")
 	c.ok(float(m.hp) < hp, "the monster in the area took damage")
 	c.ok(s.charge.intensity(p.hex, "fire") >= 1, "the area carries the element")
-	c.ok(s.charge.intensity(Vector2i(0, 3), "fire") >= 1, "...out to the ring at 2")
+	c.ok(s.charge.intensity(Vector2i(0, 2), "fire") >= 1, "...out to the ring at 1")
 	c.ok(int(p.cooldowns.q) > 0 and int(p.cooldowns.q) <= int(HHDaggers.TUNE.q_cd) - int(HHDaggers.TUNE.q_windup), "cooldown set at cast, counting since")
 	var refused := false
 	for e in s.step({ "p1": { "cast": { "skill": "q", "aim": m.hex } } }):

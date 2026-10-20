@@ -1,6 +1,7 @@
 class_name HHLance
 ## The lance (kickoff §6 skills; H5: the Phase 1 weapon).
 ##   Q Pierce     stab forward: a line of hexes toward the cursor, element laid on it, damage to anyone in it. 3 s.
+##                H56: hold to charge (rooted, braced: lance_charge_guard); levels in q_shape.
 ##   W Exchange   plant the spear, attune to the backup element. 1 s.
 ##   E Guard      block for 2 s; a hit taken while guarding answers with a stronger Pierce at the attacker. 8 s.
 ##   R Eruption   vault to the cursor hex; on landing a radius-2 eruption of the element. 15 s.
@@ -14,7 +15,18 @@ static var _registered := false
 
 ## Upgrade numbers, F1-editable as "lance_up_<key>".
 const TUNE := {
-	"up_q_width": 3,          # pierce_wide: hexes across (1 = the plain line, 3 = line plus both sides)
+	# Q Pierce charged (H56, Lane W H95x): hold to charge, the lance roots and braces (HHTune lance_charge_guard)
+	"q_l2_len": 6,            # level 2 (held 1.5 s): a longer stab ...
+	"q_l2_steps": 2,          # ... at strength 2
+	"q_l2_mult": 1.8,         # ... x lance_q_dmg
+	"q_l2_stagger": 0.45,
+	"q_l3_len": 6,            # level 3 (3 s, fires itself): a 3-wide lunge this long
+	"q_l3_centre_steps": 3,   # ... the centre line at strength 3
+	"q_l3_side_steps": 2,     # ... the two side lines at strength 2
+	"q_l3_mult": 3.5,         # ... x lance_q_dmg ("big damage")
+	"q_l3_stagger": 0.9,      # ... heavy stagger
+	"q_l3_windup": 16,        # the full lunge winds up longer than the stab (lance_q_windup)
+	"up_q_width": 3,          # pierce_wide: hexes across (1 = the plain line, 3 = line plus both sides; +2 on the level-3 lunge)
 	"up_e_stagger": 1.0,      # guard_stagger: the counter's stagger strength (0..1 of stagger_max_ticks)
 	"up_r_echo_ticks": 30,    # eruption_twice: the aftershock lands this many ticks after the first
 	"up_r_echo_pct": 1.5,     # eruption_twice: aftershock damage, pct of the victim's max HP
@@ -74,16 +86,44 @@ static func widen(sim: HHSim, u: Dictionary, line: Array, width: int) -> Array:
 	return out
 
 
-static func cast(sim: HHSim, u: Dictionary, key: String, aim: Vector2i) -> bool:
+## H56: the charged Pierce's footprint, { hex: strength }.
+##   1 (tap)  lance_q_len hexes at strength 1
+##   2        q_l2_len hexes at strength 2
+##   3        a 3-wide lunge q_l3_len long: centre strength 3, sides 2
+## Broad Pierce (pierce_wide) adds one more hex a side at every level (the
+## level-3 lunge goes 5 wide, its outer rows at strength 1: 1-2-3-2-1).
+static func q_shape(sim: HHSim, u: Dictionary, aim: Vector2i, level: int) -> Dictionary:
+	var length := int(HHTune.value("lance_q_len"))
+	var steps := [1]                                     # strength per layer: centre, layer 1, layer 2 ...
+	match level:
+		2:
+			length = int(_t("q_l2_len"))
+			steps = [int(_t("q_l2_steps"))]
+		3:
+			length = int(_t("q_l3_len"))
+			steps = [int(_t("q_l3_centre_steps")), int(_t("q_l3_side_steps"))]
+	if HHUpgrades.has(u, "pierce_wide"):
+		for i in maxi(0, (int(_t("up_q_width")) - 1) / 2):
+			steps.append(steps[-1] if steps.size() == 1 else maxi(1, int(steps[-1]) - 1))
+	var line := pierce_line(sim, u, aim, length)
+	var out := {}
+	var layers := HHWeapons.band(sim, u, line, steps.size() - 1)
+	for i in layers.size():
+		for h in layers[i]:
+			out[h] = int(steps[i])
+	return out
+
+
+static func cast(sim: HHSim, u: Dictionary, key: String, aim: Vector2i, level: int = 1) -> bool:
 	match key:
 		"q":
 			var line := pierce_line(sim, u, aim, int(HHTune.value("lance_q_len")))
 			if line.is_empty():
 				return false
 			sim._face(u, line[0])
-			if HHUpgrades.has(u, "pierce_wide"):
-				line = widen(sim, u, line, int(_t("up_q_width")))
-			sim.begin_windup(u, "pierce", int(HHTune.value("lance_q_windup")), { "line": line }, Callable(HHLance, "_pierce_land"))
+			var shape := q_shape(sim, u, aim, level)
+			var ticks := int(_t("q_l3_windup")) if level >= 3 else int(HHTune.value("lance_q_windup"))
+			sim.begin_windup(u, "pierce", ticks, { "shape": shape, "level": level }, Callable(HHLance, "_pierce_land"))
 			return true
 		"w":
 			HHWeapons.exchange(sim, u)
@@ -110,8 +150,32 @@ static func cast(sim: HHSim, u: Dictionary, key: String, aim: Vector2i) -> bool:
 	return false
 
 
+## Damage multiplier of a Pierce level (1 at a tap).
+static func q_mult(level: int) -> float:
+	match level:
+		2: return float(_t("q_l2_mult"))
+		3: return float(_t("q_l3_mult"))
+	return 1.0
+
+
+static func q_stagger(level: int) -> float:
+	match level:
+		2: return float(_t("q_l2_stagger"))
+		3: return float(_t("q_l3_stagger"))
+	return HHTune.value("lance_q_stagger")
+
+
+## The charged Pierce lands: one blow on every unit in the footprint (the
+## level's damage and stagger, however many of its hexes it covers), then the
+## footprint is painted strength group by strength group.
 static func _pierce_land(sim: HHSim, u: Dictionary, data: Dictionary) -> void:
-	_pierce(sim, u, data.line, HHTune.value("lance_q_dmg"), 1, "pierce")
+	var level := int(data.get("level", 1))
+	var shape: Dictionary = data.get("shape", {})
+	var hexes: Array = shape.keys()
+	for t in sim.units_in(hexes, u.id):
+		sim.strike(u, t, HHTune.value("lance_q_dmg") * q_mult(level), sim.nearest_hex_of(t, u.hex), "pierce", q_stagger(level))
+	HHWeapons.paint_shape(sim, u, shape)
+	sim._emit({ "type": "pierce", "id": u.id, "hexes": hexes, "element": u.element, "cause": "pierce", "level": level, "shape": shape })
 
 
 static func _pierce(sim: HHSim, u: Dictionary, line: Array, dmg: float, steps: int, cause: String, stagger: float = -1.0) -> void:

@@ -22,7 +22,13 @@ extends RefCounted
 ##   stays 0 so every alive() check skips it), revive (float ticks of revive
 ##   progress), revive_by (id of the ally reviving, "" = none), hurt_tick (last
 ##   tick hurt() landed), aggro_id / aggro_tick (monsters: the hunter that hit
-##   it last and when), party_scale (monsters: the HP factor applied) }
+##   it last and when), party_scale (monsters: the HP factor applied),
+##   H56 (Lane W, hunters only): charging ({} or { skill, ticks, level, aim }:
+##   a held Q), dash ({} or { from, to: Vector3, ticks, total }), dash_charges,
+##   dash_recharge (ticks to the next charge), dash_recover (ticks before the
+##   next dash), dash_iframes (ticks of dodge left), heal_zone ({} or { hex,
+##   radius, left, total, pct_per_s }: the hunter's thrown potion on the
+##   ground), potion_hex (where the last potion landed) }
 ##
 ## Co-op (H53): up to 4 hunters. add_player fans hunters 2..4 out round the
 ## spawn; monster HP scales with the party (scale_for_party); a hunter at 0 HP
@@ -34,8 +40,13 @@ extends RefCounted
 ## Orders per unit per tick (all optional):
 ##   { move: Vector2i, move_pos: Vector3 (the exact point), stop: true,
 ##     target: id, attack: true (right-click on the monster, H32), run: bool,
-##     swap: true, cast: { skill, aim: Vector2i }, potion: true (T, H40),
-##     paint: {...} (sandbox) }
+##     swap: true, cast: { skill, aim: Vector2i }, potion: true | { aim: Vector2i }
+##     (T: a throw at aim, H40/H56; true = at your feet), paint: {...} (sandbox),
+##     H56 charged Q: charge: { skill: "q", aim } (key down), charge_aim: Vector2i
+##     (aim updates while held), release: { skill: "q", aim } (key up; a charge
+##     and a release in one tick is a tap), dash: Vector3 (Shift: toward that
+##     world point; on the hunter = the way it was moving) }
+## A `cast` of q is still an instant level-1 shot (tests, old bots).
 
 const TICK := 1.0 / 30.0
 const NO_POS := Vector3(INF, INF, INF)
@@ -89,6 +100,13 @@ func add_player(id: String, hex: Vector2i, element: String = "fire", backup: Str
 	u.run = true
 	u.potions = int(HHTune.value("potion_count"))
 	u.cooldowns["t"] = 0
+	u.charging = {}                                      # H56: the held Q
+	u.dash = {}
+	u.dash_charges = int(HHTune.value("dash_charges"))
+	u.dash_recharge = 0
+	u.dash_recover = 0
+	u.dash_iframes = 0
+	u.heal_zone = {}
 	scale_for_party()
 	return u
 
@@ -346,6 +364,10 @@ func step(orders: Dictionary = {}) -> Array:
 		var u: Dictionary = units[id]
 		if alive(u) and orders.has(id):
 			_orders(u, orders[id])
+	for id in order:
+		var u: Dictionary = units[id]
+		if alive(u) and u.kind == "player":
+			_charge_tick(u)
 	for id in brains.keys():
 		var u: Dictionary = units.get(id, {})
 		if not u.is_empty() and alive(u):
@@ -376,6 +398,7 @@ func step(orders: Dictionary = {}) -> Array:
 			if alive(u):
 				_ground(u)
 				_statuses(u)
+		_heal_zones()
 	for id in order:
 		var u: Dictionary = units[id]
 		for k in u.cooldowns:
@@ -385,6 +408,8 @@ func step(orders: Dictionary = {}) -> Array:
 			u.guard = int(u.guard) - 1
 		if int(u.immune) > 0:
 			u.immune = int(u.immune) - 1
+		if u.kind == "player":
+			_dash_timers(u)
 	charge.tick()
 	if tick % int(HHTune.value("authored_reform_every")) == 0:
 		charge.author_rows(arena.authored_rows(), true)  # H44: vents, lava and shade re-form
@@ -400,7 +425,18 @@ func _emit(e: Dictionary) -> void:
 
 ## Committed to an action (wind-up, vault, stagger, paralysis): no new moves.
 func held(u: Dictionary) -> bool:
-	return int(u.stagger) > 0 or _paralysed(u) or not (u.leap as Dictionary).is_empty() or not (u.windup as Dictionary).is_empty()
+	return int(u.stagger) > 0 or _paralysed(u) or not (u.leap as Dictionary).is_empty() or not (u.windup as Dictionary).is_empty() \
+		or not (u.get("dash", {}) as Dictionary).is_empty()
+
+
+## H56: a hunter holding a charged Q.
+func charging(u: Dictionary) -> bool:
+	return not (u.get("charging", {}) as Dictionary).is_empty()
+
+
+## H56: the lance roots while it charges (move orders are ignored: commitment).
+func rooted(u: Dictionary) -> bool:
+	return charging(u) and str(u.get("weapon", "")) == "lance"
 
 
 func _orders(u: Dictionary, o: Dictionary) -> void:
@@ -426,7 +462,7 @@ func _orders(u: Dictionary, o: Dictionary) -> void:
 		if HHHex.distance(arena.from_world(L.from), dest) <= int(L.get("range", 4)):
 			L.to = dest
 			_emit({ "type": "leap_steer", "id": u.id, "to": dest })
-	if o.has("move") and not held(u):
+	if o.has("move") and not held(u) and not rooted(u):
 		var goal: Vector2i = o.move
 		var blocked := blocked_for(u)
 		var dest := arena.nearest_walkable(u.hex, goal, blocked)
@@ -437,16 +473,32 @@ func _orders(u: Dictionary, o: Dictionary) -> void:
 			exact = NO_POS
 		_set_route(u, arena.path(u.hex, dest, blocked), exact)
 		_emit({ "type": "move", "id": u.id, "to": dest })
-	if o.get("swap", false) and u.kind == "player" and not held(u):
+	if u.kind == "player" and o.has("dash"):
+		_dash_order(u, o.dash)
+	if u.kind == "player" and o.has("charge"):
+		_charge_order(u, o.charge)
+	if u.kind == "player" and o.has("charge_aim") and charging(u) and o.charge_aim is Vector2i:
+		(u.charging as Dictionary).aim = o.charge_aim
+	if u.kind == "player" and o.has("release") and o.release is Dictionary:
+		var rl: Dictionary = o.release
+		if charging(u) and str(rl.get("skill", "q")) == str(u.charging.skill):
+			_release_charge(u, rl.get("aim", (u.charging as Dictionary).get("aim", u.hex)))
+	var busy := held(u) or charging(u)
+	if o.get("swap", false) and u.kind == "player" and not busy:
 		HHWeapons.cast(self, u, "w", u.hex)
-	if o.has("cast") and u.kind == "player" and not held(u):
+	if o.has("cast") and u.kind == "player" and not busy:
 		var cst: Dictionary = o.cast
 		HHWeapons.cast(self, u, str(cst.get("skill", "")), cst.get("aim", u.hex))
-	if o.get("potion", false) and u.kind == "player" and not held(u):
+	var pot: Variant = o.get("potion", false)
+	if (pot is Dictionary or (pot is bool and pot)) and u.kind == "player" and not busy:
 		if int(u.potions) > 0 and int(u.cooldowns.get("t", 0)) <= 0:
+			var aim: Vector2i = (pot as Dictionary).get("aim", u.hex) if pot is Dictionary else u.hex
+			var at := potion_target(u, aim)
 			u.cooldowns["t"] = int(HHTune.value("potion_cd"))
 			_stop(u)
-			begin_windup(u, "potion", int(HHTune.value("potion_windup")), {}, Callable(self, "_potion_land"))
+			if at != u.hex:
+				_face(u, at)
+			begin_windup(u, "potion", int(HHTune.value("potion_windup")), { "aim": at }, Callable(self, "_potion_land"))
 		else:
 			_emit({ "type": "cast_refused", "id": u.id, "skill": "t", "why": "none left" if int(u.potions) <= 0 else "cooldown" })
 	if o.has("paint") and sandbox:
@@ -517,14 +569,17 @@ func _walk_free(u: Dictionary) -> void:
 	if not (u.leap as Dictionary).is_empty():
 		_leap(u)
 		return
+	if not (u.get("dash", {}) as Dictionary).is_empty():
+		_dash_step(u)
+		return
 	if int(u.stagger) > 0:
 		u.stagger = int(u.stagger) - 1
 		return
-	if _paralysed(u) or not (u.windup as Dictionary).is_empty():
+	if _paralysed(u) or not (u.windup as Dictionary).is_empty() or rooted(u):
 		return
 	var blocked := blocked_for(u)
-	# walk into range of the target
-	if u.target != "" and (u.path as Array).is_empty() and (u.goal_pos as Vector3) == NO_POS:
+	# walk into range of the target (not while charging: only an explicit move moves a charging hunter)
+	if u.target != "" and (u.path as Array).is_empty() and (u.goal_pos as Vector3) == NO_POS and not charging(u):
 		var t := unit(u.target)
 		if t.is_empty() or not alive(t):
 			u.target = ""
@@ -554,6 +609,8 @@ func _walk_free(u: Dictionary) -> void:
 	var mps := HHTune.value("run_mps") if u.run else HHTune.value("walk_mps")
 	if u.statuses.has("slow"):
 		mps *= HHTune.value("slow_mult")
+	if charging(u):
+		mps *= HHTune.value("charge_move_mult")       # H56: bow and daggers slow while they charge
 	var step := mps * charge.move_mult(u.hex, _ground_owner(u, u.hex)) * TICK
 	var from: Vector3 = u.pos
 	var flat := Vector3(target.x - from.x, 0.0, target.z - from.z)
@@ -720,15 +777,62 @@ func _ground(u: Dictionary) -> void:
 		heal(u, HHFormulas.tile_damage(u.max_hp, float(s.heal)).value, "light")
 
 
-## H40: the potion lands: a heal over potion_seconds that the ground can
-## fight (dark under you cuts it, light under you feeds it).
-func _potion_land(_sim: HHSim, u: Dictionary, _data: Dictionary) -> void:
+## H56: where a potion thrown at `aim` lands: on the line to it, no farther
+## than potion_range, on the arena.
+func potion_target(u: Dictionary, aim: Vector2i) -> Vector2i:
+	var reach_h := int(HHTune.value("potion_range"))
+	if not arena.exists(aim):
+		aim = u.hex
+	if HHHex.distance(u.hex, aim) <= reach_h:
+		return aim
+	var best: Vector2i = u.hex
+	for h in HHHex.line(u.hex, aim):
+		if HHHex.distance(u.hex, h) <= reach_h and arena.exists(h):
+			best = h
+	return best
+
+
+## H40 / H56: the thrown potion lands: a heal zone of potion_radius on the
+## ground for potion_seconds. Every standing hunter inside heals
+## potion_heal_pct / potion_seconds of max HP a second (a hunter in it the
+## whole time heals what a drink did), and the ground under each one fights
+## it (dark cuts, light feeds: heal_mult). One zone per hunter; a new throw
+## replaces it.
+func _potion_land(_sim: HHSim, u: Dictionary, data: Dictionary) -> void:
 	u.potions = int(u.potions) - 1
 	var secs := HHTune.value("potion_seconds")
-	u.regen = { "ticks": int(secs * 30.0), "pct_per_s": HHTune.value("potion_heal_pct") / maxf(secs, 1.0) }
+	var at: Vector2i = data.get("aim", u.hex)
+	var ticks := int(secs * 30.0)
+	u.heal_zone = { "hex": at, "radius": int(HHTune.value("potion_radius")), "left": ticks, "total": ticks,
+		"pct_per_s": HHTune.value("potion_heal_pct") / maxf(secs, 1.0) }
 	u["potion_tick"] = tick                              # brains read this (they tick before wind-ups land)
-	_emit({ "type": "potion", "id": u.id, "left": u.potions })
+	u["potion_hex"] = at                                 # ... and this: Swampfang darkens the zone, not the thrower
+	_emit({ "type": "potion", "id": u.id, "left": u.potions, "hex": at, "radius": int(u.heal_zone.radius) })
 	HHWeapons.potion_landed(self, u)                     # H554: the weapon layer answers a potion (upgrades)
+
+
+## True when `p` stands in a live heal zone.
+func in_heal_zone(p: Dictionary) -> bool:
+	for q in players():
+		var z: Dictionary = q.get("heal_zone", {})
+		if not z.is_empty() and HHHex.distance(p.hex, z.hex) <= int(z.radius):
+			return true
+	return false
+
+
+## Once a ground tick: every live zone heals the standing hunters inside it.
+func _heal_zones() -> void:
+	for owner in players():
+		var z: Dictionary = owner.get("heal_zone", {})
+		if z.is_empty():
+			continue
+		for p in standing_players():
+			if HHHex.distance(p.hex, z.hex) <= int(z.radius):
+				heal(p, HHFormulas.tile_damage(p.max_hp, float(z.pct_per_s)).value * heal_mult(p), "potion")
+		z.left = int(z.left) - int(HHTune.value("ground_tick_every"))
+		if int(z.left) <= 0:
+			owner.heal_zone = {}
+			_emit({ "type": "heal_zone_end", "id": owner.id, "hex": z.hex })
 
 
 ## Healing rate under this unit: 1 - dark_heal_cut per dark tier, + light_heal_bonus per light tier.
@@ -808,6 +912,192 @@ func strike(u: Dictionary, t: Dictionary, base: float, hex: Vector2i, cause: Str
 	return dmg
 
 
+# ------------------------------------------------------------------ charged Q (H56)
+
+## Levels by ticks held: 1 (a tap) below charge_l2_s, 2 from it, 3 at charge_l3_s.
+static func charge_level(ticks: int) -> int:
+	if ticks >= int(roundf(HHTune.value("charge_l3_s") * 30.0)):
+		return 3
+	if ticks >= int(roundf(HHTune.value("charge_l2_s") * 30.0)):
+		return 2
+	return 1
+
+
+## Key down: start holding `skill` (q). Refused on cooldown, mid-action or
+## already charging. A charge breaks the auto-attack's own wind-up (the skill
+## wins over a flick); any other wind-up refuses it. The lance roots.
+func _charge_order(u: Dictionary, c: Variant) -> void:
+	if not c is Dictionary:
+		return
+	var skill := str((c as Dictionary).get("skill", "q"))
+	if skill != "q" or charging(u):
+		return
+	if int(u.cooldowns.get(skill, 0)) > 0:
+		_emit({ "type": "cast_refused", "id": u.id, "skill": skill, "why": "cooldown" })
+		return
+	var w: Dictionary = u.windup
+	if not w.is_empty() and str(w.kind) == "basic" and int(u.stagger) <= 0:
+		u.windup = {}
+		_emit({ "type": "windup_broken", "id": u.id, "kind": "basic" })
+	if held(u):
+		_emit({ "type": "cast_refused", "id": u.id, "skill": skill, "why": "busy" })
+		return
+	var aim: Variant = (c as Dictionary).get("aim", u.hex)
+	u.charging = { "skill": skill, "ticks": 0, "level": 1, "aim": aim if aim is Vector2i else u.hex }
+	if str(u.weapon) == "lance":
+		_stop(u)                                         # rooted: the lance plants and braces
+	_emit({ "type": "charge_start", "id": u.id, "skill": skill, "weapon": str(u.weapon) })
+
+
+## Each tick for a charging hunter: count, announce new levels, fire at level 3.
+func _charge_tick(u: Dictionary) -> void:
+	if not charging(u):
+		return
+	var ch: Dictionary = u.charging
+	if int(u.stagger) > 0 or _paralysed(u) or not (u.leap as Dictionary).is_empty():
+		cancel_charge(u, "stagger" if int(u.stagger) > 0 else "held")
+		return
+	ch.ticks = int(ch.ticks) + 1
+	var lv := charge_level(int(ch.ticks))
+	if lv > int(ch.level):
+		ch.level = lv
+		_emit({ "type": "charge_level", "id": u.id, "skill": str(ch.skill), "level": lv })
+	if lv >= 3:
+		_release_charge(u, ch.get("aim", u.hex))         # full charge fires on its own
+
+
+## Key up (or full charge): fire at the level reached. The weapon winds up
+## (nothing is instant) and the cooldown starts now.
+func _release_charge(u: Dictionary, aim: Variant) -> void:
+	var ch: Dictionary = u.charging
+	u.charging = {}
+	var at: Vector2i = aim if aim is Vector2i else u.hex
+	var lv := maxi(int(ch.get("level", 1)), charge_level(int(ch.get("ticks", 0))))
+	_emit({ "type": "charge_release", "id": u.id, "skill": str(ch.skill), "level": lv, "aim": at, "ticks": int(ch.ticks) })
+	HHWeapons.cast(self, u, str(ch.skill), at, lv)
+
+
+## A charge lost (a stagger, a dash). A dash spends the skill: its cooldown
+## starts (the commitment was paid); a stagger does not (the hit is the cost).
+func cancel_charge(u: Dictionary, why: String) -> void:
+	if not charging(u):
+		return
+	var ch: Dictionary = u.charging
+	u.charging = {}
+	if why == "dash":
+		var sk: Dictionary = HHWeapons.skills(str(u.weapon)).get(str(ch.skill), {})
+		u.cooldowns[str(ch.skill)] = int(sk.get("cooldown", 0))
+	_emit({ "type": "charge_cancel", "id": u.id, "skill": str(ch.skill), "level": int(ch.level), "why": why })
+
+
+# ------------------------------------------------------------------ dash (H56)
+
+## Shift: a short dash toward `to` (a world point). On the hunter (or no
+## point) it goes the way the hunter was moving, else where it faces. It
+## stops short of walls, the edge, cliffs and bodies; refused when nothing is
+## left of it, mid-action, out of charges or still recovering. It cancels a
+## charging Q (spending it) and dodges hits for its first dash_iframe_ticks.
+func _dash_order(u: Dictionary, to: Variant) -> void:
+	if int(u.get("dash_charges", 0)) <= 0 or int(u.get("dash_recover", 0)) > 0 or held(u):
+		var why := "recovering" if int(u.get("dash_recover", 0)) > 0 else ("none left" if int(u.get("dash_charges", 0)) <= 0 else "busy")
+		_emit({ "type": "cast_refused", "id": u.id, "skill": "dash", "why": why })
+		return
+	var from: Vector3 = u.pos
+	var d := Vector3.ZERO
+	if to is Vector3 and (to as Vector3) != NO_POS:
+		d = (to as Vector3) - from
+		d.y = 0.0
+	if d.length() < 0.5:
+		var path: Array = u.path
+		var goal: Vector3 = u.goal_pos
+		if not path.is_empty():
+			d = arena.stand(path[0]) - from
+		elif goal != NO_POS:
+			d = goal - from
+		else:
+			d = Vector3.ZERO
+		d.y = 0.0
+		if d.length() < 0.05:
+			d = Vector3(sin(float(u.facing)), 0.0, cos(float(u.facing)))
+	d = d.normalized()
+	var end := dash_end(u, d)
+	if Vector2(end.x - from.x, end.z - from.z).length() < 0.3:
+		_emit({ "type": "cast_refused", "id": u.id, "skill": "dash", "why": "blocked" })
+		return
+	if charging(u):
+		cancel_charge(u, "dash")
+	_stop(u)
+	u.dash_charges = int(u.dash_charges) - 1
+	if int(u.get("dash_recharge", 0)) <= 0:
+		u.dash_recharge = int(roundf(HHTune.value("dash_recharge_s") * 30.0))
+	var total := maxi(1, int(HHTune.value("dash_ticks")))
+	u.dash = { "from": from, "to": end, "ticks": 0, "total": total }
+	u.dash_iframes = int(HHTune.value("dash_iframe_ticks"))
+	u.facing = atan2(d.x, d.z)
+	_emit({ "type": "dash", "id": u.id, "from": from, "to": end, "ticks": total, "left": int(u.dash_charges) })
+
+
+## The farthest point along `dir` (unit, flat) within dash_m the hunter can
+## reach in a straight line: every hex crossed walkable, unblocked, no cliff.
+func dash_end(u: Dictionary, dir: Vector3) -> Vector3:
+	var from: Vector3 = u.pos
+	var blocked := blocked_for(u)
+	var max_step := HHTune.value("max_step_m")
+	var last_hex: Vector2i = u.hex
+	var best := from
+	var dist := HHTune.value("dash_m")
+	var n := int(ceil(dist / 0.1))
+	for i in range(1, n + 1):
+		var p := from + dir * minf(float(i) * 0.1, dist)
+		var h := arena.from_world(p)
+		if h != last_hex:
+			if not arena.walkable(h) or blocked.has(h) or absf(arena.hex_height(h) - arena.hex_height(last_hex)) > max_step:
+				break
+			last_hex = h
+		best = p
+	best.y = arena.stand(arena.from_world(best)).y
+	return best
+
+
+func _dash_step(u: Dictionary) -> void:
+	var D: Dictionary = u.dash
+	D.ticks = int(D.ticks) + 1
+	var t := clampf(float(D.ticks) / float(D.total), 0.0, 1.0)
+	var e := 1.0 - (1.0 - t) * (1.0 - t)                # ease out: a burst, then it settles
+	var a: Vector3 = D.from
+	var b: Vector3 = D.to
+	var p := a.lerp(b, e)
+	var nh := arena.from_world(p)
+	p.y = arena.stand(nh).y
+	u.pos = p
+	if nh != u.hex:
+		u.prev = u.hex
+		u.hex = nh
+		_enter(u, nh)
+	if int(D.ticks) >= int(D.total):
+		u.dash = {}
+		u.dash_recover = int(HHTune.value("dash_recover_ticks"))
+		_emit({ "type": "dash_end", "id": u.id, "hex": u.hex })
+
+
+## Per tick: recovery and dodge windows run down; spent charges come back one
+## at a time, every dash_recharge_s.
+func _dash_timers(u: Dictionary) -> void:
+	if int(u.get("dash_recover", 0)) > 0:
+		u.dash_recover = int(u.dash_recover) - 1
+	if int(u.get("dash_iframes", 0)) > 0:
+		u.dash_iframes = int(u.dash_iframes) - 1
+	var cap := int(HHTune.value("dash_charges"))
+	if int(u.get("dash_charges", cap)) >= cap:
+		u.dash_recharge = 0
+		return
+	u.dash_recharge = int(u.get("dash_recharge", 0)) - 1
+	if int(u.dash_recharge) <= 0:
+		u.dash_charges = int(u.dash_charges) + 1
+		_emit({ "type": "dash_ready", "id": u.id, "charges": int(u.dash_charges) })
+		u.dash_recharge = int(roundf(HHTune.value("dash_recharge_s") * 30.0)) if int(u.dash_charges) < cap else 0
+
+
 # ------------------------------------------------------------------ telegraphs
 
 func telegraph(owner: String, hexes: Array, ticks: int, payload: Dictionary = {}) -> int:
@@ -838,6 +1128,9 @@ func _resolve_telegraph(tg: Dictionary) -> void:
 	for u in units_in(tg.hexes, "" if bool(p.get("self_hit", false)) else str(tg.owner)):
 		if allies(str(tg.owner), u.id):
 			continue                                     # H53: a hunter's telegraph (arcing shot, echo) spares allies
+		if int(u.get("dash_iframes", 0)) > 0:
+			_emit({ "type": "dodge", "id": u.id, "amount": 0.0, "cause": cause })
+			continue                                     # H56: dashed through it (no damage, no status)
 		var pct := float(p.get("dmg_pct", 0.0))
 		var el := str(p.get("element", ""))
 		if pct > 0.0:
@@ -1054,6 +1347,11 @@ func hurt(u: Dictionary, amount: float, cause: String, stagger: float = 0.0, by:
 	if int(u.immune) > 0:                                # H552: immunity ticks skip the whole hit
 		_emit({ "type": "immune", "id": u.id, "amount": amount, "cause": cause })
 		return
+	if int(u.get("dash_iframes", 0)) > 0:               # H56: the first ticks of a dash dodge
+		_emit({ "type": "dodge", "id": u.id, "amount": amount, "cause": cause })
+		return
+	if rooted(u):
+		amount *= 1.0 - HHTune.value("lance_charge_guard")   # H56: the lance braces while it charges
 	u.hurt_tick = tick
 	if by != "" and u.kind == "monster" and str(unit(by).get("kind", "")) == "player":
 		u.aggro_id = by
@@ -1067,12 +1365,17 @@ func hurt(u: Dictionary, amount: float, cause: String, stagger: float = 0.0, by:
 			u.stagger = st
 			_stop(u)
 			_emit({ "type": "stagger", "id": u.id, "ticks": st })
+			if charging(u):
+				cancel_charge(u, "stagger")
 	_emit({ "type": "hurt", "id": u.id, "amount": amount, "cause": cause, "hp": u.hp })
 	if float(u.hp) <= 0.0:
 		_stop(u)
 		u.leap = {}
 		u.windup = {}
 		u.untargetable = false
+		if u.kind == "player":
+			u.charging = {}
+			u.dash = {}
 		if u.kind == "player" and standing_players().any(func(o): return o.id != u.id):
 			_down(u, cause)                              # H53: an ally stands, so this hunter can be revived
 		else:
@@ -1091,6 +1394,8 @@ func _down(u: Dictionary, cause: String) -> void:
 	u.attacking = false
 	u.stagger = 0
 	u.regen = {}
+	u.charging = {}
+	u.dash = {}
 	var names: Array = (u.statuses as Dictionary).keys()
 	names.sort()
 	for name in names:
@@ -1177,6 +1482,11 @@ func state_hash() -> int:
 		var p: Vector3 = u.pos
 		parts.append("%s:%s:%d:%.2f,%.2f:%s:%d:%d:%d:%d:%d" % [id, u.hex, int(u.hp), p.x, p.z, u.element, int(u.stagger), int(u.guard), int(u.immune),
 			1 if bool(u.get("downed", false)) else 0, int(float(u.get("revive", 0.0)) * 10.0)])
+		if u.kind == "player":                           # H56: charge, dash and the heal zone
+			var ch: Dictionary = u.get("charging", {})
+			var z: Dictionary = u.get("heal_zone", {})
+			parts.append("c%d:%d:d%d:%d:%d:z%d" % [int(ch.get("ticks", -1)), int(ch.get("level", 0)), int(u.get("dash_charges", 0)),
+				int(u.get("dash_recharge", 0)), int((u.get("dash", {}) as Dictionary).get("ticks", -1)), int(z.get("left", -1))])
 	var keys := charge.entries.keys()
 	keys.sort()
 	for h in keys:
