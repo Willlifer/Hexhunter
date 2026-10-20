@@ -29,3 +29,23 @@ Lane P adds casts (Q/E/R as orders with an aim hex) and the basic attack. Lane E
 
 ## Events (from `step()`)
 `move, arrive, swap, paint, detonate, overheat, overfreeze, gale, douse, hurt, heal, death, status, status_end, over`. Every event carries `tick`. The view reads events for one-shots (bursts, hit reactions); it reads state for everything continuous.
+
+## Phase 3 contracts (H48): screens, launch config, registry, upgrades
+
+**Screen.** Any top-level screen is a `Node` with `setup(cfg: Dictionary)` and `signal finished(result: Dictionary)`. `HHShell` (`src/game/shell.gd`, Lane L) owns the tree: `show(screen)` frees the current screen and adds the new one; it keeps `last_cfg` so "replay" and "new seed" are one call. No `change_scene`; F10 / Esc in a fight emits `finished({ result: "abort" })`.
+
+**Launch config** (the one dictionary that starts a fight, Lane L):
+```
+cfg = { arena: "pond", monster: "swampfang", weapon: "lance",
+        element: "fire", backup: "water", seed: 1,
+        upgrades: { q: [], w: [], e: [], r: [] },     # upgrade ids slotted per skill, max 3 each
+        locked: [],                                    # keys the prep screen may not change (hunt loop: arena, monster)
+        cam: "30,44" }
+```
+`HHFight.setup_cfg(cfg)` builds the fight from it (the old `setup(arena, seed, monster, asset)` stays for tests). The fight emits `finished({ result: "win"|"fallen"|"abort", cfg, ticks, hp, monster_hp })`.
+
+**Registry** (`src/game/registry.gd`, `HHRegistry`, Lane L): static tables `ARENAS`, `MONSTERS`, `WEAPONS`, `ELEMENTS` of rows `{ id, name, blurb, look: [tint_hex, TAG] }` plus `biome_of(monster) -> arena id`. Referenced by id; scripts load lazily by path (Gauntlet G66). `check()` verifies each id resolves to a file.
+
+**Upgrades** (`src/progress/upgrades.gd`, `HHUpgrades`, Lane U): `TABLE: id -> { skill: "q"|"w"|"e"|"r", weapon: "lance"|"daggers"|"bow"|"any", name, blurb, drops_from: [monster ids] }`. A player unit carries `u.upgrades: Dictionary` (skill -> Array of ids), filled by `sim.add_player(..., upgrades)` (Lane U extends the signature with a trailing default argument). Weapon scripts ask `HHUpgrades.has(u, "id")`. `HHDrops.roll(monster_id, rng: RandomNumberGenerator) -> Array` of upgrade ids; `HHSave` (`user://hunter.json`): `{ owned: [ids], slotted: { weapon: { q: [], w: [], e: [], r: [] } }, hunts: [...] }` with `load_or_new()`, `save()`.
+
+**Hunt loop** (`src/game/hunt/**`, Lane H): screens `HHWorldMap`, `HHAmbush`, `HHResults`; `HHHunt.start(shell)` runs map -> ambush -> prep (the lobby with `locked: ["arena", "monster"]`) -> fight -> results -> map. It reads `HHSave` / `HHDrops` through `ResourceLoader.exists` guards so it runs before Lane U merges.

@@ -1,7 +1,7 @@
 # PLAN — Hexhunt
 
 Phases with gates. The author checks each gate before the next phase starts.
-Status: **Phase 1 gate passed and its notes applied (H31-H41). Phase 2 Fan-out built 2026-10-19: three weapons, rigged hunter, four arenas, four monsters, all merged to dev (165/165). Awaiting the author's Phase 2 gate check** (LEDGER L-10).
+Status: **Phase 2 gate passed 2026-10-19 ("loved all of the fights"; fire tuned down, H46). Phase 3 running as four worktree lanes (L lobby, H hunt loop, U upgrades, V visual hooks), contract in guide/02 (H48).**
 
 ## 0. Interview record
 
@@ -55,7 +55,7 @@ Four arenas, four monsters, three weapons with four skills each and three upgrad
 | 0 | Foundation | serial, one session | `godot --headless --path . --import` clean; `-- --self-test` exit 0 with report; an empty 50 m hex arena renders in a window with painted test hexes and the orbit camera. Doc set in place. |
 | 1 | First fight | up to 3 lanes (P, C, E) + F | Lance vs Swampfang in the pond, playable start to finish: ambush, fight with telegraphs, stagger, element painting and reactions, death/victory. Author plays it and calls the feel. |
 | 2 | Fan-out | 6 lanes (A-F) | Three weapons with all clips; four arenas; four monsters; music loops delivered. Each lane's own test green; self-test green on dev. |
-| 3 | Hunt loop and progression | 2 lanes | World map, disturbance, cutscene, prep screen, drops, three upgrade slots per skill with the kickoff examples implemented. |
+| 3 | Hunt loop and progression | 4 lanes (L, H, U, V) | Lobby / prep screen (arena x monster x weapon x two elements x seed, replay), world map, disturbance, ambush cutscene, drops, three upgrade slots per skill with the kickoff examples implemented, monster state visuals and status icons. The exe opens on the lobby. |
 | 4 | Co-op | 1 lane | 2-4 players over Godot high-level multiplayer, host-authoritative orders, one full hunt with two clients. |
 | 5 | Balance, polish, web | 2 lanes | Web export via the shim, Vercel, friends play it; tune pass from playtest notes. |
 
@@ -110,3 +110,12 @@ Each lane: its own worktree off `dev`, an owned file set, a reserved DECISIONS b
 | F Audio | `D:\Music Studio\Claude Playground\hexhunt\**`, `audio/**` | H350-H399 | 1 |
 
 Merge rule: lane branch → `dev` by the integrator after that lane's suite and the full self-test pass. `main` moves only at a phase gate.
+
+### Phase 3 lanes (2026-10-19)
+
+| Lane | Owns | Block | Delivers |
+|------|------|-------|----------|
+| L Lobby | `src/game/shell.gd`, `src/game/registry.gd`, `src/game/lobby/**`, `src/game/boot.gd`, `src/game/fight.gd` (setup_cfg + finished only), `tests/test_lobby*.gd` | H450-H499 | Gauntlet-pattern lobby: tiles per arena / monster / weapon, element pair pick (any two of seven), seed field, Play / Replay / New seed, gear -> F1 tune panel, `HHShell`, `HHRegistry`, `setup_cfg`, exe boots to the lobby, flags still launch a fight directly |
+| H Hunt loop | `src/game/hunt/**`, `tests/test_hunt*.gd`, `design/hunt/**` | H500-H549 | world map with four biome sites, disturbance marker, approach -> ambush cutscene, prep via the lobby (locked arena/monster), results screen with drops, back to the map |
+| U Upgrades | `src/progress/**`, `src/weapons/**`, `tests/test_upgrade*.gd`, `tests/test_play_daggers/bow/lance` (extend), small `src/core/sim.gd` hooks (logged) | H550-H599 | `HHUpgrades` table with the six kickoff examples implemented, three slots per skill, `HHDrops` per monster, `HHSave` |
+| V Visuals | `src/monster/monster_body.gd`, `src/monster/*_clips.gd` view hooks, `src/game/anim/player_body.gd`, `src/game/hud.gd`, `src/game/arena_view.gd` (status/state only), `tests/test_visual*.gd` | H600-H649 | L-12 (quill glow, crystal tint, reed arcs, HUD status icons), L-13 (hood, coloured weapon glbs on the body), L-4 tile cards if cheap |
