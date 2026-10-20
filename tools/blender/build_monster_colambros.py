@@ -34,7 +34,7 @@ GLB_OUT = os.path.join(ROOT, "art", "monsters", "colambros.glb")
 JSON_OUT = os.path.join(ROOT, "art", "monsters", "monsters.json")
 BLEND_OUT = os.path.join(ROOT, "art", "monsters", "blend", "colambros.blend")
 
-VERSION = 2   # bump when bones, sockets or proportions change (2: forequarters raised, ankles lowered, arms lengthened)
+VERSION = 3   # bump when bones, sockets or proportions change (3, H650: brute-wyvern biped: torso up 35 deg, digitigrade legs, small arms held high, big head + horns)
 
 # palette (vertex COLOR; sRGB intent)
 RUST = (0.64, 0.24, 0.12)
@@ -54,27 +54,30 @@ def S(y, z, rx, rz, drop=0.0, role=None):
     return d
 
 
-# the dorsal line (top of the body loft) from the skull to mid-tail, for the quill row
+# The biped stance (H650): the hips 1.95 m up over the rear legs, the torso
+# rising ~35 deg to the shoulders, an S-neck carrying a big hyena skull at
+# ~3.9 m, the tail sweeping down behind to rest its tip on the ground (the
+# kangaroo's third support).
 SPINE_ST = [
-    S(0.55, 1.75, 0.80, 0.78),     # hips (over the rear legs)
-    S(-0.30, 2.05, 0.76, 0.74),    # spine_0
-    S(-1.15, 2.38, 0.70, 0.68),    # spine_1
-    S(-1.85, 2.62, 0.60, 0.60),    # chest
-    S(-2.35, 2.74, 0.42, 0.42),    # neck base
+    S(0.40, 1.95, 0.80, 0.82),     # hips (over the rear legs): the biggest mass
+    S(-0.35, 2.35, 0.82, 0.80),    # spine_0 (belly)
+    S(-0.95, 2.78, 0.70, 0.68),    # spine_1
+    S(-1.45, 3.15, 0.56, 0.55),    # chest
+    S(-1.75, 3.45, 0.42, 0.42),    # neck base
 ]
 NECK_ST = [
-    S(-2.35, 2.74, 0.42, 0.42),
-    S(-2.90, 2.92, 0.40, 0.40),
-    S(-3.35, 3.00, 0.50, 0.46),    # skull
-    S(-3.95, 2.90, 0.34, 0.28),    # snout
-    S(-4.35, 2.82, 0.22, 0.17),    # nose
+    S(-1.75, 3.45, 0.42, 0.42),
+    S(-2.20, 3.75, 0.40, 0.40),
+    S(-2.70, 3.86, 0.60, 0.52),    # skull (wide: the hyena's cheeks)
+    S(-3.30, 3.68, 0.42, 0.32),    # snout
+    S(-3.75, 3.55, 0.27, 0.19),    # nose
 ]
 TAIL_ST = [
-    S(0.55, 1.75, 0.80, 0.78),
-    S(1.45, 1.42, 0.60, 0.52),
-    S(2.25, 1.02, 0.42, 0.36),
-    S(2.95, 0.62, 0.27, 0.24),
-    S(3.45, 0.36, 0.14, 0.12),
+    S(0.40, 1.95, 0.80, 0.82),
+    S(1.30, 1.42, 0.60, 0.56),
+    S(2.25, 0.78, 0.44, 0.40),
+    S(3.30, 0.40, 0.29, 0.26),
+    S(4.30, 0.22, 0.15, 0.13),
 ]
 
 
@@ -83,7 +86,7 @@ def dorsal(st):
 
 
 # the ridge: skull -> hips -> mid tail, as one polyline (forward first)
-RIDGE = [dorsal(NECK_ST)[2], dorsal(NECK_ST)[0]] + list(reversed(dorsal(SPINE_ST)[:-1])) + dorsal(TAIL_ST)[1:3]
+RIDGE = [dorsal(NECK_ST)[2], dorsal(NECK_ST)[1], dorsal(NECK_ST)[0]] + list(reversed(dorsal(SPINE_ST)[:-1])) + dorsal(TAIL_ST)[1:4]
 N_QUILLS = 14
 QUILL_NAMES = ["quill_%d" % i for i in range(N_QUILLS)]
 
@@ -91,29 +94,52 @@ QUILL_NAMES = ["quill_%d" % i for i in range(N_QUILLS)]
 def quill_len(u):
     # short on the skull, longest over the shoulders and hips, short on the tail
     import math
-    return 0.28 + 0.62 * math.sin(math.pi * min(1.0, max(0.0, (u - 0.02) / 0.9))) ** 0.8
+    return 0.30 + 0.75 * math.sin(math.pi * min(1.0, max(0.0, (u - 0.02) / 0.85))) ** 0.8
 
 
-QUILLS = ext.quill_row(RIDGE, QUILL_NAMES, N_QUILLS, quill_len, rake=0.6, lift=0.06, start=0.03, end=0.95, width=0.12)
+QUILLS = ext.quill_row(RIDGE, QUILL_NAMES, N_QUILLS, quill_len, rake=0.55, lift=0.04, start=0.04, end=0.92, width=0.13)
 
 
 def quill_parent(it):
     y = it["base"][1]
-    if y < -2.95:
+    if y < -2.2:
         return "head"
-    if y < -2.35:
+    if y < -1.75:
         return "neck"
-    if y < -1.5:
+    if y < -1.45:
         return "chest"
-    if y < -0.7:
+    if y < -0.95:
         return "spine_1"
-    if y < 0.15:
+    if y < -0.35:
         return "spine_0"
-    if y < 1.0:
+    if y < 0.40:
         return "hips"
-    if y < 1.85:
+    if y < 1.30:
         return "tail_0"
-    return "tail_1"
+    if y < 2.25:
+        return "tail_1"
+    return "tail_2"
+
+
+def REAR(side):
+    s = 1.0 if side == "l" else -1.0
+    # digitigrade kangaroo leg: thigh forward-down, shin back-down to a high hock,
+    # a long metatarsus forward-down to the ball of the foot, big splayed toes
+    return {"id": "h" + side, "parent": "hips", "digi": True,
+            "hip": (s * 0.66, 0.40, 1.80), "knee": (s * 0.86, -0.42, 1.22),
+            "ankle": (s * 0.88, 0.50, 0.86), "toe": (s * 0.88, -0.02, 0.14),
+            "radii": (0.52, 0.40, 0.26, 0.21), "thigh": (0.62, 0.78, 0.74, 0.40),
+            "calf": (0.36, 0.52, 0.38, 0.30),
+            "toes": 3, "toe_len": 0.70, "toe_w": 0.24, "toe_spread_deg": 40.0, "claw_len": 0.30,
+            "sides": 8, "blend": 0.16}
+
+
+def ARM(side):
+    s = 1.0 if side == "l" else -1.0
+    # the small arms, held up off the ground in front of the chest (vestigial)
+    return {"id": "f" + side, "parent": "chest", "hip": (s * 0.50, -1.42, 2.88), "knee": (s * 0.66, -1.40, 2.36),
+            "ankle": (s * 0.58, -1.86, 2.30), "toe": (s * 0.56, -2.08, 2.04), "radii": (0.16, 0.12, 0.09),
+            "foot": (0.22, 0.30, 0.12), "claws": 3, "claw_len": 0.17, "sides": 6, "blend": 0.1, "hang": True}
 
 
 SPEC = {
@@ -124,9 +150,9 @@ SPEC = {
     "mottle": {"role": "hide", "alt": RUST_DARK, "amount": 0.36},
     "belly": {"role": "belly", "below": -0.25},
     "chains": [
-        {   # hips -> chest -> neck base (the long low body, angled up in the biped stance)
-            "name": "spine", "parent": "root", "sides": 12, "blend": 0.45, "flat": 0.66, "mottle": True,
-            "cap_start": False, "cap_end": False,
+        {   # hips -> chest -> neck base (the torso rising to the shoulders in the biped stance)
+            "name": "spine", "parent": "root", "sides": 12, "blend": 0.45, "flat": 0.8, "mottle": True,
+            "cap_start": True, "cap_end": True,   # closed: an open loft gets inward belly normals (H652)
             "stations": SPINE_ST,
             "bones": [("hips", 0, 1), ("spine_0", 1, 2), ("spine_1", 2, 3), ("chest", 3, 4)],
         },
@@ -136,7 +162,7 @@ SPEC = {
             "stations": NECK_ST,
             "bones": [("neck", 0, 1), ("head", 1, 4)],
         },
-        {   # hips -> thick lizard tail, low behind, counterweight
+        {   # hips -> thick lizard tail sweeping down to the ground behind
             "name": "tail", "parent": "hips", "sides": 10, "blend": 0.4, "flat": 0.85, "mottle": True,
             "cap_start": False, "cap_end": True, "belly": False,
             "stations": TAIL_ST,
@@ -144,46 +170,48 @@ SPEC = {
         },
     ],
     "extra_bones": [
-        ("jaw", "head", (0.0, -3.45, 2.74), (0.0, -4.35, 2.68), rigkit.UP),
+        ("jaw", "head", (0.0, -2.88, 3.56), (0.0, -3.75, 3.42), rigkit.UP),
     ] + ext.quill_bones(QUILLS, quill_parent),
-    "jaw": {"bone": "jaw", "width": 0.80, "length": 0.95, "height": 0.26, "tip_w": 0.55,
-            "teeth": 5, "tooth": 0.16, "role": "belly", "teeth_role": "teeth"},
-    "upper_teeth": {"bone": "head", "at": (0.0, -3.51, 2.72), "width": 0.84, "length": 0.90, "tip_w": 0.55,
-                    "teeth": 5, "tooth": 0.17},
+    "jaw": {"bone": "jaw", "width": 0.86, "length": 0.92, "height": 0.30, "tip_w": 0.55,
+            "teeth": 5, "tooth": 0.17, "role": "hide", "teeth_role": "teeth"},
+    "upper_teeth": {"bone": "head", "at": (0.0, -2.94, 3.54), "width": 0.90, "length": 0.86, "tip_w": 0.55,
+                    "teeth": 5, "tooth": 0.18},
     "quills": {"role": "quill", "tip": CHAR, "items": QUILLS},
+    "masses": [
+        # the rump: closes the seam where the spine and the tail lofts meet over the hips
+        {"a": (0.0, 0.05, 2.15), "b": (0.0, 1.05, 1.75), "u": 0.5, "r": (0.76, 0.66, 0.74), "w": {"hips": 0.6, "tail_0": 0.4}},
+        # the shoulder knot where the neck leaves the torso (closes the joint gap when the neck pitches)
+        {"a": (0.0, -1.45, 3.15), "b": (0.0, -2.05, 3.65), "u": 0.5, "r": (0.46, 0.46, 0.44), "w": {"chest": 0.5, "neck": 0.5}},
+        # the chest keel (the reference's barrel chest under the shoulders)
+        {"a": (0.0, -0.75, 2.70), "b": (0.0, -1.55, 3.15), "u": 0.5, "r": (0.62, 0.62, 0.66), "w": {"spine_1": 0.6, "chest": 0.4},
+         "role": "belly"},
+        # the cheeks and brow of the big skull
+        {"a": (0.0, -2.35, 3.95), "b": (0.0, -3.10, 3.82), "u": 0.42, "r": (0.70, 0.62, 0.58), "w": {"head": 1.0}},
+    ],
+    "horns": [
+        # two ringed horns swept back off the skull (the reference's banded horns)
+        {"bone": "head", "pts": [(0.32, -2.55, 4.20), (0.55, -2.25, 4.62), (0.74, -1.80, 4.82), (0.86, -1.30, 4.74), (0.90, -0.95, 4.52)],
+         "radii": [0.22, 0.19, 0.15, 0.10], "colors": [BONE, HORN]},
+        {"bone": "head", "pts": [(-0.32, -2.55, 4.20), (-0.55, -2.25, 4.62), (-0.74, -1.80, 4.82), (-0.86, -1.30, 4.74), (-0.90, -0.95, 4.52)],
+         "radii": [0.22, 0.19, 0.15, 0.10], "colors": [BONE, HORN]},
+    ],
     "fins": [
-        # hyena ears: two short blades on the skull
-        {"bone": "head", "base": (0.30, -3.20, 3.33), "tip": (0.42, -3.00, 3.73), "root_len": 0.3, "role": "hide"},
-        {"bone": "head", "base": (-0.30, -3.20, 3.33), "tip": (-0.42, -3.00, 3.73), "root_len": 0.3, "role": "hide"},
+        # short hyena ears, low on the skull behind the eyes
+        {"bone": "head", "base": (0.50, -2.55, 4.02), "tip": (0.78, -2.35, 4.28), "root_len": 0.26, "role": "hide"},
+        {"bone": "head", "base": (-0.50, -2.55, 4.02), "tip": (-0.78, -2.35, 4.28), "root_len": 0.26, "role": "hide"},
     ],
     "eyes": [
-        {"bone": "head", "at": (0.40, -3.57, 3.16), "r": 0.13},
-        {"bone": "head", "at": (-0.40, -3.57, 3.16), "r": 0.13},
+        {"bone": "head", "at": (0.44, -2.98, 3.98), "r": 0.13},
+        {"bone": "head", "at": (-0.44, -2.98, 3.98), "r": 0.13},
     ],
-    "legs": [
-        # kangaroo rear legs: thigh forward-down, shin back, long digitigrade foot forward
-        # (the ankle sits low, 0.30 m, so rigkit's ground-snapped foot box meets the wrist ball: round 1 had floating feet)
-        {"id": "hl", "parent": "hips", "hip": (0.50, 0.55, 1.65), "knee": (0.68, -0.25, 1.10),
-         "ankle": (0.70, 0.60, 0.30), "toe": (0.70, -0.45, 0.07), "radii": (0.46, 0.32, 0.21),
-         "foot": (0.48, 1.30, 0.20), "claws": 3, "claw_len": 0.34, "sides": 8, "toe_len": 0.4},
-        {"id": "hr", "parent": "hips", "hip": (-0.50, 0.55, 1.65), "knee": (-0.68, -0.25, 1.10),
-         "ankle": (-0.70, 0.60, 0.30), "toe": (-0.70, -0.45, 0.07), "radii": (0.46, 0.32, 0.21),
-         "foot": (0.48, 1.30, 0.20), "claws": 3, "claw_len": 0.34, "sides": 8, "toe_len": 0.4},
-        # vestigial arms, hanging off the chest, tucked (ext: "hang" keeps the paw at the wrist)
-        {"id": "fl", "parent": "chest", "hip": (0.46, -1.80, 2.30), "knee": (0.58, -1.60, 1.75),
-         "ankle": (0.60, -1.95, 1.30), "toe": (0.60, -2.32, 1.14), "radii": (0.17, 0.13, 0.10),
-         "foot": (0.26, 0.40, 0.14), "claws": 3, "claw_len": 0.18, "sides": 6, "blend": 0.1, "hang": True},
-        {"id": "fr", "parent": "chest", "hip": (-0.46, -1.80, 2.30), "knee": (-0.58, -1.60, 1.75),
-         "ankle": (-0.60, -1.95, 1.30), "toe": (-0.60, -2.32, 1.14), "radii": (0.17, 0.13, 0.10),
-         "foot": (0.26, 0.40, 0.14), "claws": 3, "claw_len": 0.18, "sides": 6, "blend": 0.1, "hang": True},
-    ],
+    "legs": [REAR("l"), REAR("r"), ARM("l"), ARM("r")],
     "sockets": {
-        "mouth": ("head", (0.0, -4.30, 2.74)),
-        "head_top": ("head", (0.0, -3.35, 3.48)),
-        "back": ("spine_1", (0.0, -1.15, 3.08)),
-        "hips_top": ("hips", (0.0, 0.55, 2.55)),
-        "tail_tip": ("tail_3", (0.0, 3.45, 0.36)),
-        "chest": ("chest", (0.0, -1.85, 2.02)),
+        "mouth": ("head", (0.0, -3.70, 3.56)),
+        "head_top": ("head", (0.0, -2.70, 4.40)),
+        "back": ("spine_1", (0.0, -0.95, 3.46)),
+        "hips_top": ("hips", (0.0, 0.40, 2.77)),
+        "tail_tip": ("tail_3", (0.0, 4.30, 0.22)),
+        "chest": ("chest", (0.0, -1.55, 2.70)),
     },
 }
 
