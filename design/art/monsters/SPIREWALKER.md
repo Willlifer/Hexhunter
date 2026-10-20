@@ -8,10 +8,62 @@ then `godot --path . --script res://tools/monster_preview_spirewalker.gd`.
 
 Reference: `design/kickoff/ref/monster_spirewalker.png` (a flat, broad, plant-backed
 lizard). Scale bar in every shot: the player rig's 2.2 m capsule; the ground carries
-the 1 m hex grid. Body: 2714 tris, 7.6 m across the claws, 7.9 m nose to tail, the
-carapace top at 1.9 m, the reed tips at 3.8 m; radius-2 footprint.
+the 1 m hex grid.
 
-## Rounds
+Rig v2 (Phase 3.5): 5802 tris, 7.5 m across, 7.8 m nose to tail, the back at 2.1 m, the
+mound at 2.6 m, the tallest reeds at 4.2 m; radius-2 footprint; 58 bones (adds the
+four whip vines `vine_<k>_0..4`). Roles hide / belly / mound / frond / reed / bristle /
+arc / mouth / teeth / eye / claw; the vines are `reed`, so the charge glow and the
+burnt state reach them like the reeds. Built by `build_monster_spirewalker.py` with
+`monster_rig/ext_spirewalker.py` (mound, reed bed, fronds, vine thorns, bristles,
+horns; the head reuses `ext_swampfang`'s skull and jaw builders) on
+`monster_rig/shapes_mb.py`.
+
+## Phase 3.5 gauntlet (Lane MB)
+
+`godot --path . --script res://tools/monster_preview_spirewalker.gd -- --gauntlet N`
+renders the reference's pose and camera (`aggravated_idle`, from its front-left, 8 deg
+up) and writes `design/visual_pass/MB/spirewalker_round<N>.png` (reference left,
+render right) plus the three turntable views. Text wins over the image: six limbs,
+copper reeds, mustard and ochre; the reference supplies the squat toad body, the head,
+the planted legs and the plant mass on a mound with fronds and trailing whips.
+
+0. Baseline (`spirewalker_round0.png`). Five biggest differences: (1) silhouette and
+   proportions: a spider (long thin legs lifting the body, knees above the back) where
+   the reference is a low heavy toad hugging the ground; (2) posture: up on stilts,
+   not planted; (3) signature features: a thin brush of reeds straight off the back,
+   no mound, no fronds, no whip vines, a flat narrow head without the wide grin and
+   brow; (4) palette: one pale yellow everywhere, no darker back; (5) surface: smooth
+   tubes, small dark claws.
+1. Rebuilt body (`spirewalker_round1.png`). A broad low toad body (belly at 0.45 m), a
+   wide flat skull with a heavy brow, a deep grinning jaw with eight teeth a side and a
+   red mouth; six short thick limbs with the elbows jutting out level and broad paws
+   with long pale claws; a dark-ochre mound on the back; a denser reed bed (7 rows of
+   up to 10) rooted on the mound and tallest in the middle (a spire); eight fronds
+   round the mound's base; four thorned whip vines on bones. Look: the toad reads; the
+   vines were thick rods and the flank pair hung to the ground (read as extra legs
+   from behind); the fronds were small and pale.
+2. Vines thinned (7.5 to 3 cm) and re-pathed up and back with a curled tip, clear of
+   the ground; fronds longer and wider, olive. Look: fronds now read as a leaf skirt,
+   but stuck out flat like plates; the hide read too bright; the forearm bristles
+   formed a cage of slats; the eyes hid under the brow.
+3. Fronds droop over the flanks; hide dustier (0.75, 0.58, 0.22) with more ochre
+   mottle; bristles in two directions, shorter; eyes larger and further out. Look: the
+   comparison now matches the reference's read: squat body, grin, planted claws, plant
+   mass with a leaf skirt and trailing whips. Remaining: the reed bed is a spire of
+   blades, not a trunk with a flower (text wins: a reed bed).
+4. Clip pass, no geometry change (`spirewalker_round4.png`, the final comparison).
+   The vines were static in every clip: a vine layer now runs after every clip pose:
+   `reed_lash` coils them back and whips them up and over the back toward the head at
+   1.2 s (contact), `leaping_squash` folds them with the reeds and whips them on the
+   slam, `pollen_shake` shakes them, `reeds_fold` lays them flat, `reeds_burnt_idle`,
+   `collapse` and `death` droop them, idles sway them. Every clip re-rendered at its
+   key time and looked at.
+
+Verdict: closer, yes. The spider is gone: a squat, planted toad-crab with a plant
+mound, a grin and whip vines; six limbs and the copper reeds kept from the text.
+
+## Phase 2 rounds (Lane E)
 
 1. Six legs read as a crab splay from every angle; the carapace is flat (rz 0.84 on
    rx 2.05); the reed bed with violet beads reads; forearm bristles and the horn
