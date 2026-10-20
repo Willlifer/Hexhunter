@@ -1,20 +1,21 @@
 # HANDOFF
 
 ## Where
-`<repo>`, branch `dev`. No remote (H6). Godot 4.7 console binary in Downloads (CLAUDE.md). Playable: `dist\Hexhunt.exe` opens the lobby; beside it `Lobby.bat`, `Hunt.bat` (straight to the world map) and twelve fight bats. Re-export: `godot --headless --path . --export-release "Windows Desktop" dist/Hexhunt.exe`, then copy `launchers/*.bat` into `dist/`.
+`<repo>`, branch `dev`. No remote (H6). Godot 4.7 console binary in Downloads (CLAUDE.md). Playable: `dist\Hexhunt.exe` opens the lobby; beside it `Lobby.bat`, `Hunt.bat` and twelve fight bats. Re-export: `godot --headless --path . --export-release "Windows Desktop" dist/Hexhunt.exe`, then copy `launchers/*.bat` into `dist/`.
 
-## Where it stands (2026-10-19, night)
-Phase 2 gate passed ("loved all of the fights"; fire tuned down H46). Phase 3 built by four lanes and merged: lobby + shell + registry (Lane L, H450-H460), hunt loop map -> ambush -> prep -> fight -> results (Lane H, H500-H509), twelve upgrades + drops + save (Lane U, H550-H559), monster state visuals + HUD status icons + coloured weapons + cowl (Lane V, H600-H610). Integrator wiring H611-H613: bodies bound to the sim, shell.play returns the fight and takes the hunt's callback, GO HUNTING button and `--hunt`, "Unlock all upgrades (testing)", tests isolated from the player's save. Self-test 227/227 in 29 suites.
-Waiting on the author's Phase 3 gate (LEDGER L-16).
+## Where it stands (2026-10-20)
+Phases 0-3 passed. Phase 3.5 visual pass merged: monsters gauntlet-tested against the kickoff references (MA: Colambros biped, Rimeslithe hunched dragon; MB: Swampfang sails and jaw, Spirewalker toad-crab with plant mound), wind-up effects for every telegraph plus breath vs charge, arena-event, reaction and skill effects, point lights (FX), arenas and world map (ENV), HUD/lobby/results/ambush (UI). Balance: reactions are multiples of the caster's auto attack with strongest-plus-chain (H50); basics x2.4; each arena fires its own telegraphed event (H51). Self-test 249/249 in 34 suites.
+Waiting on the author's look (LEDGER L-22).
 
 ## Do this first
-1. Author plays: lobby (any setup, unlock and slot upgrades) and a full hunt. Notes -> DECISIONS Author rows.
-2. LEDGER L-17 (upgrade balance), L-18 (state glows), L-19 (lobby thumbnails, element hint, run history).
+1. Author plays the new exe. Notes -> DECISIONS Author rows.
+2. LEDGER L-23..L-26 (Rimeslithe fins and cave contrast, cave frame dips, quiet tells, caldera snowline).
 3. Phase 4: co-op (PLAN §3).
 
 ## Run
-`test.bat`. `run.bat` (lobby). `run.bat --hunt [--seed N] [--weapon id]`. `run.bat --arena <pond|cave|glade|caldera> --fight <swampfang|colambros|rimeslithe|spirewalker> --weapon <lance|daggers|bow> [--element e --backup e] [--seed N]`. Previews: `tools/hunt_preview.gd`, `tools/monster_state_preview.gd`, `tools/player_preview.gd`, `tools/monster_preview_<id>.gd`. `--shot-lobby <dir>`.
+`test.bat`. `run.bat` (lobby). `run.bat --hunt`. `run.bat --arena <id> --fight <monster> --weapon <id> [--element e --backup e] [--seed N]`; `--autoplay --seconds N` prints damage by cause. F1 tune panel, F3 debug read-out. Previews: `tools/fx_preview.gd`, `tools/arena_compare.gd`, `tools/gauntlet_compare_{ma,mb}.gd`, `tools/ui_thumbs.gd` (rerun after any model or arena change), `tools/hunt_preview.gd`.
 
 ## Notes
-- The player's files live in `%APPDATA%\Godot\app_userdata\Hexhunt` (hunter.json, hexhunt_last.json, hexhunt_tune.cfg). Worktrees share that folder; the self-test redirects to scratch files (H613). Don't delete the author's files.
+- The player's files live in `%APPDATA%\Godot\app_userdata\Hexhunt` (hunter.json, hexhunt_last.json, hexhunt_runs.json, hexhunt_tune.cfg). Worktrees share that folder; the self-test redirects to scratch files. Don't delete the author's files.
+- `art/monsters/monsters.json` is edited by every monster lane: merge it row by row (never commit a conflicted file: check for markers).
 - Old agent worktrees under `.claude/worktrees` are merged; removing them was blocked by the permission layer.

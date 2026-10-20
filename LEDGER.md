@@ -39,3 +39,9 @@ States: BLOCKED / OWED / AWAITING PLAY / WATCH / DEFERRED. IDs never change.
 | L-19 | Lobby picks blind: tiles are colour + name, no thumbnails; element strip's active/backup alternation is not shown until used; returning from a fight shows only a one-line result | SETTLED 2026-10-19 (Lane UI: thumbnails, element hint, run history, H800-H813) | - |
 | L-20 | The world map is readable but sparse: four sites on rolling grass, no roads or landmarks | SETTLED 2026-10-19 (Lane ENV: paths, lake, tower, stones, forest edge) | - |
 | L-21 | Map uses a x5 scaled parent because HHCameraRig clamps distance at 40 m (Lane H R-H4) | SETTLED 2026-10-19 (HHCameraRig.dist_max per instance, H761) | - |
+| L-22 | Visual-pass gate: the author plays all four fights and a hunt on the new exe: monsters vs references, wind-up effects (ice wind-to-frost, Colambros breath vs charge), arena events, reaction numbers, HUD/lobby | AWAITING PLAY | dist\Hexhunt.exe; comparison images in design/visual_pass/ |
+| L-23 | Rimeslithe only partly matches the reference (fins are few dark blades, not pale flowing shapes) and nearly vanishes on the dark cave floor | WATCH | next monster pass |
+| L-24 | Cave worst-case frames dip to ~45 fps with every effect forced (average 78); weaker GPUs will do worse | WATCH | Lane FX tools/fx_perf.gd |
+| L-25 | Quiet tells: generic dust attacks (bite, swipe, tail drag) differ only by footprint at 30 m; thin streaks (Pierce, death-roll vortex) shrink to a pixel; big ice areas wash the red out in the last fifth | WATCH | author's call after play |
+| L-26 | Caldera snowline is a per-tile staircase; no water reflections; skill icons are drawn glyphs, not painted art | WATCH | polish phase |
+

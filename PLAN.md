@@ -1,7 +1,7 @@
 # PLAN — Hexhunt
 
 Phases with gates. The author checks each gate before the next phase starts.
-Status: **Phase 3 gate passed 2026-10-19. Phase 3.5 visual pass running as five lanes (MA, MB, FX, ENV, UI), brief in design/visual_pass/BRIEF.md (H49). Then Phase 4 co-op.**
+Status: **Phase 3.5 visual pass built 2026-10-20: all five lanes merged (monsters MA/MB, effects FX, environment ENV, interface UI), plus reaction math H50 and arena events H51; 249/249. Awaiting the author's look (LEDGER L-22). Then Phase 4 co-op.**
 
 ## 0. Interview record
 
