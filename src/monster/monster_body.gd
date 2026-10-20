@@ -87,6 +87,7 @@ var _bead_xform := Transform3D.IDENTITY
 var _arcs: MeshInstance3D = null   # Spirewalker's crackle ribbons
 var _arc_t := 0.0
 var _arc_rng := RandomNumberGenerator.new()
+var _fx_glow := {}                 # Lane FX: role -> [Color, energy] asked for this frame (wind-up glows)
 
 
 # ------------------------------------------------------------------ manifest
@@ -399,6 +400,8 @@ const CHARGE_COLOR := Color(0.72, 0.42, 1.0)         ## arc violet
 const DARK_COLOR := Color(0.42, 0.12, 0.95)          ## Swampfang's darkness call (eyes, frill): deep violet, not pink
 const ARC_EVERY := 0.07                              ## seconds between arc re-rolls
 const CUE_SECONDS := 1.5                             ## the darkness telegraph window (45 ticks)
+const REED_SHEEN := 1.3                              ## L-18: reed emission x charge, in REED_CHARGE_COLOR (copper, a little violet)
+const REED_CHARGE_COLOR := Color(0.9, 0.5, 0.42)    ## L-18 (H711): was CHARGE_COLOR at 1.6, the whole bed went violet
 
 
 ## Bind to the sim: update() then reads sim.unit(id) itself every frame
@@ -418,6 +421,16 @@ func set_state(u: Dictionary) -> void:
 		for tg in sim.telegraphs:
 			if str(tg.get("owner", "")) == unit_id and str((tg.get("payload", {}) as Dictionary).get("name", "")) == "darkness":
 				cue("darkness", float(tg.get("left", 0)) / 30.0)
+
+
+## Lane FX (H710): a wind-up glow on a role for the next update (the frill
+## flaring before Swampfang's spray, the mouth / eyes before a breath). The
+## effects layer asks every frame it wants it; the strongest ask wins and it
+## is laid over the state drive, never under it. Gone when nobody asks.
+func fx_glow(role: String, color: Color, energy: float) -> void:
+	var cur: Array = _fx_glow.get(role, [])
+	if cur.is_empty() or energy > float(cur[1]):
+		_fx_glow[role] = [color, energy]
 
 
 ## A one-shot visual cue by name for `seconds` (Swampfang: "darkness").
@@ -440,6 +453,17 @@ func _drive_state(delta: float) -> void:
 		_:
 			glow = 0.0
 			state_name = ""
+	for role in _fx_glow:
+		var g: Array = _fx_glow[role]
+		if not _role_mats.has(role):
+			continue
+		var m: StandardMaterial3D = _role_mats[role]
+		var e := float(g[1])
+		if e > 0.001 and (not m.emission_enabled or e > m.emission_energy_multiplier):
+			m.emission_enabled = true
+			m.emission = g[0]
+			m.emission_energy_multiplier = e
+	_fx_glow = {}
 
 
 func _drive_smoulder() -> void:
@@ -471,8 +495,9 @@ func _drive_charge(delta: float) -> void:
 	var flicker := 1.0 + (0.3 * sin(_state_t * 23.0) * sin(_state_t * 5.3) if charged else 0.0)
 	var live := 0.0 if burnt else 1.0
 	_emit("arc", CHARGE_COLOR, (1.2 + 3.0 * charge) * flicker * live, Color(0.3, 0.26, 0.24) if burnt else Color.WHITE, 1.0 if burnt else 0.0)
-	# the reed tips take the violet with the charge; cut reeds go to charcoal
-	_emit("reed", CHARGE_COLOR, 1.6 * charge * flicker * live, Color(0.3, 0.26, 0.24) if burnt else Color.WHITE, 1.0 if burnt else 0.0)
+	# L-18 (Lane FX, H711): the reeds stay copper; a copper
+	# warmth with the charge (the arcs and beads carry the violet). Cut reeds go to charcoal.
+	_emit("reed", REED_CHARGE_COLOR, REED_SHEEN * charge * flicker * live, Color(0.3, 0.26, 0.24) if burnt else Color.WHITE, 1.0 if burnt else 0.0)
 	if _arcs == null:
 		_build_arcs()
 	if _arcs == null:
