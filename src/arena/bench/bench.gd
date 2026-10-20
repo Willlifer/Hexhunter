@@ -23,6 +23,7 @@ var overlay_node: MeshInstance3D
 var camera: HHCameraRig
 var sun: DirectionalLight3D
 var sky: WorldEnvironment
+var _point_lights: Array[OmniLight3D] = []
 
 var _undo: Array[Dictionary] = []
 var _redo: Array[Dictionary] = []
@@ -44,7 +45,7 @@ var _name_edit: LineEdit
 
 ## The generators the bench can pick from (a script literal is not a constant).
 static func defs() -> Array:
-	return [HHPondGen]
+	return HHArenaGens.defs()
 
 
 static func open(tree: SceneTree) -> HHBench:
@@ -333,9 +334,7 @@ func _unhandled_input(ev: InputEvent) -> void:
 func _rebuild() -> void:
 	var t0 := Time.get_ticks_msec()
 	asset = def.build(params)
-	arena = null
-	if def is HHPondGen:
-		arena = HHPondGen.arena(params)
+	arena = HHArenaGens.arena(def.id(), params)
 	var ms := Time.get_ticks_msec() - t0
 	if asset_node != null:
 		asset_node.queue_free()
@@ -349,6 +348,11 @@ func _rebuild() -> void:
 	sky = HHArenaStage.sky(asset.lights)
 	world.add_child(sun)
 	world.add_child(sky)
+	for l in _point_lights:
+		l.queue_free()
+	_point_lights = HHArenaStage.point_lights(asset)
+	for l in _point_lights:
+		world.add_child(l)
 	_refresh_overlay()
 	var warn := ""
 	if not asset.warnings.is_empty():
@@ -369,7 +373,7 @@ func _refresh_overlay() -> void:
 		overlay_node.queue_free()
 		overlay_node = null
 	if _overlay_on and arena != null:
-		overlay_node = HHArenaStage.overlay(arena, float(asset.meta.get("water_level", 0.0)))
+		overlay_node = HHArenaStage.overlay(arena, float(asset.meta.get("water_level", -1000.0)))
 		world.add_child(overlay_node)
 
 
@@ -425,8 +429,8 @@ func load_selected_preset() -> void:
 func export_arena() -> void:
 	var path := "res://arenas/%s.json" % def.id()
 	var ok := false
-	if def is HHPondGen:
-		ok = HHPondGen.export_json(params, path)
+	if HHArenaGens.ids().has(def.id()):
+		ok = HHArenaGens.export_json(def.id(), params, path)
 	elif arena != null:
 		var d := arena.to_dict()
 		d["gen"] = { "id": def.id(), "version": def.version(), "params": params }
