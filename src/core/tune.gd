@@ -50,6 +50,7 @@ const DEFAULTS := {
 	"env_glade_every": 12.0,     # alternates a healing sunbreak and a gust of wind # a monster: a big body covers ~19 hexes, so one fuse used to land a dozen blasts
 	# statuses
 	"burn_pct_per_s": 1.0,
+	"monster_ground_mult": 0.33, # H54: monsters take ground fire / drain / burn / poison against a third of their unscaled HP
 	"poison_pct_per_s": 1.5,
 	"stagger_max_ticks": 45.0,   # a full-strength hit holds you 1.5 s
 	"slow_mult": 0.6,            # the `slow` status (overfreeze, pollen, spores) cuts speed to this
@@ -109,6 +110,8 @@ const DEFAULTS := {
 	"revive_decay": 0.5,         # revive progress lost per tick while nobody stands by the downed hunter
 	"revive_event_every": 10.0,  # a revive_progress event every this many ticks of progress
 	"aggro_hit_bonus_hexes": 3.0,# the hunter who last hit a monster counts as this many hexes closer when it picks a target ...
+	"aggro_commit_ticks": 60.0, # H54: a monster holds its target 2 s before it may switch
+	"revive_hit_setback": 30.0, # H54: a hit on a reviver costs 1 s of progress (was a full reset)
 	"aggro_memory_ticks": 150.0, # ... for this long after the hit (5 s)
 }
 

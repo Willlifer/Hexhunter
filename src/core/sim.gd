@@ -212,6 +212,17 @@ func _ground_owner(u: Dictionary, hex: Vector2i) -> String:
 ## to the earlier hunter in `order`. Solo it is exactly the old nearest-alive
 ## pick. {} when nobody stands.
 func monster_target(m: Dictionary) -> Dictionary:
+	var held := unit(str(m.get("commit_id", "")))       # H54: hold a target a while (it flipped 9-35 times a fight)
+	if not held.is_empty() and alive(held) and not bool(held.get("downed", false)) and tick < int(m.get("commit_until", -1)):
+		return held
+	var picked := _monster_target_pick(m)
+	if not picked.is_empty() and str(picked.id) != str(m.get("commit_id", "")):
+		m["commit_id"] = str(picked.id)
+		m["commit_until"] = tick + int(HHTune.value("aggro_commit_ticks"))
+	return picked
+
+
+func _monster_target_pick(m: Dictionary) -> Dictionary:
 	var hot := str(m.get("aggro_id", ""))
 	if hot != "" and tick - int(m.get("aggro_tick", -1)) > int(HHTune.value("aggro_memory_ticks")):
 		hot = ""
@@ -684,17 +695,27 @@ func _windup(u: Dictionary) -> void:
 func _enter(u: Dictionary, hex: Vector2i) -> void:
 	var pct := charge.crossing_pct(hex)
 	if pct > 0.0 and u.crossed != hex and not charge.owned_by(hex, _ground_owner(u, hex)):
-		hurt(u, HHFormulas.tile_damage(u.max_hp, pct, resist_of(u, "fire")).value, "fire_cross")
+		hurt(u, HHFormulas.tile_damage(dot_base(u), pct, resist_of(u, "fire")).value, "fire_cross")
 	u.crossed = hex
+
+
+## H54: the HP that pct ground and status damage is measured against. A
+## hunter: max HP. A monster: its unscaled HP (party scaling does not feed
+## fire carpets) x monster_ground_mult (fire 3 under a boss was 720/s and
+## outdid every weapon; reactions and blows are the monster's damage now).
+func dot_base(u: Dictionary) -> float:
+	if u.kind != "monster":
+		return float(u.max_hp)
+	return float(u.max_hp) / maxf(1.0, float(u.get("party_scale", 1.0))) * HHTune.value("monster_ground_mult")
 
 
 func _ground(u: Dictionary) -> void:
 	var s := charge.standing(u.hex)
 	var mine: bool = str(s.source) == u.id or allies(str(s.source), u.id)   # H33: your own (or your party's) element never hurts you
 	if float(s.fire) > 0.0 and not mine:
-		hurt(u, HHFormulas.tile_damage(u.max_hp, float(s.fire), resist_of(u, "fire")).value, "fire")
+		hurt(u, HHFormulas.tile_damage(dot_base(u), float(s.fire), resist_of(u, "fire")).value, "fire")
 	if float(s.drain) > 0.0 and not mine:
-		hurt(u, HHFormulas.tile_damage(u.max_hp, float(s.drain), resist_of(u, "dark")).value, "dark")
+		hurt(u, HHFormulas.tile_damage(dot_base(u), float(s.drain), resist_of(u, "dark")).value, "dark")
 	if float(s.heal) > 0.0:
 		heal(u, HHFormulas.tile_damage(u.max_hp, float(s.heal)).value, "light")
 
@@ -728,8 +749,8 @@ func _statuses(u: Dictionary) -> void:
 	for name in u.statuses.keys():
 		var st: Dictionary = u.statuses[name]
 		match name:
-			"burn": hurt(u, HHFormulas.tile_damage(u.max_hp, HHTune.value("burn_pct_per_s")).value, "burn")
-			"poison": hurt(u, HHFormulas.tile_damage(u.max_hp, HHTune.value("poison_pct_per_s")).value, "poison")
+			"burn": hurt(u, HHFormulas.tile_damage(dot_base(u), HHTune.value("burn_pct_per_s")).value, "burn")
+			"poison": hurt(u, HHFormulas.tile_damage(dot_base(u), HHTune.value("poison_pct_per_s")).value, "poison")
 		st.ticks = int(st.ticks) - int(HHTune.value("ground_tick_every"))
 		if int(st.ticks) <= 0:
 			u.statuses.erase(name)
@@ -1095,7 +1116,7 @@ func _revives() -> void:
 			d.revive_by = ""
 			continue
 		if helpers.any(func(o): return int(o.hurt_tick) == tick):
-			d.revive = 0.0
+			d.revive = maxf(0.0, before - HHTune.value("revive_hit_setback"))   # H54: was a full reset
 			d.revive_by = ""
 			if before > 0.0:
 				_emit({ "type": "revive_interrupted", "id": d.id, "by": str(helpers[0].id) })

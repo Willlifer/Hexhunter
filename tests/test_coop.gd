@@ -219,7 +219,8 @@ func test_revive_interrupted_by_damage(c: HHSelfTest.HHCheck) -> void:
 	t.telegraph("env", [q2.hex], 1, { "name": "test_hit", "dmg_pct": 1.0 })   # lands inside the next step, before its revive pass
 	var ev2: Array = t.step()
 	c.ok("revive_interrupted" in _types(ev2), "revive_interrupted emitted")
-	c.near(float(q1.revive), 0.0, 0.01, "progress back to 0")
+	var left := 50.0 - HHTune.value("revive_hit_setback")
+	c.near(float(q1.revive), left, 0.01, "H54: a hit costs revive_hit_setback of progress, not all of it")
 	var revived := -1
 	for i in 120:
 		for e in t.step():
@@ -227,7 +228,7 @@ func test_revive_interrupted_by_damage(c: HHSelfTest.HHCheck) -> void:
 				revived = i + 1
 		if revived > 0:
 			break
-	c.eq(revived, int(HHTune.value("revive_ticks")), "a full revive_ticks again after the hit")
+	c.eq(revived, int(HHTune.value("revive_ticks") - left), "the rest of the revive after the hit")
 
 
 func test_revive_decays_alone(c: HHSelfTest.HHCheck) -> void:
@@ -273,7 +274,10 @@ func test_aggro_last_attacker_then_nearest(c: HHSelfTest.HHCheck) -> void:
 	c.eq(str(s.monster_target(m).get("id", "")), "p1", "nearest first")
 	s.strike(p2, m, 100.0, m.hex, "test")
 	c.eq(str(m.aggro_id), "p2", "the hit is remembered")
-	c.eq(str(s.monster_target(m).get("id", "")), "p2", "the last attacker beats the nearest within the memory")
+	c.eq(str(s.monster_target(m).get("id", "")), "p1", "H54: the monster holds its target for aggro_commit_ticks")
+	for i in int(HHTune.value("aggro_commit_ticks")):
+		s.step()
+	c.eq(str(s.monster_target(m).get("id", "")), "p2", "then the last attacker beats the nearest within the memory")
 	for i in int(HHTune.value("aggro_memory_ticks")) + 1:
 		s.step()
 	c.eq(str(s.monster_target(m).get("id", "")), "p1", "after aggro_memory_ticks: nearest again")
