@@ -4,7 +4,28 @@ class_name HHLance
 ##   W Exchange   plant the spear, attune to the backup element. 1 s.
 ##   E Guard      block for 2 s; a hit taken while guarding answers with a stronger Pierce at the attacker. 8 s.
 ##   R Eruption   vault to the cursor hex; on landing a radius-2 eruption of the element. 15 s.
-## All numbers: HHTune lance_*.
+## All numbers: HHTune lance_*. Upgrade numbers (H550) in TUNE below, read as HHTune "lance_up_*".
+##   pierce_wide     Q is three hexes wide (the two parallel rays beside the line).
+##   guard_stagger   E's counter also staggers (lance_up_e_stagger).
+##   eruption_twice  R posts a second eruption on the same ground, a player telegraph lance_up_r_echo_ticks later.
+
+static var _registered := false
+
+
+## Upgrade numbers, F1-editable as "lance_up_<key>".
+const TUNE := {
+	"up_q_width": 3,          # pierce_wide: hexes across (1 = the plain line, 3 = line plus both sides)
+	"up_e_stagger": 1.0,      # guard_stagger: the counter's stagger strength (0..1 of stagger_max_ticks)
+	"up_r_echo_ticks": 30,    # eruption_twice: the aftershock lands this many ticks after the first
+	"up_r_echo_pct": 1.5,     # eruption_twice: aftershock damage, pct of the victim's max HP
+}
+
+
+static func _t(key: String) -> float:
+	if not _registered:
+		_registered = true
+		HHTune.register("lance", TUNE)
+	return HHTune.value("lance_" + key)
 
 
 static func basic() -> Dictionary:
@@ -36,6 +57,23 @@ static func pierce_line(sim: HHSim, u: Dictionary, aim: Vector2i, length: int) -
 	return out
 
 
+## pierce_wide: the line plus the parallel rays on both sides (width 3).
+static func widen(sim: HHSim, u: Dictionary, line: Array, width: int) -> Array:
+	if width < 3 or line.is_empty():
+		return line
+	var di := HHHex.direction_index(u.hex, line[0])
+	if di < 0:
+		return line
+	var out: Array = line.duplicate()
+	for side in [1, 5]:
+		var off: Vector3i = HHHex.CUBE_DIRS[(di + side) % 6]
+		for h in line:
+			var n := HHHex.to_offset(HHHex.to_cube(h) + off)
+			if sim.arena.exists(n) and not n in out:
+				out.append(n)
+	return out
+
+
 static func cast(sim: HHSim, u: Dictionary, key: String, aim: Vector2i) -> bool:
 	match key:
 		"q":
@@ -43,13 +81,12 @@ static func cast(sim: HHSim, u: Dictionary, key: String, aim: Vector2i) -> bool:
 			if line.is_empty():
 				return false
 			sim._face(u, line[0])
+			if HHUpgrades.has(u, "pierce_wide"):
+				line = widen(sim, u, line, int(_t("up_q_width")))
 			sim.begin_windup(u, "pierce", int(HHTune.value("lance_q_windup")), { "line": line }, Callable(HHLance, "_pierce_land"))
 			return true
 		"w":
-			var a: String = u.element
-			u.element = u.backup
-			u.backup = a
-			sim._emit({ "type": "swap", "id": u.id, "element": u.element })
+			HHWeapons.exchange(sim, u)
 			return true
 		"e":
 			u.guard = int(HHTune.value("lance_e_ticks"))
@@ -77,9 +114,10 @@ static func _pierce_land(sim: HHSim, u: Dictionary, data: Dictionary) -> void:
 	_pierce(sim, u, data.line, HHTune.value("lance_q_dmg"), 1, "pierce")
 
 
-static func _pierce(sim: HHSim, u: Dictionary, line: Array, dmg: float, steps: int, cause: String) -> void:
+static func _pierce(sim: HHSim, u: Dictionary, line: Array, dmg: float, steps: int, cause: String, stagger: float = -1.0) -> void:
+	var st: float = HHTune.value("lance_q_stagger") if stagger < 0.0 else stagger
 	for t in sim.units_in(line, u.id):
-		sim.strike(u, t, dmg, sim.nearest_hex_of(t, u.hex), cause, HHTune.value("lance_q_stagger"))
+		sim.strike(u, t, dmg, sim.nearest_hex_of(t, u.hex), cause, st)
 	sim.paint(line, u.element, u.id, steps)
 	sim._emit({ "type": "pierce", "id": u.id, "hexes": line, "element": u.element, "cause": cause })
 
@@ -90,6 +128,11 @@ static func _erupt(sim: HHSim, u: Dictionary) -> void:
 		sim.strike(u, t, HHTune.value("lance_r_dmg"), sim.nearest_hex_of(t, u.hex), "eruption", HHTune.value("lance_r_stagger"))
 	sim.paint(area, u.element, u.id, int(HHTune.value("lance_r_steps")))
 	sim._emit({ "type": "eruption", "id": u.id, "hex": u.hex, "hexes": area, "element": u.element })
+	if HHUpgrades.has(u, "eruption_twice"):
+		# the aftershock: a player telegraph on the same ground (the monster sees it coming)
+		sim.telegraph(u.id, area, int(_t("up_r_echo_ticks")), { "dmg_pct": float(_t("up_r_echo_pct")), "element": u.element,
+			"paint_steps": int(HHTune.value("lance_r_steps")), "stagger": HHTune.value("lance_r_stagger"), "name": "aftershock" })
+		sim._emit({ "type": "upgrade", "id": u.id, "upgrade": "eruption_twice", "hexes": area })
 
 
 ## Guard's answer: a longer, harder Pierce toward whoever hit the block.
@@ -98,4 +141,7 @@ static func counter(sim: HHSim, u: Dictionary, attacker: Dictionary) -> void:
 	if line.is_empty():
 		return
 	sim._face(u, line[0])
-	_pierce(sim, u, line, HHTune.value("lance_q_dmg") * HHTune.value("lance_counter_mult"), 2, "counter")
+	if HHUpgrades.has(u, "pierce_wide"):
+		line = widen(sim, u, line, int(_t("up_q_width")))
+	_pierce(sim, u, line, HHTune.value("lance_q_dmg") * HHTune.value("lance_counter_mult"), 2, "counter",
+		float(_t("up_e_stagger")) if HHUpgrades.has(u, "guard_stagger") else -1.0)

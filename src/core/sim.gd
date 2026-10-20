@@ -16,7 +16,8 @@ extends RefCounted
 ##   clicked, NO_POS = none), facing, hp, max_hp, element, backup, reach, size,
 ##   run, target, attacking, stagger, statuses, cooldowns { q w e r basic },
 ##   crossed, weapon, guard, leap, windup { left, total, kind, data },
-##   allowed_kinds, untargetable, resist }
+##   allowed_kinds, untargetable, resist, upgrades (skill -> [ids], H550),
+##   immune (ticks that hurt() skips, H552) }
 ##
 ## Orders per unit per tick (all optional):
 ##   { move: Vector2i, move_pos: Vector3 (the exact point), stop: true,
@@ -36,6 +37,7 @@ var units := {}
 var order: Array = []
 var brains := {}
 var hooks := {}                # unit id -> Object with tick(sim, u): a weapon's per-tick work (Knifedance), H42
+var projectiles: Array = []    # generic moving hexes, stepped per tick (H553): see launch()
 var telegraphs: Array = []
 var events: Array = []
 var over := ""
@@ -53,8 +55,12 @@ func _init(p_arena: HHArena, p_seed: int = 1) -> void:
 
 # ------------------------------------------------------------------ setup
 
-func add_player(id: String, hex: Vector2i, element: String = "fire", backup: String = "water", weapon: String = "lance") -> Dictionary:
+func add_player(id: String, hex: Vector2i, element: String = "fire", backup: String = "water", weapon: String = "lance", upgrades: Dictionary = {}) -> Dictionary:
 	var u := _unit(id, "player", hex)
+	var ups := {}                                        # H550: skill -> Array of upgrade ids, copied
+	for k in upgrades:
+		ups[str(k)] = Array(upgrades[k]).duplicate()
+	u.upgrades = ups
 	u.max_hp = HHTune.value("player_hp")
 	u.hp = u.max_hp
 	u.element = element
@@ -84,7 +90,7 @@ func _unit(id: String, kind: String, hex: Vector2i) -> Dictionary:
 		"element": "", "backup": "", "reach": 1, "size": 0, "run": false, "target": "", "attacking": false,
 		"stagger": 0, "statuses": {}, "cooldowns": { "q": 0, "w": 0, "e": 0, "r": 0, "basic": 0 },
 		"crossed": hex, "weapon": "", "guard": 0, "leap": {}, "windup": {}, "allowed_kinds": [],
-		"untargetable": false, "resist": {}, "potions": 0, "regen": {},
+		"untargetable": false, "resist": {}, "potions": 0, "regen": {}, "upgrades": {}, "immune": 0,
 	}
 	units[id] = u
 	order.append(id)
@@ -189,6 +195,7 @@ func step(orders: Dictionary = {}) -> Array:
 		var u: Dictionary = units.get(id, {})
 		if not u.is_empty() and alive(u):
 			hooks[id].tick(self, u)
+	_projectiles()
 	for id in order:
 		var u: Dictionary = units[id]
 		if alive(u):
@@ -215,6 +222,8 @@ func step(orders: Dictionary = {}) -> Array:
 				u.cooldowns[k] = int(u.cooldowns[k]) - 1
 		if int(u.guard) > 0:
 			u.guard = int(u.guard) - 1
+		if int(u.immune) > 0:
+			u.immune = int(u.immune) - 1
 	charge.tick()
 	if tick % int(HHTune.value("authored_reform_every")) == 0:
 		charge.author_rows(arena.authored_rows(), true)  # H44: vents, lava and shade re-form
@@ -535,6 +544,7 @@ func _potion_land(_sim: HHSim, u: Dictionary, _data: Dictionary) -> void:
 	u.regen = { "ticks": int(secs * 30.0), "pct_per_s": HHTune.value("potion_heal_pct") / maxf(secs, 1.0) }
 	u["potion_tick"] = tick                              # brains read this (they tick before wind-ups land)
 	_emit({ "type": "potion", "id": u.id, "left": u.potions })
+	HHWeapons.potion_landed(self, u)                     # H554: the weapon layer answers a potion (upgrades)
 
 
 ## Healing rate under this unit: 1 - dark_heal_cut per dark tier, + light_heal_bonus per light tier.
@@ -669,6 +679,82 @@ func _guard_counter(u: Dictionary, attacker: Dictionary) -> void:
 	HHWeapons.counter(self, u, attacker)
 
 
+# ------------------------------------------------------------------ projectiles
+
+## H553: a projectile is a hex that moves one step every `every` ticks, paints
+## `element` x `steps` on each hex it enters, and strikes the first targetable
+## unit of another kind (never its owner) whose footprint it enters. `target`
+## (a unit id) makes it home: each step goes toward the target's nearest
+## footprint hex; `spread` turns the first step by that many hex directions
+## (-1 / 0 / +1 fans three shots). Without a live target it flies straight
+## along `dir` (a hex direction index). It ends on a hit, off the arena, or
+## after `max_hexes`. Spec keys:
+##   { owner, from: Vector2i, target: id, dir: int, spread: int, element, steps,
+##     every, max_hexes, dmg, stagger, cause }
+func launch(spec: Dictionary) -> Dictionary:
+	var owner := unit(str(spec.get("owner", "")))
+	var from: Vector2i = spec.get("from", owner.get("hex", Vector2i.ZERO))
+	var every := maxi(1, int(spec.get("every", 2)))
+	var p := {
+		"id": tick * 64 + projectiles.size() + 1, "owner": str(spec.get("owner", "")), "hex": from, "target": str(spec.get("target", "")),
+		"dir": int(spec.get("dir", 0)), "spread": int(spec.get("spread", 0)), "element": str(spec.get("element", "")),
+		"steps": int(spec.get("steps", 1)), "every": every, "left": every,
+		"max_hexes": int(spec.get("max_hexes", 12)), "travelled": 0, "dmg": float(spec.get("dmg", 0.0)),
+		"stagger": float(spec.get("stagger", 0.0)), "cause": str(spec.get("cause", "projectile")), "trail": [],
+	}
+	projectiles.append(p)
+	_emit({ "type": "projectile", "id": p.id, "owner": p.owner, "phase": "launch", "hex": from, "target": p.target, "element": p.element })
+	return p
+
+
+func _projectiles() -> void:
+	if projectiles.is_empty():
+		return
+	var keep: Array = []
+	for p in projectiles:
+		p.left = int(p.left) - 1
+		if int(p.left) > 0:
+			keep.append(p)
+			continue
+		p.left = int(p.every)
+		var cur: Vector2i = p.hex
+		var t := unit(str(p.target))
+		if not t.is_empty() and targetable(t):
+			var di := HHHex.direction_index(cur, nearest_hex_of(t, cur))
+			if di >= 0:
+				if int(p.spread) != 0:
+					di = posmod(di + int(p.spread), 6)
+					p.spread = 0
+				p.dir = di
+		var next: Vector2i = HHHex.to_offset(HHHex.to_cube(cur) + HHHex.CUBE_DIRS[int(p.dir)])
+		if not arena.exists(next):
+			_emit({ "type": "projectile", "id": p.id, "owner": p.owner, "phase": "end", "hex": cur, "trail": p.trail })
+			continue
+		p.hex = next
+		p.travelled = int(p.travelled) + 1
+		(p.trail as Array).append(next)
+		if str(p.element) != "":
+			paint([next], str(p.element), str(p.owner), int(p.steps))
+		_emit({ "type": "projectile", "id": p.id, "owner": p.owner, "phase": "step", "hex": next, "element": p.element })
+		var owner := unit(str(p.owner))
+		var hit := false
+		for v in unit_at(next):
+			if v.id == str(p.owner) or not targetable(v) or str(v.kind) == str(owner.get("kind", "")):
+				continue
+			if not owner.is_empty() and float(p.dmg) > 0.0:
+				strike(owner, v, float(p.dmg), next, str(p.cause), float(p.stagger))
+			_emit({ "type": "projectile", "id": p.id, "owner": p.owner, "phase": "hit", "hex": next, "target": v.id, "trail": p.trail })
+			hit = true
+			break
+		if hit:
+			continue
+		if int(p.travelled) >= int(p.max_hexes):
+			_emit({ "type": "projectile", "id": p.id, "owner": p.owner, "phase": "end", "hex": next, "trail": p.trail })
+			continue
+		keep.append(p)
+	projectiles = keep
+
+
 # ------------------------------------------------------------------ ground
 
 ## A blow or blast landing on destructible cells (pillars): damage them;
@@ -727,6 +813,9 @@ func _blast(hex: Vector2i, pct: float, ring_pct: float, cause: String, mix: Dict
 func hurt(u: Dictionary, amount: float, cause: String, stagger: float = 0.0) -> void:
 	if not alive(u) or amount <= 0.0:
 		return
+	if int(u.immune) > 0:                                # H552: immunity ticks skip the whole hit
+		_emit({ "type": "immune", "id": u.id, "amount": amount, "cause": cause })
+		return
 	u.hp = maxf(0.0, float(u.hp) - amount)
 	if stagger > 0.0:
 		var st := int(HHFormulas.stagger_ticks(stagger).value)
@@ -779,7 +868,7 @@ func state_hash() -> int:
 	for id in order:
 		var u: Dictionary = units[id]
 		var p: Vector3 = u.pos
-		parts.append("%s:%s:%d:%.2f,%.2f:%s:%d:%d" % [id, u.hex, int(u.hp), p.x, p.z, u.element, int(u.stagger), int(u.guard)])
+		parts.append("%s:%s:%d:%.2f,%.2f:%s:%d:%d:%d" % [id, u.hex, int(u.hp), p.x, p.z, u.element, int(u.stagger), int(u.guard), int(u.immune)])
 	var keys := charge.entries.keys()
 	keys.sort()
 	for h in keys:
@@ -787,4 +876,6 @@ func state_hash() -> int:
 		parts.append("%s:%d:%d:%s:%d:%d" % [h, int(e.h), int(e.v), e.marker, int(e.glaze), int(e.timer)])
 	for tg in telegraphs:
 		parts.append("tg%d:%d" % [int(tg.id), int(tg.left)])
+	for p in projectiles:
+		parts.append("pr%d:%s:%d:%d" % [int(p.id), p.hex, int(p.left), int(p.travelled)])
 	return hash("|".join(parts))

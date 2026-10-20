@@ -182,3 +182,29 @@ func test_swap(c: HHSelfTest.HHCheck) -> void:
 	c.eq(p.element, "water", "swapped")
 	s.step({ "p1": { "swap": true } })
 	c.eq(p.element, "water", "second swap refused on cooldown")
+
+
+## Lane U (H550): a bow without upgrades plays exactly as before: one
+## telegraph per Arcing Shot, one step per Energized hex, no glaze.
+func test_no_upgrades_means_the_plain_kit(c: HHSelfTest.HHCheck) -> void:
+	var s := _sim()
+	var p := s.unit("p1")
+	c.eq((p.upgrades as Dictionary).size(), 0, "no upgrades by default")
+	var ups := 0
+	var tgs := 0
+	var evs: Array = []
+	evs.append_array(s.step({ "p1": { "cast": { "skill": "e", "aim": Vector2i(0, 1) } } }))
+	evs.append_array(s.step({ "p1": { "cast": { "skill": "q", "aim": Vector2i(5, 6) } } }))
+	for i in int(HHBow.TUNE.q_windup) + 1:
+		evs.append_array(s.step())
+	evs.append_array(s.step({ "p1": { "swap": true } }))
+	for e in evs:
+		if e.type == "upgrade" or e.type == "immune":
+			ups += 1
+		if e.type == "telegraph":
+			tgs += 1
+		if e.type == "energized_shot":
+			c.eq(int(e.steps), int(HHBow.TUNE.q_steps), "plain Energized Shot: q_steps")
+	c.eq(ups, 0, "no upgrade effects without upgrades")
+	c.eq(tgs, 1, "one telegraph: the Arcing Shot alone")
+	c.ok(not s.charge.is_glazed(Vector2i(5, 6)), "nothing glazed")
