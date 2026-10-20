@@ -13,8 +13,9 @@ extends RefCounted
 ##
 ## Bone names (art/monsters/monsters.json): root, hips, spine_0, spine_1,
 ## chest, neck, head, jaw, tail_0..tail_2, reed_0 (rear) reed_1 (mid) reed_2
-## (front; vertical bones on the back), and per leg fl / fr (forearms) ml /
-## mr / hl / hr: hip_, knee_, ankle_, toe_.
+## (front; vertical bones on the mound), the four whip vines vine_<k>_0..4
+## (k 0/1 the long rear pair, 2/3 the flank pair; Phase 3.5: the reed lash),
+## and per leg fl / fr (forearms) ml / mr / hl / hr: hip_, knee_, ankle_, toe_.
 ## Axes (HHMonsterBody.rot): pitch about X (+ drops a forward tip, lifts a
 ## tail tip, leans a reed forward), yaw about Y (+ swings a forward tip to
 ## the monster's left, so a LEFT leg's tip goes backward and a right leg's
@@ -48,6 +49,12 @@ const SPINE := ["hips", "spine_0", "spine_1", "chest"]
 const NECK := ["neck", "head"]
 const TAIL := ["tail_0", "tail_1", "tail_2"]
 const REEDS := ["reed_0", "reed_1", "reed_2"]
+const VINES := [
+	["vine_0_0", "vine_0_1", "vine_0_2", "vine_0_3", "vine_0_4"],
+	["vine_1_0", "vine_1_1", "vine_1_2", "vine_1_3", "vine_1_4"],
+	["vine_2_0", "vine_2_1", "vine_2_2", "vine_2_3", "vine_2_4"],
+	["vine_3_0", "vine_3_1", "vine_3_2", "vine_3_3", "vine_3_4"],
+]
 const ARMS := ["fl", "fr"]
 const LEGS := ["fl", "fr", "ml", "mr", "hl", "hr"]
 const TRIPOD_A := ["fl", "mr", "hl"]
@@ -81,6 +88,7 @@ static func pose(clip: String, t: float, b: HHMonsterBody) -> void:
 		"collapse": _collapse(t, b)
 		"death": _death(t, b)
 		"reeds_burnt_idle": _reeds_burnt_idle(t, b)
+	_vine_layer(clip, t, b)
 
 
 # ------------------------------------------------------------------ helpers
@@ -195,6 +203,62 @@ static func _arm(b: HHMonsterBody, leg: String, up_deg: float, back_deg: float, 
 	var s := _side(leg)
 	b.rot("hip_" + leg, Vector3(0.0, s * back_deg, s * up_deg))
 	b.rot("knee_" + leg, Vector3(0.0, 0.0, s * fold_deg))
+
+
+## The whip vines trail back off the mound at rest. `lift` pitches every
+## vine up (+) or down onto the back (-), the whole chain with `falloff`
+## (< 1 swings from the root, > 1 curls the tip); `sway` a lagged wave
+## (each vine its own phase) at `period` s.
+static func _vines(b: HHMonsterBody, t: float, lift_deg: float, sway_deg: float, period: float = 2.4, falloff: float = 1.0) -> void:
+	for k in VINES.size():
+		var ph := TAU * (t / maxf(period, 0.05) + 0.23 * k)
+		var s := 1.0 if k % 2 == 0 else -1.0
+		b.bend(VINES[k], Vector3(lift_deg + 0.5 * sway_deg * sin(ph), s * sway_deg * cos(ph), 0.0), falloff)
+
+
+## Every clip's vine motion, layered after the body pose (the vines are
+## the reed lash: they coil back and whip forward over the head in
+## `reed_lash`, follow the reeds' fold and whip in the squash, shake with the
+## pollen, and droop when the reeds are burnt or the body goes down).
+static func _vine_layer(clip: String, t: float, b: HHMonsterBody) -> void:
+	match clip:
+		"calm_soak": _vines(b, t, 10.0, 3.0, 6.0)
+		"aggravated_idle": _vines(b, t, 0.0, 10.0, 2.4)
+		"walk": _vines(b, t, -6.0, 12.0, 0.9)
+		"reeds_fold":
+			_vines(b, t, -34.0 * _snap(t, 0.05, 0.5), 0.0)
+		"leaping_squash":
+			var fold := _snap(t, 0.0, 0.5)
+			var slam := _snap(t, 1.15, 1.25)
+			var rec := _ss(t, 1.6, 2.4)
+			var whip := _over(t, 1.15, 1.3, 1.8, 0.4) * slam * (1.0 - rec)
+			_vines(b, t, -34.0 * fold * (1.0 - slam) * (1.0 - rec) + 150.0 * whip, 8.0 * _shake(t, 1.25, 0.6, 9.0), 0.4, 0.4)
+		"reed_lash":
+			# coil back and low (0-0.9), whip up and over the head at 1.2, shudder, return
+			var k := _coil(t, 0.0, 0.9) * (1.0 - _snap(t, 0.9, 1.2))
+			var whip := _over(t, 0.9, 1.2, 1.6, 0.25) * (1.0 - _ss(t, 1.6, 2.2))
+			var sh := _shake(t, 1.2, 0.6, 10.0) * whip
+			_vines(b, t, -40.0 * k + 330.0 * whip + 14.0 * sh, 10.0 * sh + 4.0 * k, 0.5, 0.2)
+		"pollen_shake":
+			var up := _ss(t, 0.0, 1.0) * (1.0 - _ss(t, 1.9, 2.6))
+			var full := _ss(t, 1.1, 1.25) * (1.0 - _ss(t, 1.9, 2.6))
+			_vines(b, t, 18.0 * up, 6.0 + 22.0 * full, 0.25 - 0.1 * full)
+		"spore_spread":
+			var fan := _ss(t, 0.0, 1.0) * (1.0 - _ss(t, 1.8, 2.4))
+			_vines(b, t, 30.0 * fan, 8.0 * _shake(t, 1.2, 0.9, 6.0), 0.4)
+		"tail_drag":
+			_vines(b, t, 10.0 * _ss(t, 0.0, 0.8), 14.0 * _shake(t, 1.1, 0.8, 3.0), 0.6)
+		"hit_react":
+			_vines(b, t, 0.0, 14.0 * _shake(t, 0.05, 0.5, 6.0), 0.3)
+		"stagger":
+			var sag := _snap(t, 0.0, 0.25) * (1.0 - _ss(t, 0.9, 1.5))
+			_vines(b, t, -22.0 * sag, 8.0 * sag, 1.2)
+		"collapse":
+			_vines(b, t, -45.0 * _ss(t, 0.0, 1.3), 0.0)
+		"death":
+			_vines(b, t, -45.0 * _ss(t, 0.0, 1.3) - 15.0 * _ss(t, 1.4, 2.7), 0.0)
+		"reeds_burnt_idle": _vines(b, t, -40.0, 3.0, 3.0)
+		_: _vines(b, t, 0.0, 8.0, 2.0)
 
 
 # ------------------------------------------------------------------ idles
