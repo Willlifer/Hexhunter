@@ -82,6 +82,8 @@ var meshes: Array[MeshInstance3D] = []
 var weapon_main: Node3D = null       ## on the main-hand socket (bow: the left hand)
 var weapon_off: Node3D = null        ## the pair's second blade
 var arrow: Node3D = null             ## nocked only while a draw clip asks for it
+var _string: MeshInstance3D = null   ## the drawn bowstring (model space), while nocked
+var _string_surfaces: Array = []     # [MeshInstance3D, surface] of the bow's straight string
 var clip := ""
 var time := 0.0
 var loop := true
@@ -206,12 +208,14 @@ func build(weapon: String) -> bool:
 
 ## Swap the weapon (and its clip set). The rig stays.
 func equip(weapon: String) -> bool:
-	for n in [weapon_main, weapon_off, arrow]:
+	for n in [weapon_main, weapon_off, arrow, _string]:
 		if n != null:
 			n.queue_free()
 	weapon_main = null
 	weapon_off = null
 	arrow = null
+	_string = null
+	_string_surfaces = []
 	weapon_id = weapon
 	row = weapon_row(weapon)
 	_set = clip_set(weapon)
@@ -814,12 +818,62 @@ func _apply(s: Dictionary) -> void:
 	if arrow != null:
 		arrow.visible = bool(s.nock)
 		if arrow.visible:
+			# the arrow's nock sits in the draw hand, its head toward the bow
+			# hand; Lane A's arrow has its origin at the shaft's middle with +Y
+			# to the head (manifest trail_base = the nock), so the origin is
+			# pushed up the shaft by the nock's distance
 			var a := socket_pos("socket_weapon_r")
 			var b := socket_pos("socket_offhand_l")
 			var dir := (b - a)
 			if dir.length_squared() > 1e-4:
 				dir = dir.normalized()
-				arrow.transform = Transform3D(Basis.looking_at(-dir, Vector3.UP), a + dir * 0.9)
+				var pr := projectile_row(str(row.get("projectile", "arrow")))
+				var nock_y := -0.42
+				if pr.has("trail_base"):
+					var tb: Array = pr.trail_base
+					nock_y = float(tb[1])
+				var basis := Basis.looking_at(dir, Vector3.UP) * Basis(Vector3.RIGHT, -PI * 0.5)   # +Y along dir
+				arrow.transform = Transform3D(basis, a - dir * nock_y)
+	_draw_string(bool(s.nock))
+
+
+## The bowstring: the bow's own straight "string" surface is hidden while an
+## arrow is nocked and a drawn string is drawn from the string's two ends
+## (manifest `string`, bow-local) to the draw hand.
+func _draw_string(nocked: bool) -> void:
+	if weapon_main == null or not row.has("string"):
+		return
+	if _string == null:
+		_string = MeshInstance3D.new()
+		_string.name = "drawn_string"
+		_string.mesh = ImmediateMesh.new()
+		_string.material_override = HHLook.flat(Color(0.92, 0.9, 0.82))
+		_string.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(_string)
+		for mi in weapon_main.find_children("*", "MeshInstance3D", true, false):
+			var m3 := mi as MeshInstance3D
+			for i in m3.mesh.get_surface_count():
+				var src := m3.mesh.surface_get_material(i)
+				if src != null and src.resource_name == "string":
+					_string_surfaces.append([m3, i])
+	for sf in _string_surfaces:
+		var mat := (sf[0] as MeshInstance3D).get_surface_override_material(int(sf[1])) as StandardMaterial3D
+		if mat != null:
+			mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA if nocked else BaseMaterial3D.TRANSPARENCY_DISABLED
+			mat.albedo_color.a = 0.0 if nocked else 1.0
+	_string.visible = nocked
+	if not nocked:
+		return
+	var im: ImmediateMesh = _string.mesh
+	im.clear_surfaces()
+	var bow_xf := socket_xform(str(row.get("socket", "socket_offhand_l"))) * weapon_main.transform
+	var hand := socket_pos("socket_weapon_r")
+	var ends: Array = row.string
+	im.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
+	im.surface_add_vertex(bow_xf * Vector3(float(ends[0][0]), float(ends[0][1]), float(ends[0][2])))
+	im.surface_add_vertex(hand)
+	im.surface_add_vertex(bow_xf * Vector3(float(ends[1][0]), float(ends[1][1]), float(ends[1][2])))
+	im.surface_end()
 
 
 func _write(sample: Dictionary) -> void:
