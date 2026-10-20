@@ -192,7 +192,7 @@ static func _pierce_land(sim: HHSim, u: Dictionary, data: Dictionary) -> void:
 	var shape: Dictionary = data.get("shape", {})
 	var hexes: Array = shape.keys()
 	for t in sim.units_in(hexes, u.id):
-		sim.strike(u, t, HHTune.value("lance_q_dmg") * q_mult(level), sim.nearest_hex_of(t, u.hex), "pierce", q_stagger(level))
+		sim.strike(u, t, HHTune.value("lance_q_dmg") * q_mult(level), sim.nearest_hex_of(t, u.hex), "pierce", q_stagger(level), { "heavy": level >= 3, "level": level })
 	HHWeapons.paint_shape(sim, u, shape)
 	sim._emit({ "type": "pierce", "id": u.id, "hexes": hexes, "element": u.element, "cause": "pierce", "level": level, "shape": shape })
 

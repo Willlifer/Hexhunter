@@ -253,7 +253,7 @@ static func _energized_land(sim: HHSim, u: Dictionary, data: Dictionary) -> void
 		for t in sim.units_in(shape.keys(), u.id):
 			if t.kind != "monster":
 				continue
-			sim.strike(u, t, dmg, sim.nearest_hex_of(t, u.hex), "energized shot", q_stagger(level))
+			sim.strike(u, t, dmg, sim.nearest_hex_of(t, u.hex), "energized shot", q_stagger(level), { "heavy": level >= 3, "level": level })
 			if hit == "":
 				hit = t.id
 		painted = shape
@@ -264,7 +264,7 @@ static func _energized_land(sim: HHSim, u: Dictionary, data: Dictionary) -> void
 			for t in sim.unit_at(h):
 				if t.id == u.id or not sim.targetable(t) or t.kind != "monster":
 					continue
-				sim.strike(u, t, dmg, h, "energized shot", q_stagger(level))
+				sim.strike(u, t, dmg, h, "energized shot", q_stagger(level), { "heavy": level >= 3, "level": level })
 				hit = t.id
 				found = true
 				break

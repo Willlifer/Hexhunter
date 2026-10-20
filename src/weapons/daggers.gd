@@ -207,7 +207,7 @@ static func _flourish(sim: HHSim, u: Dictionary, data: Dictionary) -> void:
 	var shape := flourish_shape(sim, u.hex, level)
 	var area: Array = shape.keys()
 	for t in sim.units_in(area, u.id):
-		sim.strike(u, t, float(_t("q_dmg")) * q_mult(level), sim.nearest_hex_of(t, u.hex), "flourish", q_stagger(level))
+		sim.strike(u, t, float(_t("q_dmg")) * q_mult(level), sim.nearest_hex_of(t, u.hex), "flourish", q_stagger(level), { "heavy": level >= 3, "level": level })
 	HHWeapons.paint_shape(sim, u, shape)
 	sim._emit({ "type": "flourish", "id": u.id, "hex": u.hex, "hexes": area, "element": u.element, "level": level, "shape": shape })
 	if HHUpgrades.has(u, "flourish_twin"):

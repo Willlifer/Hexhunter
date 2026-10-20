@@ -648,6 +648,8 @@ func tick(delta: float) -> void:
 				_flash[k] = 1.0
 			_prev_cd[k] = cd
 			_flash[k] = maxf(0.0, float(_flash.get(k, 0.0)) - delta * 3.0)
+		for k in _int_flash.keys():
+			_int_flash[k] = maxf(0.0, float(_int_flash[k]) - delta * 2.5)
 	if monster_id != "":
 		var m := sim.unit(monster_id)
 		if not m.is_empty():
@@ -683,8 +685,13 @@ func paint(pt: Paint, size: Vector2) -> bool:
 		var cd := int(cooldowns.get(k, 0))
 		var total := maxf(1.0, float(sk.get("cooldown", 1)))
 		var frac := clampf(float(cd) / total, 0.0, 1.0) if cd > 0 else 0.0
-		var active: bool = k == "e" and int(p.get("guard", 0)) > 0
+		var ch: Dictionary = p.get("charging", {})
+		var active: bool = (k == "e" and int(p.get("guard", 0)) > 0) or (k == "q" and not ch.is_empty())
 		slot(pt, L.slots[k], skill_icon(weapon, k), _skill_bg(el), k, frac, _secs(cd) if cd > 0 else "", active, float(_flash.get(k, 0.0)))
+		if k == "q" and not ch.is_empty():          # H56: the held level on the Q box
+			var qr: Rect2 = L.slots.q
+			pt.text(qr.get_center() + Vector2(0, 10), str(int(ch.get("level", 1))), 30, Color(1, 0.95, 0.7), 1, 5, serif())
+		_interrupt_flash(pt, L.slots[k], k)
 	# the elements: active and backup
 	var er: Rect2 = L.element
 	slot(pt, er, str(p.element), HHLook.element_color(str(p.element)).darkened(0.1))
@@ -699,8 +706,9 @@ func paint(pt: Paint, size: Vector2) -> bool:
 	slot(pt, tr, "potion", Color(0.62, 0.1, 0.14), "t", tf, _secs(tcd) if tcd > 0 else "", false, float(_flash.get("t", 0.0)),
 		0.5 if int(p.get("potions", 0)) <= 0 else 0.0)
 	pt.text(Vector2(tr.end.x - 4.0, tr.position.y + 15.0), "x%d" % int(p.get("potions", 0)), 14, Color(1, 0.92, 0.75), 2, 3, serif())
-	# healing multiplier over the orb
-	if not (p.get("regen", {}) as Dictionary).is_empty():
+	_interrupt_flash(pt, tr, "t")
+	# healing multiplier over the orb (H56: while standing in a heal zone)
+	if not (p.get("regen", {}) as Dictionary).is_empty() or sim.in_heal_zone(p):
 		var hm := sim.heal_mult(p)
 		var oc: Vector2 = L.orb.c
 		pt.text(Vector2(oc.x, oc.y - ORB_R - 24.0), "healing x%.1f" % hm, 14, Color(0.5, 1.0, 0.6) if hm >= 1.0 else Color(1.0, 0.5, 0.5), 1, 3)
@@ -731,12 +739,58 @@ static func _secs(cd: int) -> String:
 	return ("%.1f" % s) if s < 10.0 else ("%d" % int(ceil(s)))
 
 
+## H58: a cancelled skill's box flashes red for a moment (`interrupted`).
+var _int_flash := {}
+
+
+func interrupted(skill: String) -> void:
+	if skill == "basic" or skill == "":
+		return
+	_int_flash[skill] = 1.0
+
+
+func _interrupt_flash(pt: Paint, r: Rect2, key: String) -> void:
+	var f := float(_int_flash.get(key, 0.0))
+	if f <= 0.0:
+		return
+	pt.rect(r, Color(0.9, 0.12, 0.08, 0.5 * f))
+	pt.frame(r.grow(2.0), Color(1.0, 0.3, 0.2, f), 2.0)
+
+
+## H56: the dash pips sit in the orb's crown arc (H19's reserved stamina
+## track; H57: "a bar showing dashes is enough stamina"): one segment per
+## charge, full when banked, the recharging one filling.
+static func dash_fill(p: Dictionary) -> Array:
+	var cap := int(HHTune.value("dash_charges"))
+	var have := int(p.get("dash_charges", cap))
+	var full_t := maxf(1.0, HHTune.value("dash_recharge_s") * 30.0)
+	var out: Array = []
+	for i in cap:
+		if i < have:
+			out.append(1.0)
+		elif i == have:
+			out.append(clampf(1.0 - float(p.get("dash_recharge", 0)) / full_t, 0.0, 1.0))
+		else:
+			out.append(0.0)
+	return out
+
+
 ## The glass HP orb: socket, liquid with a moving surface, glass highlight,
-## the reserved stamina arc over its crown (H19), the number.
+## the dash pips in the arc over its crown (H19's track, H56), the number.
 func _orb(pt: Paint, c: Vector2, r: float, p: Dictionary) -> void:
 	var frac := clampf(float(p.hp) / maxf(1.0, float(p.max_hp)), 0.0, 1.0)
-	# stamina: an empty gold-rimmed track, reserved (H19)
+	# the track (H19) now holds the dash charges (H56)
 	pt.arc(c, r + 14.0, -PI * 0.8, -PI * 0.2, Color(0, 0, 0, 0.8), 8.0)
+	var fills := dash_fill(p)
+	var span := PI * 0.6 / maxf(1.0, float(fills.size()))
+	for i in fills.size():
+		var a0 := -PI * 0.8 + span * i + 0.03
+		var a1 := a0 + span - 0.06
+		var fv := float(fills[i])
+		if fv >= 1.0:
+			pt.arc(c, r + 14.0, a0, a1, Color(0.62, 0.9, 1.0, 0.95), 6.0)
+		elif fv > 0.0:
+			pt.arc(c, r + 14.0, a0, a0 + (a1 - a0) * fv, Color(0.4, 0.55, 0.65, 0.8), 4.0)
 	pt.arc(c, r + 10.5, -PI * 0.8, -PI * 0.2, Color(GOLD.r, GOLD.g, GOLD.b, 0.7), 1.5)
 	pt.arc(c, r + 17.5, -PI * 0.8, -PI * 0.2, Color(GOLD.r, GOLD.g, GOLD.b, 0.7), 1.5)
 	for a in [-PI * 0.8, -PI * 0.2]:
@@ -833,6 +887,14 @@ func _monster_plate(pt: Paint, bar: Rect2) -> void:
 		pt.line(Vector2(x, bar.position.y), Vector2(x, bar.end.y), Color(0, 0, 0, 0.55), 1.0)
 	pt.frame(bar, GOLD_DIM, 1.0)
 	pt.text(Vector2(bar.get_center().x, bar.end.y - 3.0), "%d / %d" % [int(m.hp), int(m.max_hp)], 12, Color(1, 1, 1, 0.92), 1, 3)
+	if int(m.get("exposed", 0)) > 0:                # H57: the punish window
+		var pulse := 0.7 + 0.3 * sin(_t * 12.0)
+		var tag := Rect2(bar.end.x - 92.0, bar.end.y + 5.0, 92.0, 20.0)
+		pt.rect(tag.grow(1.0), Color(0, 0, 0, 0.85))
+		pt.rect(tag, Color(0.55, 0.38, 0.08, 0.9 * pulse))
+		pt.frame(tag, Color(1.0, 0.86, 0.45, pulse), 1.0)
+		pt.text(Vector2(tag.get_center().x, tag.end.y - 4.0), "EXPOSED", 14, Color(1.0, 0.95, 0.75), 1, 3, serif())
+		pt.frame(bar.grow(3.0), Color(1.0, 0.82, 0.35, 0.8 * pulse), 2.0)
 	# portrait
 	var pc := Vector2(plate_r.position.x - 4.0, plate_r.get_center().y + 2.0)
 	socket(pt, pc, 30.0)

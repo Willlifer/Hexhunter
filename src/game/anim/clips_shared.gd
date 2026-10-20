@@ -432,3 +432,23 @@ static func jump(t: float, b: HHPlayerBody, carry: Dictionary, d: float) -> void
 			"foot_l": [Vector3(0.15, ANKLE_Y + 0.05, 0.1), 10.0], "foot_r": [Vector3(-0.15, ANKLE_Y + 0.05, 0.1), 10.0] })),
 	]
 	keyed(t, keys, b)
+
+
+## H56 (Lane W): the dash, 0.36 s. A low forward burst: the hips drop and
+## drive forward, the chest pitches over the lead knee, the arms sweep back
+## (the weapon trails), the rear leg extends; then it gathers back up. The
+## body speed-scales the burst to the sim's dash ticks.
+static func dash(t: float, b: HHPlayerBody, carry: Dictionary) -> void:
+	var lean := merge(carry, { "move:root": Vector3(0, -0.2, 0.12), "hips": Vector3(22, 0, 0), "spine": Vector3(14, 0, 0), "chest": Vector3(10, 0, 0),
+		"neck": Vector3(-14, 0, 0), "head": Vector3(-16, 0, 0),
+		"upper_arm_l": Vector3(38, 0, 14), "upper_arm_r": Vector3(38, 0, -14), "forearm_l": Vector3(-18, 0, 0), "forearm_r": Vector3(-18, 0, 0),
+		"foot_l": [Vector3(0.15, ANKLE_Y + 0.02, 0.42), 0.0], "foot_r": [Vector3(-0.15, ANKLE_Y + 0.12, -0.62), 25.0] })
+	var keys := [
+		key(0.0, merge(carry, { "move:root": Vector3(0, -0.06, 0), "hips": Vector3(8, 0, 0), "chest": Vector3(4, 0, 0),
+			"foot_l": [Vector3(0.14, ANKLE_Y, 0.08), 0.0], "foot_r": [Vector3(-0.14, ANKLE_Y, -0.1), 0.0] })),
+		key(0.06, lean, "snap"),
+		key(0.2, lean),
+		key(0.36, merge(carry, { "move:root": Vector3(0, -0.04, 0), "hips": Vector3(4, 0, 0),
+			"foot_l": [Vector3(0.14, ANKLE_Y, 0.06), 0.0], "foot_r": [Vector3(-0.14, ANKLE_Y, -0.06), 0.0] })),
+	]
+	keyed(t, keys, b)

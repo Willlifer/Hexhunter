@@ -6,7 +6,7 @@ const BONES := ["root", "hips", "spine", "chest", "neck", "head",
 	"shoulder_l", "upper_arm_l", "forearm_l", "hand_l", "shoulder_r", "upper_arm_r", "forearm_r", "hand_r",
 	"thigh_l", "shin_l", "foot_l", "thigh_r", "shin_r", "foot_r"]
 const SOCKETS := ["weapon_r", "offhand_l", "back", "chest", "hair", "hat"]
-const SHARED := ["idle", "wield_idle", "walk", "run", "strike", "sweep", "spin", "jump", "jump_attack", "swap", "stagger", "hit_react", "death"]
+const SHARED := ["idle", "wield_idle", "walk", "run", "strike", "sweep", "spin", "jump", "jump_attack", "swap", "stagger", "hit_react", "death", "dash"]
 const SPECIALS := {
 	"lance": ["plant", "slam", "guard"],
 	"daggers": ["dive", "flourish"],
