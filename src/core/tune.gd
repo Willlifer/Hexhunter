@@ -99,6 +99,17 @@ const DEFAULTS := {
 	# hp
 	"player_hp": 3000.0,         # H36: 3x
 	"ground_tick_every": 30.0,   # standing effects apply once a second
+	# co-op (H53, Lane S H875-): a party of 1-4 hunters
+	"party_hp_mult": 0.6,        # monster HP x (1 + this per extra hunter): x1.6 for two, x2.8 for four
+	"party_spawn_min": 2.0,      # hunters 2..4 spawn at least this many hexes from every other hunter ...
+	"party_spawn_max": 3.0,      # ... and at most this far from the nearest one (the party stands 2-3 apart)
+	"party_friendly_fire": 0.0,  # 1 = hunters' blows, telegraphs, reactions and ground hurt each other (H33 extended to the party when 0)
+	"revive_ticks": 90.0,        # an ally standing within 1 hex this long (no damage taken) revives a downed hunter (3 s)
+	"revive_hp_pct": 30.0,       # ... back at this pct of max HP
+	"revive_decay": 0.5,         # revive progress lost per tick while nobody stands by the downed hunter
+	"revive_event_every": 10.0,  # a revive_progress event every this many ticks of progress
+	"aggro_hit_bonus_hexes": 3.0,# the hunter who last hit a monster counts as this many hexes closer when it picks a target ...
+	"aggro_memory_ticks": 150.0, # ... for this long after the hit (5 s)
 }
 
 static var _v := {}
