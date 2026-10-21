@@ -30,15 +30,16 @@ const TIER_BLURB := {
 }
 
 ## The element picker's grouping (Lane D, H244, spec section 4): the axis
-## elements, then Wind, Ice and Thunder under a labelled OPERATORS group,
-## each with one line naming its cash-in. Swirl and Shatter are the names of
-## mechanics still to come (spec sections 2 and 3); the copy is their label.
+## elements under AXIS, then Wind, Ice and Thunder under a labelled OPERATORS
+## group, each with one line naming its cash-in. Copy is the author's (H266).
+## Swirl and Shatter are mechanics still to come (spec sections 2 and 3).
 const AXIS := ["fire", "water", "dark", "light"]
 const OPERATORS := ["wind", "ice", "thunder"]
+const AXIS_COPY := "Build charges and create tier-based payoffs"
 const OPERATOR_COPY := {
-	"wind": "Wind — Swirl: pulls charge inward and condenses it",
-	"ice": "Ice — Shatter: crystals burst on contact",
-	"thunder": "Thunder — Detonate: sets off charged ground",
+	"wind": "Swirl: rearranges the board and compresses charges",
+	"ice": "Shatter: stores charges until something breaks the crystal",
+	"thunder": "Detonate: cashes out charges immediately",
 }
 
 

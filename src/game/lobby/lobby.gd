@@ -31,9 +31,9 @@ const ELEM_Y := 606.0                 # the element sockets' top (their hover ta
 const ELEM_SIZE := Vector2(80, 140)
 const ELEM_STEP := 110.0              # the axis group's spacing (H244)
 const OP_X := 600.0                   # the OPERATORS group: discs from here (H244)
-const OP_STEP := 95.0
-const OP_COPY_X := 884.0              # ... and one line of copy per operator right of them
-const OP_COPY_W := 308.0
+const OP_STEP := 88.0
+const OP_COPY_X := 874.0              # ... and one line of copy per operator right of them
+const OP_COPY_W := 332.0
 const CARD := Rect2(1212, 96, 364, 784)   # the right card: seed, buttons, upgrades, runs
 const TICKER := Rect2(24, 760, 1168, 54)
 const HINT_Y := 838.0
@@ -68,6 +68,8 @@ var _fight_btn: Button
 var _dice: Button
 var _tier_btns := {}             ## H243: tier id -> its toggle in the card's head
 var _op_label: Label             ## H244: "OPERATORS" over Wind, Ice and Thunder
+var _axis_label: Label           ## H266: "AXIS" over Fire, Water, Dark and Light
+var _axis_copy: Label            ## ... and its one line
 var _op_copy := {}               ## operator id -> its one line of copy
 
 ## Co-op (Lane C, H908-H912): the "Play together" section on the card.
@@ -282,8 +284,12 @@ func _build_row(i: int, kind: String, y: float) -> void:
 ## grouping and the labels are new.
 func _build_elements() -> void:
 	_row_label(3, ELEM_LABEL_Y - 8)
-	_next_label = _label("", Vector2(TILE_X + 10, ELEM_LABEL_Y - 6), 15, HHLobbyDisc.ACTIVE)
-	_next_label.position.x = 190
+	_next_label = _label("", Vector2(24, ELEM_Y + 30.0), 14, HHLobbyDisc.ACTIVE)   # H266: under the row label
+	_next_label.size = Vector2(TILE_X - 34.0, 80)
+	_next_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_axis_label = _label("AXIS", Vector2(TILE_X, ELEM_LABEL_Y - 8), LABEL_SIZE - 2, HHHud.GOLD_DIM)
+	_axis_label.add_theme_font_override("font", HHHud.serif())
+	_axis_copy = _label(HHLobbyState.AXIS_COPY, Vector2(TILE_X + 52.0, ELEM_LABEL_Y - 5), 13, Color(1, 0.96, 0.88, 0.8))
 	var axis := HHLobbyState.AXIS
 	var ops := HHLobbyState.OPERATORS
 	for j in axis.size():
@@ -300,7 +306,7 @@ func _build_elements() -> void:
 	for j in ops.size():
 		var id := str(ops[j])
 		_add_disc(id, Vector2(OP_X + j * OP_STEP, ELEM_Y))
-		var line := _label(str(HHLobbyState.OPERATOR_COPY[id]), Vector2(OP_COPY_X, ELEM_Y + 22.0 + j * 30.0), 13,
+		var line := _label(str(HHLobbyState.OPERATOR_COPY[id]), Vector2(OP_COPY_X, ELEM_Y + 22.0 + j * 30.0), 12,
 			HHLook.element_color(id).lerp(Color(1, 0.96, 0.88), 0.55))
 		line.size = Vector2(OP_COPY_W, 22)
 		line.clip_text = true

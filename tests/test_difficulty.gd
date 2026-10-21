@@ -233,6 +233,8 @@ func test_picker_groups_the_operators(c: HHSelfTest.HHCheck) -> void:
 	root.add_child(lobby)
 	c.eq(lobby._discs.size(), 7, "the same seven discs (the existing picker)")
 	c.ok(lobby._op_label != null and lobby._op_label.text == "OPERATORS", "the OPERATORS label")
+	c.ok(lobby._axis_label != null and lobby._axis_label.text == "AXIS", "the AXIS label (H266)")
+	c.eq(lobby._axis_copy.text, HHLobbyState.AXIS_COPY, "the axis line")
 	var max_axis := -INF
 	for id in HHLobbyState.AXIS:
 		max_axis = maxf(max_axis, (lobby._discs[id] as Control).position.x)
