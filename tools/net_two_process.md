@@ -129,3 +129,84 @@ link is congested; H853) and a full requested as soon as the client's
 replicator exists (START and the first full travel on different channels;
 H857). I did not separate which of the two caused how much. Hash agreement
 held in the bad run too (0 mismatches); only smoothness suffered.
+
+# Relay variant: two real processes through a local relay (Lane R, H110-H119)
+
+The same proof for online play: both processes connect out to a relay
+(`relay/relay.py`) on this machine instead of to each other, so it exercises
+HHRelayPeer, the relay's routing and the lobby's `--host --online` /
+`--join-code` path end to end. Three terminals from the repo root.
+
+```
+rem terminal 1: the relay (a venv with relay/requirements.txt installed)
+venv\Scripts\python relay\relay.py --port 8799
+
+rem terminal 2: the host; its lobby prints "[lobby] Room XXXXX is open"
+"%GODOT%" --headless --path . -- --host --online --relay ws://127.0.0.1:8799 --name HostBot --peers 2 --arena pond --fight swampfang --autoplay --seconds 20
+
+rem terminal 3: the client, with the code the host printed
+"%GODOT%" --headless --path . -- --join-code XXXXX --relay ws://127.0.0.1:8799 --name ClientBot --weapon daggers --autoplay --seconds 20
+```
+
+Pass: the client takes 0 sim steps, both summaries agree on every hunter's HP,
+and the client's fight log is the host's, line for line, once the lines only
+one side prints are set aside (`you -N (...)` and `staggered N` are about the
+local hunter, p1 on the host). The client's run ends a second earlier (its
+20 s start when its fight starts), so its log is a prefix of the host's.
+
+## Output, 2026-10-21 (this machine, relay on 127.0.0.1:8799)
+
+Host:
+```
+[lobby] Opening a room on the relay ...
+[lobby] Connecting to the relay ...
+[lobby] Connected to the relay, opening a room ...
+[lobby] Room CPJFK is open: tell your friends the code
+[lobby] The party could not start (error 2): everyone must be ready
+HHFight autoplay done: tick 600, player hp 2520 at (-3, -4), hash 1436036372, log 139 lines
+  party: host as p1, 2 hunter(s), 600 steps taken here
+  p1 HostBot (lance): hp 2520 / 3000, downed 0 time(s)
+  p2 ClientBot (daggers): hp 3000 / 3000, downed 0 time(s)
+  net: relay room CPJFK; sent 222096 B = 8.9 KB/s, received 1723 B = 0.1 KB/s over 24 s; relay frames out 583 (225594 B), in 23 (1861 B)
+  swampfang hp 24447 / 32000
+```
+
+Client:
+```
+[lobby] Joining room CPJFK ...
+[lobby] Connecting to the relay ...
+[lobby] Connected to the relay, joining room CPJFK ...
+[lobby] Joined the party at room CPJFK: pick your weapon and elements, then Ready
+HHFight autoplay done: tick 571, player hp 3000 at (-5, -10), hash 1920334799, log 131 lines
+  party: client as p2, 2 hunter(s), 0 steps taken here
+  p1 HostBot (lance): hp 2520 / 3000, downed 0 time(s)
+  p2 ClientBot (daggers): hp 3000 / 3000, downed 0 time(s)
+  net: relay room CPJFK; sent 1723 B = 0.1 KB/s, received 220292 B = 10.2 KB/s over 21 s; relay frames out 23 (1861 B), in 577 (223754 B)
+  swampfang hp 24987 / 32000
+```
+
+Relay:
+```
+room CPJFK opened; 1 rooms open
+room CPJFK closed after 25 s: 606 frames, in 227455 B (9.0 KB/s), out 227455 B (9.0 KB/s); 0 rooms open
+```
+
+The client's 130 log lines (after the filter) are identical to the host's
+first 130; the host has 4 more from the ticks after the client quit, plus 3
+`you` / `staggered` lines of its own.
+The monster HP differs only because the client stopped at tick 571.
+"The party could not start (error 2)" is the autoplay host trying FIGHT one
+refresh before the guest's ready row arrived; the ENet smoke prints it too and
+the next refresh starts the fight.
+
+Four hunters (host + three `--join-code` clients, lance / daggers / bow /
+lance): every client 0 steps, 319 / 319 / 315 shared lines identical to the
+host's; 13.1-13.2 KB/s down per client, 33.7 KB/s up from the host at about
+65 frames/s (relay: 1819 frames, 935 KB in 27 s).
+
+Also tried by hand against the real relay: a wrong code ("Could not join room
+ACDEF: room not found: ..."), killing the host while a guest waits ("Host
+left: back to solo" within a second), hosting with no relay running ("Relay
+asleep, retrying… (12 s)" ... "(84 s)", then "Could not host online: could
+not reach the relay (no answer in 90 s)"), and starting the relay 16 s after
+the host began trying (one retry line, then "Room JKXNT is open").

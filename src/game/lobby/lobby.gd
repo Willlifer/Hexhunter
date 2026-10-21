@@ -75,6 +75,16 @@ var _party_box: VBoxContainer
 var _ready_btn: Button
 var _runs_head: Control
 var _auto := {}                  # coop_boot when it asked for autoplay (two-process smoke test)
+## Online through the relay (Lane R, H114): a LAN / Online switch over the
+## same two rows; hosting online shows the room code big with Copy.
+var online_mode := OS.has_feature("web")   ## the browser has no LAN play (H79)
+var _mode_row: HBoxContainer
+var _lan_btn: Button
+var _online_btn: Button
+var _host_btn: Button
+var _join_btn: Button
+var _code_box: HBoxContainer
+var _code_label: Label
 
 
 func setup(cfg: Dictionary) -> void:
@@ -136,6 +146,8 @@ func _attach_coop() -> void:
 		coop.attach(sh.net, sh.session)
 	coop.note.connect(func(t: String):
 		coop_note = t
+		if not _auto.is_empty():
+			print("[lobby] ", t)                  # the two-process smoke reads the room code here
 		if _ticker != null:
 			_ticker.text = t)
 	coop.refreshed.connect(_on_coop_refreshed)
@@ -151,6 +163,15 @@ func _boot_coop() -> void:
 	var nm := str(b.get("name", "Host" if str(b.get("mode", "")) == "host" else "Guest"))
 	coop.port = int(b.get("port", HHParty.PORT))
 	_name_edit.text = nm
+	if bool(b.get("online", false)) or OS.has_feature("web"):   # --host --online / --join-code X
+		_set_online(true)
+		if str(b.get("mode", "")) == "host":
+			coop.host_online(nm)
+		elif str(b.get("mode", "")) == "join":
+			_addr_edit.text = str(b.get("code", "")) if str(b.get("code", "")) != "" else str(b.get("address", ""))
+			coop.join_online(_addr_edit.text, nm)
+		_refresh()
+		return
 	if str(b.get("mode", "")) == "host":
 		coop.host_game(nm)
 	elif str(b.get("mode", "")) == "join":
@@ -392,7 +413,26 @@ func _build_card() -> void:
 ## field with Join; in a party it shows where the party is, the party list
 ## (slot colour, name, weapon, element pair, ready tick), Ready and Leave.
 func _build_coop(v: VBoxContainer) -> void:
-	v.add_child(_section("PLAY TOGETHER", "LAN, up to 4"))
+	v.add_child(_section("PLAY TOGETHER", "up to 4"))
+	_mode_row = HBoxContainer.new()
+	_mode_row.add_theme_constant_override("separation", 4)
+	_mode_row.visible = not OS.has_feature("web")
+	v.add_child(_mode_row)
+	var group := ButtonGroup.new()
+	_lan_btn = Button.new()
+	_lan_btn.text = "LAN"
+	_lan_btn.tooltip_text = "Same network: the host's address and port %d" % HHParty.PORT
+	_online_btn = Button.new()
+	_online_btn.text = "Online"
+	_online_btn.tooltip_text = "Over the internet through the Hexhunt relay: share a five-letter room code"
+	for bt in [_lan_btn, _online_btn]:
+		bt.toggle_mode = true
+		bt.button_group = group
+		bt.custom_minimum_size = Vector2(84, 26)
+		bt.add_theme_font_size_override("font_size", 13)
+		_mode_row.add_child(bt)
+	_lan_btn.pressed.connect(func(): _set_online(false))
+	_online_btn.pressed.connect(func(): _set_online(true))
 	_coop_status = Label.new()
 	_coop_status.add_theme_font_size_override("font_size", 13)
 	_coop_status.add_theme_color_override("font_color", Color(1, 0.96, 0.88, 0.8))
@@ -412,14 +452,16 @@ func _build_coop(v: VBoxContainer) -> void:
 	_name_edit.add_theme_font_size_override("font_size", 14)
 	_name_edit.text_changed.connect(func(t: String): coop.my_name = HHLobbyCoop._clean_name(t))
 	r1.add_child(_name_edit)
-	var host := Button.new()
-	host.text = "Host"
-	host.custom_minimum_size = Vector2(84, 0)
-	host.tooltip_text = "Open a party on this machine (port %d); your friends join with the address it shows" % HHParty.PORT
-	host.pressed.connect(func():
-		coop.host_game(_name_edit.text)
+	_host_btn = Button.new()
+	_host_btn.text = "Host"
+	_host_btn.custom_minimum_size = Vector2(110, 0)
+	_host_btn.pressed.connect(func():
+		if online_mode:
+			coop.host_online(_name_edit.text)
+		else:
+			coop.host_game(_name_edit.text)
 		_refresh())
-	r1.add_child(host)
+	r1.add_child(_host_btn)
 	var r2 := HBoxContainer.new()
 	r2.add_theme_constant_override("separation", 6)
 	_coop_solo.add_child(r2)
@@ -429,14 +471,42 @@ func _build_coop(v: VBoxContainer) -> void:
 	_addr_edit.add_theme_font_size_override("font_size", 14)
 	_addr_edit.text_submitted.connect(func(_t: String): _join())
 	r2.add_child(_addr_edit)
-	var join := Button.new()
-	join.text = "Join"
-	join.custom_minimum_size = Vector2(84, 0)
-	join.pressed.connect(_join)
-	r2.add_child(join)
+	_join_btn = Button.new()
+	_join_btn.text = "Join"
+	_join_btn.custom_minimum_size = Vector2(110, 0)
+	_join_btn.pressed.connect(_join)
+	r2.add_child(_join_btn)
 	_coop_party = VBoxContainer.new()
 	_coop_party.add_theme_constant_override("separation", 5)
 	v.add_child(_coop_party)
+	_code_box = HBoxContainer.new()                # online host: the room code, big, with Copy
+	_code_box.add_theme_constant_override("separation", 10)
+	_coop_party.add_child(_code_box)
+	var cap := Label.new()
+	cap.text = "ROOM"
+	cap.add_theme_font_size_override("font_size", 13)
+	cap.add_theme_color_override("font_color", HHHud.GOLD_DIM)
+	cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_code_box.add_child(cap)
+	_code_label = Label.new()
+	_code_label.add_theme_font_override("font", HHHud.serif())
+	_code_label.add_theme_font_size_override("font_size", 34)
+	_code_label.add_theme_color_override("font_color", HHHud.GOLD)
+	_code_label.add_theme_constant_override("outline_size", 4)
+	_code_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	_code_label.mouse_filter = Control.MOUSE_FILTER_STOP
+	_code_label.tooltip_text = "Friends pick Online, type this code and Join"
+	_code_box.add_child(_code_label)
+	var copy := Button.new()
+	copy.text = "Copy"
+	copy.custom_minimum_size = Vector2(70, 30)
+	copy.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	copy.pressed.connect(func():
+		if coop.share_code() != "":
+			DisplayServer.clipboard_set(coop.share_code())
+			_ticker.text = "Copied room code %s" % coop.share_code())
+	_code_box.add_child(copy)
+	_set_online(online_mode)
 	_party_box = VBoxContainer.new()
 	_party_box.add_theme_constant_override("separation", 2)
 	_coop_party.add_child(_party_box)
@@ -462,8 +532,27 @@ func _build_coop(v: VBoxContainer) -> void:
 
 
 func _join() -> void:
-	coop.join_game(_addr_edit.text, _name_edit.text)
+	if online_mode:
+		coop.join_online(_addr_edit.text, _name_edit.text)
+	else:
+		coop.join_game(_addr_edit.text, _name_edit.text)
 	_refresh()
+
+
+## LAN or Online (H114): the same two rows, relabelled.
+func _set_online(on: bool) -> void:
+	online_mode = on or OS.has_feature("web")
+	if _host_btn == null:
+		return
+	_lan_btn.set_pressed_no_signal(not online_mode)
+	_online_btn.set_pressed_no_signal(online_mode)
+	_host_btn.text = "Host online" if online_mode else "Host"
+	_join_btn.text = "Join online" if online_mode else "Join"
+	_host_btn.tooltip_text = ("Open a room on the Hexhunt relay; it gives you a code to share" if online_mode
+		else "Open a party on this machine (port %d); your friends join with the address it shows" % HHParty.PORT)
+	_addr_edit.placeholder_text = "room code, e.g. KMRTX" if online_mode else "host's address, e.g. 192.168.1.20"
+	if _coop_status != null and _ready_btn != null:
+		_refresh_coop()
 
 
 ## The party list and the co-op widgets from the coop state.
@@ -474,10 +563,21 @@ func _refresh_coop() -> void:
 	_coop_solo.visible = not party and coop.role != "joining"
 	_coop_party.visible = party
 	match coop.role:
-		"host": _coop_status.text = "Hosting on %s. You pick the arena, monster and seed; FIGHT when everyone is ready." % coop.address
+		"host":
+			if coop.online:
+				_coop_status.text = ("Room open: friends pick Online, type the code and Join. You pick the arena, monster and seed; FIGHT when everyone is ready."
+					if coop.room != "" else "Opening a room on the relay (a sleeping relay takes up to a minute) ...")
+			else:
+				_coop_status.text = "Hosting on %s. You pick the arena, monster and seed; FIGHT when everyone is ready." % coop.address
 		"client": _coop_status.text = "In the party at %s. The host picks the arena, monster and seed; you pick your own kit, then Ready." % coop.address
-		"joining": _coop_status.text = "Joining %s ..." % coop.address
-		_: _coop_status.text = "Host a party, or type a friend's address and Join."
+		"joining":
+			_coop_status.text = ("Joining %s (a sleeping relay takes up to a minute) ..." % coop.address) if coop.online else ("Joining %s ..." % coop.address)
+		_:
+			_coop_status.text = ("Host online for a room code, or type a friend's code and Join online." if online_mode
+				else "Host a party, or type a friend's address and Join.")
+	_mode_row.visible = not coop.in_party() and coop.role != "joining" and not OS.has_feature("web")
+	_code_box.visible = coop.share_code() != ""
+	_code_label.text = coop.share_code()
 	_ready_btn.set_pressed_no_signal(coop.ready)
 	_ready_btn.visible = coop.role != "host"         # the host's FIGHT readies the host
 	_ready_btn.text = "Ready (click to unready)" if coop.ready else "Ready up"

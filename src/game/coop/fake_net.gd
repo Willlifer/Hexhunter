@@ -11,6 +11,8 @@ signal peer_left(peer: int)
 signal connected
 signal failed
 signal disconnected
+signal room_ready(code: String)
+signal relay_status(text: String)
 
 var hub: HHCoopFakeHub = null
 var online := false
@@ -40,10 +42,43 @@ func join(address: String, port: int = HHParty.PORT) -> int:
 	return OK
 
 
+## Lane R: the relay calls. host_online hands out ROOM at once; join_online
+## joins like join() unless the code is not ROOM (then failed, "room not found").
+const ROOM := "KMRTX"
+var room := ""
+var last_error := ""
+
+
+func host_online(max_peers: int = 3) -> int:
+	calls.append(["host_online", max_peers])
+	online = true
+	hosting = true
+	my_id = 1
+	room = ROOM
+	relay_status.emit("connected to the relay, opening a room ...")
+	room_ready.emit(ROOM)
+	return OK
+
+
+func join_online(code: String) -> int:
+	calls.append(["join_online", code])
+	if code != ROOM:
+		last_error = "room not found: check the code (a room closes when its host leaves)"
+		failed.emit()
+		return OK
+	room = code
+	return join("relay", 0)
+
+
+func is_relay() -> bool:
+	return room != "" and online
+
+
 func leave() -> void:
 	calls.append(["leave"])
 	online = false
 	hosting = false
+	room = ""
 
 
 func is_host() -> bool:
