@@ -14,7 +14,8 @@ extends RefCounted
 ## burning trail (fire 1, 2 on "vent" cells). Close in it bites, lashes its
 ## tail at whoever stands beside or behind it, and back-rolls, scattering
 ## smouldering quills; at range it spits embers (three fire areas toward the
-## player) or leaps onto the player's hex and stomps. The rattle-roar flags
+## player) or leaps onto the player's hex and stomps (H275: the stomp hurts
+## through the push-out, 20%, and splashes fire on its Attack Ring). The rattle-roar flags
 ## the next attack. After the roll it is BALD for TUNE.bald_ticks: 2x damage
 ## from any side (rear_mult), on top of 1.3x from behind. Enraged < 0.25.
 ##
@@ -66,10 +67,10 @@ const TUNE := {
 	"burn_ticks": 120,                # 4 s of burn
 	"leap_min": 3,                    # leap and stomp when the player is 3..8 out
 	"leap_max": 8,
-	"leap_radius": 1,                 # stomp: footprint + this, centred on the landing hex
 	"leap_air_ticks": 15,             # 0.5 s in the air at the end of the window
-	"leap_dmg_pct": 26.0,
-	"leap_stagger": 0.8,
+	# H268/H275: the stomp's own damage (26%, footprint + 1) is gone: the telegraph marks the landing hull,
+	# the hunters under it take the push-out's push_land_pct (HHTune), and the ring gets the splash
+	"leap_splash": "fire",            # H269: the element it splashes on the Attack Ring as it lands (HHTune leap_splash_steps)
 	"roll_radius": 3,                 # back-roll reach beyond the footprint
 	"roll_dmg_pct": 22.0,
 	"roll_stagger": 0.8,
@@ -204,6 +205,7 @@ func tick(sim: HHSim, u: Dictionary) -> void:
 		if not leap_started and sim.tick >= leap_at:
 			leap_started = true
 			sim.begin_leap(u, leap_to, int(TUNE.leap_air_ticks), Callable())
+			u.leap["splash"] = str(TUNE.leap_splash)       # H269: plain data, so it replicates
 		if sim.tick < busy_until:
 			return
 		mode = "idle"
@@ -378,13 +380,13 @@ func _leap(sim: HHSim, u: Dictionary, p: Dictionary) -> bool:
 			return false
 	_face(u, to)
 	var hexes: Array = []
-	for h in HHHex.area(to, int(u.size) + int(TUNE.leap_radius)):
+	for h in HHHex.area(to, int(u.size)):              # H275: the landing hull; its damage is the push-out's (H268)
 		if sim.arena.exists(h):
 			hexes.append(h)
 	hexes.sort()
 	var ticks := _attack(sim, u, "leap_stomp", hexes, {
-		"dmg_pct": float(TUNE.leap_dmg_pct), "element": "fire" if smouldering else "", "paint_steps": 1 if smouldering else 0,
-		"status": "", "status_ticks": 0, "stagger": float(TUNE.leap_stagger) })
+		"dmg_pct": 0.0, "element": "", "paint_steps": 0,
+		"status": "", "status_ticks": 0, "stagger": 0.0, "landing": true })
 	mode = "leap"
 	leap_to = to
 	leap_at = sim.tick + ticks - int(TUNE.leap_air_ticks)

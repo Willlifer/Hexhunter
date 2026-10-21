@@ -28,7 +28,11 @@ extends RefCounted
 ##   dash_recharge (ticks to the next charge), dash_recover (ticks before the
 ##   next dash), dash_iframes (ticks of dodge left), heal_zone ({} or { hex,
 ##   radius, left, total, pct_per_s }: the hunter's thrown potion on the
-##   ground), potion_hex (where the last potion landed) }
+##   ground), potion_hex (where the last potion landed),
+##   H268/H271/H277 (Lane P, hunters only): under ({} or { by, tick, into }:
+##   the moving hull over it), struck ({} or { by, tick }: the last monster
+##   telegraph that hit it), pushed ({} or { by, tick }: the last push-out
+##   that hurt it) }
 ##
 ## Co-op (H53): up to 4 hunters. add_player fans hunters 2..4 out round the
 ## spawn; monster HP scales with the party (scale_for_party); a hunter at 0 HP
@@ -67,6 +71,7 @@ var events: Array = []
 var over := ""
 var sandbox := false
 var _next_tg := 1
+var _landed := {}              # H268: monster ids whose leap landed this tick (reset every step; push_cause)
 
 ## Difficulty tiers (Lane D, H240-H242). Every fight behaviour that existed on
 ## 2026-10-21 IS the EASY tier and runs on every tier; new behaviour (enrage,
@@ -147,7 +152,10 @@ func add_player(id: String, hex: Vector2i, element: String = "fire", backup: Str
 	u.dash_recover = 0
 	u.dash_iframes = 0
 	u.heal_zone = {}
-	u.recovery = 0                                       # H57: rooted ticks after an action
+	u.under = {}                                         # H271: { by, tick }: the moving hull over this hunter, since when
+	u.struck = {}                                        # H268: { by, tick }: the last monster telegraph that hit it
+	u.pushed = {}                                        # H277: { by, tick }: the last push-out that hurt it
+	u.recovery = 0                                      # H57: rooted ticks after an action
 	u.flinch = 0                                         # H58: held after a landed monster hit
 	u.combo = {}                                         # H57: { step, until, target } (lance, daggers)
 	u.queued = {}                                        # H57: a buffered press { o, until }
@@ -413,8 +421,15 @@ func units_in(hexes: Array, skip: String = "") -> Array:
 ## Attack Ring, lance 2, bow 7: HHWeapons.reach). A monster that is moving
 ## may glide over a hunter (H338); once it stands still (arrived, stopped,
 ## landed from a leap, surfaced) any hunter inside its hull is slid at once to
-## the nearest free Attack Ring hex (_push_out): not a hit, no damage, no
-## stagger, no interrupt. All of it is deterministic: no RNG, fixed tie-breaks.
+## the nearest free Attack Ring hex (_push_out). H268 (Lane P, H271-H277): the
+## slide hurts, a monster blow through hurt(): push_land_pct when the monster
+## arrived on you (a leap landing, a charge or walk ending on you),
+## push_self_pct when you caused it (you were moving into the hull when it
+## first covered you); none on top of that same attack's own telegraph hit
+## (push_hit_grace_ticks), and that attack's later telegraph spares a hunter
+## its push already hurt. A monster
+## leap lands with a contained splash of its element on the Attack Ring
+## (_leap_splash, H269). All of it is deterministic: no RNG, fixed tie-breaks.
 
 const NO_HEX := Vector2i(-9999, -9999)
 
@@ -544,7 +559,9 @@ func push_spot(m: Dictionary, p: Dictionary, taken: Dictionary = {}) -> Vector2i
 
 ## H253: every hunter (standing or downed, not in the air) inside a still
 ## hull slides out. Monsters in `order`, then hunters in `order`; two hunters
-## never get the same hex when the ring has room.
+## never get the same hex when the ring has room. H268: the slide hurts
+## (push_cause, _push_hurt); then every hunter under a moving hull is noted
+## (_track_under) so the next stop knows how long it had been under.
 func _push_out() -> void:
 	var taken := {}
 	for mid in order:
@@ -561,7 +578,118 @@ func _push_out() -> void:
 			if to == NO_HEX:
 				continue
 			taken[to] = true
-			_shove(p, m, to)
+			var why := push_cause(m, p)
+			var spared := _push_spared(m, p)
+			_shove(p, m, to, why, spared)
+			if not spared:
+				_push_hurt(p, m, why)
+			p.under = {}
+	_track_under()
+
+
+## H268, H271: why `m`'s hull holds `p` as it stops. "self" (push_self_pct):
+## the hunter caused the collision: when the moving hull first covered it,
+## the hunter was itself moving toward the monster (walking or dashing into
+## its path; `under.into`). "land" (push_land_pct) otherwise: the monster came
+## to it (a leap landing this tick always; a charge or walk that ended on a
+## hunter standing, or moving away or across).
+func push_cause(m: Dictionary, p: Dictionary) -> String:
+	if _landed.has(str(m.id)):
+		return "land"
+	var u: Dictionary = p.get("under", {})
+	if str(u.get("by", "")) == str(m.id) and bool(u.get("into", false)):
+		return "self"
+	return "land"
+
+
+## H271: `p` is moving toward `m` (its dash, else its next waypoint, else the
+## exact point it walks to, has a component toward the monster's centre).
+func _moving_toward(p: Dictionary, m: Dictionary) -> bool:
+	var to := NO_POS
+	var d: Dictionary = p.get("dash", {})
+	if not d.is_empty():
+		to = d.get("to", NO_POS)
+	elif not (p.path as Array).is_empty():
+		to = arena.stand((p.path as Array)[0])
+	elif (p.goal_pos as Vector3) != NO_POS:
+		to = p.goal_pos
+	if to == NO_POS:
+		return false
+	var at: Vector3 = p.pos
+	var mp: Vector3 = m.pos
+	var v := Vector2(to.x - at.x, to.z - at.z)
+	return v.length_squared() > 1e-6 and v.dot(Vector2(mp.x - at.x, mp.z - at.z)) > 0.0
+
+
+## H268: a hunter that monster's own telegraph already hit (this tick, or
+## within push_hit_grace_ticks: a charge's last segment can resolve a tick
+## before the body stops) takes no push-out damage on top. The other way
+## round (H277): a push-out that hurt is noted in `pushed`, and a telegraph of
+## that monster issued before the push spares the hunter when it resolves
+## (Rimeslithe's shoulder charge drives while its line is still lit).
+func _push_spared(m: Dictionary, p: Dictionary) -> bool:
+	var s: Dictionary = p.get("struck", {})
+	return str(s.get("by", "")) == str(m.id) and tick - int(s.get("tick", -9999)) <= int(HHTune.value("push_hit_grace_ticks"))
+
+
+## H268, H272: the push-out blow. A monster hit through hurt() with by = the
+## monster: it interrupts (H58), a charging lance's super armour cuts it
+## (H59), dash i-frames dodge it and immunity skips it (the slide happens
+## either way). No guard: it is not a telegraph.
+func _push_hurt(p: Dictionary, m: Dictionary, why: String) -> void:
+	if not alive(p):
+		return
+	var pct := HHTune.value("push_land_pct") if why == "land" else HHTune.value("push_self_pct")
+	var stagger := HHTune.value("push_land_stagger") if why == "land" else HHTune.value("push_self_stagger")
+	var dmg: float = HHFormulas.tile_damage(p.max_hp, pct, 0.0).value
+	p.pushed = { "by": str(m.id), "tick": tick }         # H277: that attack's telegraph, if still to land, spares it
+	hurt(p, dmg, "push_" + why, stagger, str(m.id))
+
+
+## H271: each hunter's moving hull (a monster alive and not occupying: gliding,
+## in the air, or submerged), the tick it first covered the hunter, and
+## whether the hunter was moving into it then (`into`). Plain data on the
+## hunter (`under`), so it replicates and hashes like the rest.
+func _track_under() -> void:
+	for pid in order:
+		var p: Dictionary = units[pid]
+		if p.kind != "player":
+			continue
+		var over: Dictionary = {}
+		if (alive(p) or bool(p.get("downed", false))) and (p.leap as Dictionary).is_empty():
+			for mid in order:
+				var m: Dictionary = units[mid]
+				if m.kind == "monster" and alive(m) and not occupying(m) and in_hull(m, p.hex):
+					over = m
+					break
+		var cur: Dictionary = p.get("under", {})
+		if over.is_empty():
+			if not cur.is_empty():
+				p.under = {}
+		elif str(cur.get("by", "")) != str(over.id):
+			p.under = { "by": str(over.id), "tick": tick, "into": alive(p) and _moving_toward(p, over) }
+
+
+## H269, H274: a monster's leap lands with a splash of its element (from the
+## brain: u.leap.splash) on the Attack Ring round where it landed, at
+## leap_splash_steps, on every ring hex that can hold a charge and holds
+## nothing yet (open ground; a charged hex or a marker is left as it was).
+## Contained: laid as spread (HHCharge.apply with fresh = false: never fires a
+## marker, no eruption) and nothing the grid reports back is resolved (no
+## detonation, reaction or cell damage), so the splash triggers nothing in the
+## same action. Emits `paint` with splash = true.
+func _leap_splash(m: Dictionary, element: String) -> void:
+	if element == "":
+		return
+	var hexes: Array = []
+	for h in attack_ring(m):
+		if charge.can_hold(h) and charge.at(h).is_empty() and str(arena.kind(h)) != "edge":
+			hexes.append(h)
+	if hexes.is_empty():
+		return
+	var r := charge.apply(hexes, element, str(m.id), int(HHTune.value("leap_splash_steps")), false)
+	_emit({ "type": "paint", "id": m.id, "element": element, "hexes": hexes.duplicate(), "changed": (r.changed as Array).duplicate(),
+		"splash": true, "contained": true })
 
 
 ## H250: stepping a monster's hex to `next` would make its hull touch another
@@ -583,7 +711,8 @@ func _hull_clash(u: Dictionary, next: Vector2i) -> bool:
 
 ## Slide `p` to `to`: position and hex at once (the view eases it), no
 ## crossing burn, a dash under way ends, a walk re-routes from the new spot.
-func _shove(p: Dictionary, m: Dictionary, to: Vector2i) -> void:
+## The event carries `cause` ("land" | "self", H268) and `spared` (already hit).
+func _shove(p: Dictionary, m: Dictionary, to: Vector2i, why: String = "", spared: bool = false) -> void:
 	var from_hex: Vector2i = p.hex
 	var from_pos: Vector3 = p.pos
 	p.prev = from_hex
@@ -605,7 +734,8 @@ func _shove(p: Dictionary, m: Dictionary, to: Vector2i) -> void:
 		p.path = arena.path(to, goal, blocked)
 		if goal != dest or (p.path as Array).is_empty():
 			p.goal_pos = NO_POS
-	_emit({ "type": "push_out", "id": p.id, "by": m.id, "from": from_hex, "to": to, "from_pos": from_pos, "to_pos": p.pos })
+	_emit({ "type": "push_out", "id": p.id, "by": m.id, "from": from_hex, "to": to, "from_pos": from_pos, "to_pos": p.pos,
+		"cause": why, "spared": spared })
 
 
 ## A hunter's walk ran into a hull (a monster stepped into its way): route
@@ -640,6 +770,7 @@ func step(orders: Dictionary = {}) -> Array:
 	if over != "":
 		return events
 	tick += 1
+	_landed = {}
 	for id in order:
 		var u: Dictionary = units[id]
 		if alive(u) and orders.has(id):
@@ -1136,6 +1267,9 @@ func _leap(u: Dictionary) -> void:
 		u.untargetable = false
 		u.crossed = L.to
 		_emit({ "type": "land", "id": u.id, "hex": u.hex })
+		if u.kind == "monster":
+			_landed[str(u.id)] = true                    # H268: whoever is under it was landed on
+			_leap_splash(u, str(L.get("splash", "")))    # H269: the contained splash on the Attack Ring
 		if (L.on_land as Callable).is_valid():
 			(L.on_land as Callable).call(self, u)
 		if u.kind == "player" and alive(u) and (u.leap as Dictionary).is_empty():
@@ -1580,8 +1714,13 @@ func _resolve_telegraph(tg: Dictionary) -> void:
 		if int(u.get("dash_iframes", 0)) > 0:
 			_emit({ "type": "dodge", "id": u.id, "amount": 0.0, "cause": cause })
 			continue                                     # H56: dashed through it (no damage, no status)
+		var pu: Dictionary = u.get("pushed", {})
+		if str(pu.get("by", "")) == str(tg.owner) and int(pu.get("tick", -9999)) >= tick - int(tg.total):
+			continue                                     # H277: this attack's push-out already hit it (a drive that ended on it)
 		var pct := float(p.get("dmg_pct", 0.0))
 		var el := str(p.get("element", ""))
+		if pct > 0.0 and u.kind == "player" and str(owner.get("kind", "")) == "monster":
+			u.struck = { "by": str(tg.owner), "tick": tick }    # H268: no push-out damage on top of this hit
 		if pct > 0.0:
 			var dmg: float = HHFormulas.tile_damage(u.max_hp, pct, resist_of(u, el) if el != "" else 0.0).value
 			if int(u.guard) > 0:
@@ -1609,8 +1748,8 @@ func _expose(m: Dictionary, tg: Dictionary) -> void:
 	if m.is_empty() or str(m.get("kind", "")) != "monster" or not alive(m):
 		return
 	var p: Dictionary = tg.payload
-	if float(p.get("dmg_pct", 0.0)) <= 0.0:
-		return
+	if float(p.get("dmg_pct", 0.0)) <= 0.0 and not bool(p.get("landing", false)):
+		return                                           # H273: a leap's landing (its damage is the push-out's) still opens it
 	if (tg.hexes as Array).size() < int(HHTune.value("exposed_min_hexes")) and float(p.get("stagger", 0.0)) < HHTune.value("exposed_min_stagger"):
 		return
 	var brain: Variant = brains.get(str(m.id))
@@ -1970,6 +2109,11 @@ func state_hash() -> int:
 			parts.append("c%d:%d:d%d:%d:%d:z%d" % [int(ch.get("ticks", -1)), int(ch.get("level", 0)), int(u.get("dash_charges", 0)),
 				int(u.get("dash_recharge", 0)), int((u.get("dash", {}) as Dictionary).get("ticks", -1)), int(z.get("left", -1))])
 			parts.append("r%d:f%d:k%d" % [int(u.get("recovery", 0)), int(u.get("flinch", 0)), int((u.get("combo", {}) as Dictionary).get("step", 0))])
+			var un: Dictionary = u.get("under", {})          # H271, H268
+			var sk: Dictionary = u.get("struck", {})
+			var pu: Dictionary = u.get("pushed", {})
+			parts.append("u%s:%d:%d:s%s:%d:p%s:%d" % [str(un.get("by", "")), int(un.get("tick", -1)), 1 if bool(un.get("into", false)) else 0,
+				str(sk.get("by", "")), int(sk.get("tick", -1)), str(pu.get("by", "")), int(pu.get("tick", -1))])
 		else:
 			parts.append("x%d" % int(u.get("exposed", 0)))   # H57
 	var keys := charge.entries.keys()
