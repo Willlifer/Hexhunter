@@ -142,6 +142,14 @@ const DEFAULTS := {
 	# monster hull (H250-H259, Lane H): occupancy, the Attack Ring, push-out
 	"attack_spot_claimed_steps": 3.0, # an attack spot another hunter holds or heads for costs this many extra steps (the party spreads round the ring)
 	"push_out_max_rings": 6.0,   # push-out searches the Attack Ring, then this many rings further out, before it gives up (never in practice)
+	# push-out hurts, leaps splash (H268-H270, Lane P H271-H279)
+	"push_land_pct": 20.0,       # the monster arrived on you (a leap landing; a charge or walk that ended on you): pct of max HP. Replaces the leaps' own landing damage
+	"push_self_pct": 5.0,        # you caused it: you were moving into the hull when it first covered you, and it stopped on you
+	"push_land_stagger": 0.8,    # stagger strength of a "landed on" push (the leaps it replaces staggered 0.8)
+	"push_self_stagger": 0.0,    # ... and of a self-caused one
+	"push_hit_grace_ticks": 10.0, # that monster's telegraph hit you within this many ticks: no push-out damage on top (a charge's last segment can land a tick before the body stops)
+	"leap_splash_steps": 1.0,    # a monster leap paints its element at this tier on the open Attack Ring hexes round the landing (contained: no reaction)
+	"range_ring_alpha": 0.12,    # the hunter's reach ring (H56): opacity of the thin outline (was 0.62, daggers 0.45; H270 "much more transparent"); daggers x0.75
 	# look (H84-H85, Lane Y): the comic ink outline on the hunters and the monsters (HHInk)
 	# camera (H280): camera lag, a lazy follow. The rate is how fast the view eases onto the hunter (1/s): 6 was near-pinned
 	"cam_follow_rate": 2.5,

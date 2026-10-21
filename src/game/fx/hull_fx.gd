@@ -18,9 +18,9 @@ extends Node3D
 
 const LIFT := 0.12
 const HEX_R := 1.0
-const HULL_W := 0.24                  # the ink band reaches this far inside the border ...
-const INK_OUT := 0.14                 # ... and this far outside it
-const RIM_W := 0.11                   # the bone rim, outside the ink
+const HULL_W := 0.28                  # the ink band reaches this far inside the border ... (H279: 0.24 -> 0.28, "a tinge" thicker)
+const INK_OUT := 0.16                 # ... and this far outside it (0.14 -> 0.16)
+const RIM_W := 0.12                   # the bone rim, outside the ink (0.11 -> 0.12)
 const INK := Color(0.07, 0.05, 0.06, 0.82)
 const RIM := Color(0.95, 0.9, 0.78, 0.9)
 const GOLD := Color(1.0, 0.86, 0.42)
