@@ -37,6 +37,28 @@ func test_role_materials_shared(c: HHSelfTest.HHCheck) -> void:
 	b.free()
 
 
+## H85: every monster carries the ink hulls; a big one draws a thinner line;
+## the wind-up glow stays on the body's own material (the hull never takes it).
+func test_monster_ink(c: HHSelfTest.HHCheck) -> void:
+	for id in ["swampfang", "colambros", "spirewalker", "rimeslithe"]:
+		var b := _body(id)
+		if b == null:
+			c.ok(false, "%s builds" % id)
+			continue
+		c.eq(b.inks.size(), b.meshes.size(), "%s: one ink hull per mesh" % id)
+		c.ok(b.ink_scale < 1.0 and b.ink_scale >= 0.78, "%s: a lighter line than the hunter (%.2f)" % [id, b.ink_scale])
+		b.free()
+	var s := _body("swampfang")
+	if s == null:
+		return
+	var role := HHMonsterBody.surface_role(s.meshes[0].mesh, 0)
+	s.fx_glow(role, Color(1, 0.5, 0.1), 2.0)
+	s.update(0.016)
+	c.ok(s.role_material(role).emission_enabled, "the glow lands on the body material")
+	c.ok(s.inks[0].material_override is ShaderMaterial and not (s.inks[0].material_override is StandardMaterial3D), "the hull keeps its ink material")
+	s.free()
+
+
 func test_colambros_smoulder(c: HHSelfTest.HHCheck) -> void:
 	var b := _body("colambros")
 	if b == null:

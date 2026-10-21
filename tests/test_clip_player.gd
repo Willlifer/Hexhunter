@@ -42,12 +42,47 @@ func test_rig_loads(c: HHSelfTest.HHCheck) -> void:
 		c.ok(b.has_bone(bn), "bone %s" % bn)
 	for s in SOCKETS:
 		c.ok(b.socket(s) != null, "socket %s" % s)
-	c.ok(b.triangle_count() > 0 and b.triangle_count() < 4000, "rig tris under 4000 (%d)" % b.triangle_count())
-	c.ok(b.meshes.size() == 5, "one mesh per colour role (%d)" % b.meshes.size())
+	c.ok(b.triangle_count() > 0 and b.triangle_count() < 15000, "rig tris under the 15k web budget (%d, H80)" % b.triangle_count())
+	c.ok(b.meshes.size() == 8, "one mesh per colour role (%d)" % b.meshes.size())
 	var top := b.bone_pos("head")
-	c.ok(top.y > 1.7 and top.y < 2.0, "head pivot at 1.84 (%s)" % top)
+	c.ok(top.y > 1.7 and top.y < 2.0, "head pivot at 1.95 (%s)" % top)
+	# H80: the heroic proportions (8 heads, long legs)
+	var hip := b.bone_pos("thigh_l")
+	var knee := b.bone_pos("shin_l")
+	c.ok(hip.y > 1.1 and hip.y < 1.25, "hip joint at 1.19 m (%s)" % hip)
+	c.ok(knee.y > 0.55 and knee.y < 0.7, "knee at 0.63 m (%s)" % knee)
+	c.ok(hip.y / 2.2 > 0.5, "legs over half the height (%.2f)" % (hip.y / 2.2))
 	var wr := b.socket_pos("weapon_r")
 	c.ok(wr.x < 0.0 and wr.y > 0.8 and wr.y < 1.3, "weapon socket in the right hand at rest (%s)" % wr)
+	b.free()
+
+
+## H83: the suit takes the party colour; H84: the ink hulls follow HHTune.
+func test_suit_tint_and_ink(c: HHSelfTest.HHCheck) -> void:
+	var b := _body("lance")
+	if b == null:
+		c.ok(false, "body builds")
+		return
+	var suit := b.role_material("suit")
+	c.ok(suit != null, "a suit material")
+	c.ok(suit.albedo_color.is_equal_approx(HHPlayerBody.SUIT_DEFAULT), "solo: the reference crimson")
+	var sim := HHSim.new(HHArena.round_flat(1, 10.0, 0.6), 1)
+	sim.add_player("p2", Vector2i(0, 0))
+	b.bind(sim, "p2")
+	c.ok(b.role_material("suit").albedo_color.is_equal_approx(HHPlayerBody.suit_color_for("p2")), "p2: its own suit colour")
+	c.ok(not HHPlayerBody.suit_color_for("p2").is_equal_approx(HHPlayerBody.suit_color_for("p3")), "p2 and p3 differ")
+	var skin := b.role_material("skin")
+	c.ok(skin.albedo_color.is_equal_approx(Color.WHITE), "skin is not tinted")
+	c.eq(b.inks.size(), b.meshes.size(), "one ink hull per body mesh")
+	var on_before := HHTune.value("ink_on")
+	HHTune.set_value("ink_on", 1.0)
+	HHInk.sync(b.inks)
+	c.ok(b.inks.all(func(h): return h.visible), "ink on: hulls shown")
+	HHTune.set_value("ink_on", 0.0)
+	HHInk.sync(b.inks)
+	c.ok(b.inks.all(func(h): return not h.visible), "ink off: hulls hidden")
+	HHTune.set_value("ink_on", on_before)
+	c.ok(b.inks[0].skin == b.meshes[0].skin, "a hull shares its mesh's skin (deforms with the body)")
 	b.free()
 
 

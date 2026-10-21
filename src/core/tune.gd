@@ -139,6 +139,10 @@ const DEFAULTS := {
 	"aggro_commit_ticks": 60.0, # H54: a monster holds its target 2 s before it may switch
 	"revive_hit_setback": 30.0, # H54: a hit on a reviver costs 1 s of progress (was a full reset)
 	"aggro_memory_ticks": 150.0, # ... for this long after the hit (5 s)
+	# look (H84-H85, Lane Y): the comic ink outline on the hunters and the monsters (HHInk)
+	"ink_on": 1.0,               # 1 = outline on (author, 2026-10-20: wanted, default on), 0 = off
+	"ink_px": 2.4,               # line width in pixels on a 1080-line screen (constant on screen: no fat lines up close)
+	"ink_max_m": 0.05,           # ... capped at this many metres (bites only on small or far views)
 }
 
 static var _v := {}

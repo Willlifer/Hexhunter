@@ -68,7 +68,21 @@ const LIMBS := {
 	"foot_l": ["thigh_l", "shin_l", "foot_l"], "foot_r": ["thigh_r", "shin_r", "foot_r"],
 	"hand_l": ["upper_arm_l", "forearm_l", "hand_l"], "hand_r": ["upper_arm_r", "forearm_r", "hand_r"],
 }
-const ROUGHNESS := { "skin": 0.75, "leather": 0.8, "cloak": 0.95, "boots": 0.7, "straps": 0.6 }
+const ROUGHNESS := { "skin": 0.55, "suit": 0.24, "plate": 0.28, "armor": 0.38, "leather": 0.62, "cape": 0.8, "hair": 0.42, "wrap": 0.9 }
+const METALLIC := { "plate": 0.55, "armor": 0.45 }
+const DOUBLE_SIDED := ["cape", "hair", "armor"]       ## open shells (the cape, the hair cap, greaves and pauldron)
+## H83: the suit (role `suit`: the bodysuit, the tattoo bands, the crest gems)
+## takes the hunter's party colour. p1 / solo keeps the reference crimson; the
+## others are deep versions of their slot colour (HHParty.SLOT_COLORS hues) so a
+## party reads apart at the gameplay camera.
+const SUIT_COLORS := {
+	"p1": Color(0.70, 0.10, 0.08), "p2": Color(0.12, 0.30, 0.80),
+	"p3": Color(0.10, 0.52, 0.22), "p4": Color(0.62, 0.14, 0.62),
+}
+const SUIT_DEFAULT := Color(0.70, 0.10, 0.08)
+const CAPE_BASE := Color(0.07, 0.08, 0.14)            ## the reference's navy; the cape leans this far toward the suit colour:
+const CAPE_TINT := 0.45                               ## from the gameplay camera the back (hair, cape) is most of the hunter
+const INK_SCALE := 1.0                                ## H84: the hunter's outline weight (HHInk)
 
 static var _rig_json := {}
 static var _weapon_json := {}
@@ -80,6 +94,9 @@ var row := {}                       ## the weapon's manifest row
 var model: Node3D
 var skeleton: Skeleton3D
 var meshes: Array[MeshInstance3D] = []
+var inks: Array[MeshInstance3D] = []  ## H84: the ink outline hulls (HHInk), shown while HHTune ink_on
+var suit_color := SUIT_DEFAULT       ## H83: the suit's colour (set_suit_color; bind() picks it from the id)
+var _role_mats := {}                 # role -> the body's material for it
 var weapon_main: Node3D = null       ## on the main-hand socket (bow: the left hand)
 var weapon_off: Node3D = null        ## the pair's second blade
 var arrow: Node3D = null             ## nocked only while a draw clip asks for it
@@ -204,6 +221,7 @@ func build(weapon: String) -> bool:
 		for mi in model.find_children("*", "MeshInstance3D", true, false):
 			meshes.append(mi)
 			_apply_materials(mi)
+		inks = HHInk.apply(model, INK_SCALE)
 		for n in model.find_children("socket_*", "Node3D", true, false):
 			_sockets[str(n.name).trim_prefix("socket_")] = n
 		for s in rig_json().get("sockets", {}):
@@ -311,19 +329,50 @@ func _apply_materials(mi: MeshInstance3D) -> void:
 		var role := mat.resource_name if mat else ""
 		if role == "" and mi.mesh is ArrayMesh:
 			role = (mi.mesh as ArrayMesh).surface_get_name(i)
-		var m := StandardMaterial3D.new()
-		m.vertex_color_use_as_albedo = true
-		m.albedo_color = Color.WHITE
-		m.roughness = float(ROUGHNESS.get(role, 0.8))
-		if role == "cloak":
-			m.cull_mode = BaseMaterial3D.CULL_DISABLED       # the mantle is an open sheet
-		m.resource_name = "hh_" + role
-		mi.set_surface_override_material(i, m)
+		mi.set_surface_override_material(i, role_material(role))
+
+
+## The body's material for a role (one per role, shared by its surfaces).
+func role_material(role: String) -> StandardMaterial3D:
+	if _role_mats.has(role):
+		return _role_mats[role]
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.albedo_color = suit_color if role == "suit" else (cape_color(suit_color) if role == "cape" else Color.WHITE)
+	m.roughness = float(ROUGHNESS.get(role, 0.8))
+	m.metallic = float(METALLIC.get(role, 0.0))
+	if role == "suit":
+		m.rim_enabled = true                             # the glossy comic sheen along the suit's edges
+		m.rim = 0.35
+		m.rim_tint = 0.6
+	if role in DOUBLE_SIDED:
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.resource_name = "hh_" + role
+	_role_mats[role] = m
+	return m
+
+
+## H83: recolour the suit (the bodysuit, tattoo bands, crest gems).
+func set_suit_color(c: Color) -> void:
+	suit_color = c
+	if _role_mats.has("suit"):
+		(_role_mats["suit"] as StandardMaterial3D).albedo_color = c
+	if _role_mats.has("cape"):
+		(_role_mats["cape"] as StandardMaterial3D).albedo_color = cape_color(c)
+
+
+static func cape_color(suit: Color) -> Color:
+	return CAPE_BASE.lerp(suit, CAPE_TINT)
+
+
+static func suit_color_for(id: String) -> Color:
+	return SUIT_COLORS.get(id, SUIT_DEFAULT)
 
 
 func bind(p_sim: HHSim, id: String) -> void:
 	sim = p_sim
 	unit_id = id
+	set_suit_color(suit_color_for(id))
 
 
 ## R-U3: the ward. While the bound unit's `immune` ticks are above zero (H552)
@@ -791,6 +840,7 @@ func update(delta: float) -> void:
 		if _fade <= 0.0:
 			_prev_clip = ""
 	_apply(cur)
+	HHInk.sync(inks, INK_SCALE)
 	_draw_ward(delta)
 	_draw_trail(delta)
 

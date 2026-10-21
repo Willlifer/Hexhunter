@@ -55,6 +55,8 @@ var model: Node3D
 var skeleton: Skeleton3D
 var body: MeshInstance3D            ## the hide mesh (one MeshInstance3D per role: body_<role>)
 var meshes: Array[MeshInstance3D] = []
+var inks: Array[MeshInstance3D] = []  ## H85: the comic ink outline hulls (HHInk), shown while HHTune ink_on
+var ink_scale := 1.0               ## H85: line weight for this body (ink_scale_for: the big ones a touch thinner)
 var clip := ""                     ## the clip playing on top
 var time := 0.0
 var loop := true
@@ -155,6 +157,8 @@ func build(monster_id: String) -> bool:
 		if body == null or str(mi.name) == "body_hide":
 			body = mi
 		_apply_materials(mi)
+	ink_scale = ink_scale_for(float(row.get("height", 4.0)))
+	inks = HHInk.apply(model, ink_scale)
 	for n in model.find_children("socket_*", "Node3D", true, false):
 		_sockets[str(n.name).trim_prefix("socket_")] = n
 	for n in model.find_children("ik_*", "Node3D", true, false):
@@ -170,6 +174,12 @@ func _apply_materials(mi: MeshInstance3D) -> void:
 	for i in mi.mesh.get_surface_count():
 		var role := surface_role(mi.mesh, i)
 		mi.set_surface_override_material(i, role_material(role))
+
+
+## H85: the ink line weight by size: the hunter (2.2 m) draws 1.0; a 4-5 m
+## monster a touch thinner on screen so the big bodies do not read heavier.
+static func ink_scale_for(height_m: float) -> float:
+	return clampf(1.0 - (height_m - 2.2) * 0.06, 0.78, 1.0)
 
 
 ## This body's material for a role (one per role, shared by every surface of
@@ -361,6 +371,7 @@ func update(delta: float) -> void:
 	if sim != null and unit_id != "":
 		set_state(sim.unit(unit_id))
 	_drive_state(delta)
+	HHInk.sync(inks, ink_scale)
 	if clip == "":
 		return
 	var d := duration(clip)
