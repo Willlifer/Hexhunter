@@ -157,10 +157,13 @@ func _sync_ring(sim: HHSim, me: Dictionary) -> void:
 		_ring.visible = false
 		return
 	var reach := int(me.reach)
-	var key := "%s:%d" % [me.hex, reach]
+	var alpha := HHTune.value("range_ring_alpha")        # H270, H278: much fainter than the old 0.62, still findable
+	if str(me.weapon) == "daggers":
+		alpha *= 0.75                                    # the short ring hugs the body: a touch fainter still
+	var key := "%s:%d:%.3f" % [me.hex, reach, alpha]
 	if key != _ring_key:
 		_ring_key = key
-		var col := Color(1.0, 0.93, 0.65, 0.62) if str(me.weapon) != "daggers" else Color(1.0, 0.93, 0.65, 0.45)
+		var col := Color(1.0, 0.93, 0.65, alpha)
 		_ring.set_meta("mat", _line_mat(col))
 		_ribbon(_ring, boundary(sim.arena.area(me.hex, reach)), RING_W, _ring.get_meta("mat"))
 

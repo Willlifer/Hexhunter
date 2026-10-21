@@ -9,7 +9,8 @@ extends SceneTree
 ## cursor on the monster: Attack Ring + the spot a click resolves to),
 ## <m>_ring_approach (walking in after the click); and for Spirewalker and
 ## Colambros: <m>_push_before (a leap about to land on the hunter) and
-## <m>_push_after (slid out to the ring), plus sheet.png.
+## <m>_push_after (slid out to the ring, the leap's element splashed on the
+## Attack Ring: Lane P H269), plus sheet.png.
 
 const OUT := "design/hull"
 const SAVE := Vector2i(960, 600)
@@ -169,6 +170,7 @@ func _push(mon: String) -> void:
 	var to := (p.pos as Vector3) - (m.pos as Vector3)
 	fixed_cam = { "yaw": atan2(to.x, to.z) + 0.3, "mid": (p.pos as Vector3) }
 	sim.begin_leap(m, land, 14, Callable())
+	m.leap["splash"] = "fire" if mon == "colambros" else "thunder"   # H269: the brains' splash (Lane P)
 	f._consume({ "type": "leap", "id": mon, "to": land, "ticks": 14, "tick": sim.tick })
 	for k in 7:
 		_tick(f)

@@ -8,7 +8,7 @@ extends Node3D
 ##   arrow keys                   yaw (left/right) and pitch (up/down)
 ##   a click without a drag       `clicked(button, screen_pos)` for HHFight (right = act)
 ##   shake(amount)                a decaying kick on impacts
-## The follow lags (a follow camera lags, it does not snap).
+## The follow lags (a follow camera lags, it does not snap): camera lag, H280.
 
 signal clicked(button: int, screen_pos: Vector2)
 
@@ -32,6 +32,7 @@ var dist_max := DIST_MAX      ## L-21 (H761): per instance, so the world map can
 var dist := 18.0: set = _set_dist
 var input_enabled := true
 var pivot_lift := 1.2         # look at the chest, not the feet
+var follow_tuned := false     ## H280: true in the fight: the lazy follow from HHTune; other rigs keep FOLLOW_LAG
 
 var _follow_target := Vector3.ZERO
 var _shake := 0.0
@@ -107,7 +108,14 @@ func _process(delta: float) -> void:
 		if p != 0.0:
 			pitch += p * KEY_PITCH * delta
 	if pivot.distance_to(_follow_target) > 0.002:
-		pivot = pivot.lerp(_follow_target, 1.0 - exp(-FOLLOW_LAG * delta))
+		# H280: camera lag (a lazy follow): ease toward the hunter at cam_follow_rate
+		# (1/s; higher = tighter), but never trail more than cam_follow_max_m
+		var rate := HHTune.value("cam_follow_rate") if follow_tuned else FOLLOW_LAG
+		pivot = pivot.lerp(_follow_target, 1.0 - exp(-rate * delta))
+		var max_m := HHTune.value("cam_follow_max_m") if follow_tuned else INF
+		var off := pivot - _follow_target
+		if off.length() > max_m:
+			pivot = _follow_target + off.normalized() * max_m
 	if _shake > 0.001:
 		_shake *= exp(-9.0 * delta)
 		_shake_seed += delta * 60.0

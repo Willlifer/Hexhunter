@@ -66,8 +66,9 @@ const TUNE := {
 	"squash_max": 7,
 	"squash_radius": 2,               # the area at the player (its own footprint radius: it lands there)
 	"squash_air_ticks": 12,           # the flight itself (the rest of the window is the crouch tell)
-	"squash_dmg_pct": 28.0,
-	"squash_stagger": 0.8,
+	# H268/H276: the squash's own damage (28%) is gone: the telegraph marks the landing hull, the
+	# hunters under it take the push-out's push_land_pct (HHTune), and the ring gets the splash
+	"squash_splash": "thunder",       # H269: the static it soaks: fuses armed on its Attack Ring as it lands
 	"squash_chance": 0.35,            # at mid range, squash vs a ranged move (enrage raises it)
 	"barb_range": 8,                  # barbs reach this far from the centre
 	"barb_count": 3,                  # single-hex projectiles along the line through the player
@@ -398,9 +399,9 @@ func _squash(sim: HHSim, u: Dictionary, p: Dictionary) -> void:
 		if sim.arena.exists(h):
 			hexes.append(h)
 	hexes.sort()
-	var ticks := _attack(sim, u, "leaping_squash", hexes, {
-		"dmg_pct": float(TUNE.squash_dmg_pct), "element": "", "paint_steps": 0,
-		"status": "", "status_ticks": 0, "stagger": float(TUNE.squash_stagger) })
+	var ticks := _attack(sim, u, "leaping_squash", hexes, {    # H276: the landing hull; its damage is the push-out's
+		"dmg_pct": 0.0, "element": "", "paint_steps": 0,
+		"status": "", "status_ticks": 0, "stagger": 0.0, "landing": true })
 	mode = "squash"
 	var air := mini(int(TUNE.squash_air_ticks), ticks)
 	squash = { "to": to, "leap_at": sim.tick + ticks - air + 1, "land_at": sim.tick + ticks, "air": air, "flying": false }
@@ -414,6 +415,7 @@ func _squash_flight(sim: HHSim, u: Dictionary) -> void:
 		var to: Vector2i = squash.to
 		if to != u.hex:
 			sim.begin_leap(u, to, int(squash.air), Callable())
+			u.leap["splash"] = str(TUNE.squash_splash)     # H269: plain data, so it replicates
 	if sim.tick >= int(squash.land_at):
 		if (u.leap as Dictionary).is_empty():
 			squashes_landed += 1
