@@ -20,7 +20,7 @@ extends SceneTree
 ## Exit 0 = all checks passed. Prints NET_LOOPBACK OK / FAIL.
 
 var opt := { "role": "both", "port": "24650", "address": "127.0.0.1", "seconds": "30",
-	"arena": "pond", "monster": "swampfang", "seed": "1" }
+	"arena": "pond", "monster": "swampfang", "seed": "1", "difficulty": "easy" }   # --difficulty: Lane M, H400
 
 
 func _initialize() -> void:
@@ -92,7 +92,7 @@ class Driver:
 			host_net.session.start_fight.connect(_on_host_start)
 			host_net.peer_joined.connect(func(p): print("[host] peer %d joined (%s)" % [p, host_net.names.get(p, "?")]))
 			host_net.peer_left.connect(func(p): print("[host] peer %d left" % p))
-			host_net.session.host_set({ "arena": opt.arena, "monster": opt.monster, "seed": int(opt.seed) })
+			host_net.session.host_set({ "arena": opt.arena, "monster": opt.monster, "seed": int(opt.seed), "difficulty": opt.difficulty })
 			host_net.session.set_mine({ "weapon": "lance", "element": "fire", "backup": "water", "ready": true })
 		if role in ["both", "client"]:
 			var b := Node.new()
@@ -126,6 +126,7 @@ class Driver:
 
 	func _on_host_start(cfg: Dictionary) -> void:
 		hsim = HHNetBench.host_sim(str(cfg.arena), str(cfg.monster), int(cfg.seed), cfg.players)
+		hsim.set_difficulty(cfg.get("difficulty", "easy"))   # Lane M: the host's tier (H241)
 		var b := host_net.get_parent()
 		hrep = HHReplicator.new()
 		hrep.name = "Replicator"

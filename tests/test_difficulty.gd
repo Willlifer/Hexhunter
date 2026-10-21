@@ -1,8 +1,8 @@
 extends RefCounted
 ## Lane D (H240-H245): difficulty tiers and the element picker's grouping.
 ## The tier is sim state (state_hash, snapshots), rides the launch cfg and the
-## co-op session (the host's tier rules), persists as a lobby pick, and today
-## NORMAL plays exactly like EASY: nothing is gated yet (H240).
+## co-op session (the host's tier rules), persists as a lobby pick; EASY is
+## pinned to its pre-gate baseline (H240, H400).
 
 const BIOMES := { "pond": "swampfang", "caldera": "colambros", "cave": "rimeslithe", "glade": "spirewalker" }
 
@@ -71,19 +71,42 @@ func test_tier_in_state_hash_and_deterministic(c: HHSelfTest.HHCheck) -> void:
 	c.eq(bad, 0, "a normal fight replays tick for tick from its seed (450 ticks)")
 
 
-## H240: everything that exists today is EASY and nothing is gated yet, so a
-## NORMAL fight is the same fight. Every monster on its biome, 600 ticks of a
-## bot, every unit / charge hex / telegraph / projectile compared each 30
-## ticks (the snapshot minus the tier itself). When a lane gates its first
-## behaviour on tier_at_least("normal"), this test changes to prove EASY is
-## untouched instead (compare EASY against a recorded baseline).
-func test_normal_plays_like_easy_today(c: HHSelfTest.HHCheck) -> void:
+## H240 / H400: everything that existed on 2026-10-21 is EASY. Lane M gated
+## the first behaviours (spec 7 and 8) on NORMAL, so this test now proves
+## EASY untouched instead: every monster on its biome, seeds 1 and 2, 900
+## ticks of the bot, state_hash at 300 / 600 / 900 equal to the hashes
+## recorded on dev 3ca3285 (Lane P's push-out damage and leap splash in) BEFORE any gate existed. A lane that changes EASY
+## on purpose (and says so in DECIDE / DECISIONS) re-records EASY_BASELINE with
+## the printed values; a lane that did not mean to has broken EASY.
+const EASY_BASELINE := {
+	"swampfang": { 1: [4137863332, 2910394239, 3485773875], 2: [2539899379, 1497362353, 685962210] },
+	"colambros": { 1: [3104441952, 2188491851, 1915478950], 2: [4012568853, 837472370, 3277010512] },
+	"rimeslithe": { 1: [1168184649, 2274449084, 3044997964], 2: [477278860, 2532625276, 942162693] },
+	"spirewalker": { 1: [3891298095, 2779858977, 393722395], 2: [2203944939, 513824960] },   # seed 2: the bot falls at tick 870
+}
+
+
+func test_easy_matches_the_recorded_baseline(c: HHSelfTest.HHCheck) -> void:
+	for arena_id in BIOMES:
+		var monster := str(BIOMES[arena_id])
+		for seed in [1, 2]:
+			var e := _sim(arena_id, monster, seed, "easy")
+			var got: Array = []
+			for i in 900:
+				e.step(HHNetBench.bot_orders(e, e.tick + 1))
+				if e.tick % 300 == 0:
+					got.append(e.state_hash())
+			c.eq(got, EASY_BASELINE[monster][seed], "%s on %s seed %d: EASY is the fight it was before any tier gate" % [monster, arena_id, seed])
+
+
+## And NORMAL is now a different fight (the gate is live), from the same seed.
+func test_normal_differs_from_easy(c: HHSelfTest.HHCheck) -> void:
 	for arena_id in BIOMES:
 		var monster := str(BIOMES[arena_id])
 		var e := _sim(arena_id, monster, 1, "easy")
 		var n := _sim(arena_id, monster, 1, "normal")
 		var diff := -1
-		for i in 600:
+		for i in 900:
 			e.step(HHNetBench.bot_orders(e, e.tick + 1))
 			n.step(HHNetBench.bot_orders(n, n.tick + 1))
 			if e.tick % 30 == 0 and diff < 0:
@@ -95,8 +118,7 @@ func test_normal_plays_like_easy_today(c: HHSelfTest.HHCheck) -> void:
 					diff = e.tick
 			if e.over != "" or n.over != "":
 				break
-		c.eq(diff, -1, "%s on %s: normal == easy every 30 ticks to tick %d (first difference at %d)" % [monster, arena_id, e.tick, diff])
-		c.eq(e.over, n.over, "%s: same outcome" % monster)
+		c.ok(diff > 0, "%s on %s: normal differs from easy (first at tick %d)" % [monster, arena_id, diff])
 
 
 func test_snapshot_carries_the_tier(c: HHSelfTest.HHCheck) -> void:

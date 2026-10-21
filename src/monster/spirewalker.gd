@@ -575,7 +575,7 @@ func _attack(sim: HHSim, u: Dictionary, clip: String, hexes: Array, payload: Dic
 	mode = "attack"
 	_stop(u)
 	var contact := int(HHSpirewalkerClips.CLIPS[clip].contact_tick)
-	var ticks := clampi(int(round(float(contact) * float(TUNE.windup_mult))), int(TUNE.telegraph_min_ticks), int(TUNE.telegraph_max_ticks))
+	var ticks := HHTierBrain.windup(u, clampi(int(round(float(contact) * float(TUNE.windup_mult))), int(TUNE.telegraph_min_ticks), int(TUNE.telegraph_max_ticks)))   # H400: identity on EASY
 	var speed := float(contact) / float(ticks) if contact > 0 else 1.0
 	payload["clip"] = clip
 	if not payload.has("name"):

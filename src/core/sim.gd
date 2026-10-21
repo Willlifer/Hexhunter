@@ -835,7 +835,10 @@ func step(orders: Dictionary = {}) -> Array:
 	for id in brains.keys():
 		var u: Dictionary = units.get(id, {})
 		if not u.is_empty() and alive(u):
-			brains[id].tick(self, u)
+			if difficulty == "easy":
+				brains[id].tick(self, u)
+			else:
+				HHTierBrain.tick(self, brains[id], u)    # Lane M (H400): spec 7 and 8, NORMAL and up only
 	for id in hooks.keys():
 		var u: Dictionary = units.get(id, {})
 		if not u.is_empty() and alive(u):
