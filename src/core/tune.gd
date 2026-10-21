@@ -143,6 +143,12 @@ const DEFAULTS := {
 	"ink_on": 1.0,               # 1 = outline on (author, 2026-10-20: wanted, default on), 0 = off
 	"ink_px": 2.4,               # line width in pixels on a 1080-line screen (constant on screen: no fat lines up close)
 	"ink_max_m": 0.05,           # ... capped at this many metres (bites only on small or far views)
+	# web look (Lane Z, H90-H92): the Compatibility renderer only; desktop ignores these
+	"web_ambient": 1.0,          # the sky ambient the *_web GK shaders add (x the sky's irradiance estimate)
+	"web_reflection": 0.5,       # the sky a glossy GK surface mirrors (water)
+	"web_fog": 1.0,              # x the arena's fog density, drawn by the *_web GK shaders
+	"web_glow_whiten": 0.45,     # additive light pools (torches, lava) pulled toward warm white, as Filmic does on desktop
+	"web_glow_gain": 1.1,        # ... and scaled
 }
 
 static var _v := {}

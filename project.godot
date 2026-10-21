@@ -28,4 +28,6 @@ window/dpi/allow_hidpi=true
 [rendering]
 
 anti_aliasing/quality/msaa_3d=2
+limits/opengl/max_lights_per_object=24
+limits/opengl/max_renderable_lights=64
 environment/defaults/default_clear_color=Color(0.05, 0.06, 0.08, 1)
