@@ -27,14 +27,16 @@ extends RefCounted
 ##       hook, which evaporates / douses tier-1 contact and erupts bigger
 ##       contact as Steam (DECIDE-A, H260), with the 3.3 who-gets-hurt rule.
 ##   discharge(sim, u, hexes)
-##     today: sim.paint(charged hexes, "thunder", u.id): every charged hex
-##       fuses (the old Fuse), one paint, so detonations cannot chain. The old
-##       _blast credits the blast to whoever painted the charge: a hunter's
-##       setup hurts the monster at the hunter's reaction strength and spares
-##       the party, so DECIDE-C (H262) is applied here by hand: every hunter
-##       on a detonated hex (full) or its ring (ring share) takes
-##       reaction_unit_other x mult x tier_roar_player_mult, chained like
-##       _land_reactions, never below 1 HP, no interrupt.
+##     today: HHCharge.apply(charged hexes, "thunder", u.id): every charged
+##       hex fuses (the old Fuse) in one apply, so detonations cannot chain.
+##       The old grid credits a fuse to whoever lays the thunder (the
+##       monster: it would be spared and hunters hit at full), so the blasts
+##       are landed here by hand, `detonate` events tagged contained: the
+##       monster takes each hunter-laid blast at that hunter's reaction
+##       strength (its own paint spares it, H33); every hunter on a blast
+##       (full) or its ring (ring share) takes reaction_unit_other x mult x
+##       tier_roar_player_mult, chained like _land_reactions, never below
+##       1 HP, no interrupt (DECIDE-C, H262).
 ##     after EL: EL's "detonate all charge in a radius as one contained
 ##       action" hook with the monster as the trigger; the 3.3 rule decides
 ##       who is hurt and how much (drop the hand-made DECIDE-C pass).
@@ -95,43 +97,79 @@ static func quench(sim: HHSim, u: Dictionary, hexes: Array, steps: int) -> Dicti
 
 
 ## The Discharge Roar (spec 7.3): every charged hex in `hexes` detonates as one
-## contained action. Returns { detonated: [hex], players: { id: amount } }.
+## contained action. Returns { detonated: [hex], players: { id: amount }, monster: amount }.
 static func discharge(sim: HHSim, u: Dictionary, hexes: Array) -> Dictionary:
 	var charged: Array = []
+	var owner := {}
 	for h in hexes:
 		if sim.charge.charged(h):
 			charged.append(h)
+			owner[h] = str(sim.charge.at(h).get("source", ""))
 	charged.sort()
-	var out := { "detonated": [], "players": {} }
+	var out := { "detonated": [], "players": {}, "monster": 0.0 }
 	if charged.is_empty():
 		return out
-	var r := sim.paint(charged, "thunder", str(u.id), 1, true)
+	# the old grid credits a fuse to whoever lays the thunder; here that is the
+	# monster, so the blasts are landed by hand below (who is hurt: 3.3 / DECIDE-C)
+	var r := sim.charge.apply(charged, "thunder", str(u.id), 1, true)
+	sim._emit({ "type": "paint", "id": u.id, "element": "thunder", "hexes": charged.duplicate(), "changed": (r.changed as Array).duplicate(), "contained": true })
 	var blasts: Array = []
 	for d in r.detonations:
 		(out.detonated as Array).append(d.hex)
-		blasts.append([d.hex, float(d.mult)])
-	# DECIDE-C (H262) by hand until EL's 3.3: the hunters caught take a share, never below 1 HP
+		var src := str(owner.get(d.hex, ""))
+		blasts.append([d.hex, float(d.mult), src])
+		sim._emit({ "type": "detonate", "hex": d.hex, "mult": float(d.mult), "pct": float(d.mult), "mix": d.mix, "source": src, "by": u.id, "contained": true })
+	# the monster: a hunter's setup hurts it at that hunter's reaction strength (the old
+	# rule for a hunter's own detonation); its own paint does not (H33)
+	var mon: Array = []
+	for b in blasts:
+		if str(b[2]) == str(u.id):
+			continue
+		var k := _share(sim.footprint(u), b[0], float(b[1]))
+		if k > 0.0:
+			mon.append(k * sim.reaction_unit(str(b[2])))
+	var mt := _chain(mon) * (1.0 - sim.resist_of(u, "thunder") / 100.0)
+	if mt > 0.0:
+		sim.hurt(u, mt, "discharge_roar", 0.0, "", false)
+		out.monster = mt
+	# DECIDE-C (H262) until EL's 3.3: the hunters caught take a share, never below 1 HP
 	var unit := HHTune.value("reaction_unit_other") * HHTierBrain.t("roar_player_mult")
 	for p in sim.standing_players():
 		var list: Array = []
 		for b in blasts:
-			var dist := HHHex.distance(p.hex, b[0])
-			if dist == 0:
-				list.append(float(b[1]))
-			elif dist == 1:
-				list.append(float(HHFormulas.detonation_ring_pct(float(b[1])).value))
-		if list.is_empty():
-			continue
-		list.sort()
-		list.reverse()
-		var total := float(list[0])
-		for i in range(1, list.size()):
-			total += float(list[i]) * HHTune.value("reaction_chain_frac")
-		var amount := minf(total * unit * (1.0 - sim.resist_of(p, "thunder") / 100.0), float(p.hp) - 1.0)
+			var k := _share([p.hex], b[0], float(b[1]))
+			if k > 0.0:
+				list.append(k)
+		var amount := minf(_chain(list) * unit * (1.0 - sim.resist_of(p, "thunder") / 100.0), float(p.hp) - 1.0)
 		if amount > 0.0:
 			sim.hurt(p, amount, "discharge_roar", 0.0, str(u.id), false)
 			out.players[p.id] = amount
 	return out
+
+
+## A blast at `hex` on a unit covering `cells`: the full mult on its hex, the ring share next to it.
+static func _share(cells: Array, hex: Vector2i, mult: float) -> float:
+	var best := 0.0
+	for c in cells:
+		var d := HHHex.distance(c, hex)
+		if d == 0:
+			return mult
+		if d == 1:
+			best = float(HHFormulas.detonation_ring_pct(mult).value)
+	return best
+
+
+## The sim's chain rule (_land_reactions): the strongest in full + reaction_chain_frac of the rest.
+static func _chain(list: Array) -> float:
+	if list.is_empty():
+		return 0.0
+	var l := list.duplicate()
+	l.sort()
+	l.reverse()
+	var total := float(l[0])
+	for i in range(1, l.size()):
+		total += float(l[i]) * HHTune.value("reaction_chain_frac")
+	return total
 
 
 ## Drink `element` off `hexes` (spec 8.3). Returns the intensity points taken.

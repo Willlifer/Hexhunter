@@ -87,13 +87,16 @@ void fragment() {
 	} else if (mode == 2) {
 		float beat = 0.5 + 0.5 * sin(TIME * 7.0);
 		a = 0.14 + 0.10 * beat;
-		a = max(a, (1.0 - smoothstep(0.0, 0.07, abs(d - 0.88))) * (0.55 + 0.4 * beat));
+		float rim = (1.0 - smoothstep(0.0, 0.08, abs(d - 0.88))) * (0.6 + 0.4 * beat);
+		c = mix(col.rgb, vec3(1.0, 0.95, 0.6), rim * 0.7);
+		a = max(a, rim);
 	} else {
 		float g = length(wp.xz - lane_o);
 		float f = fract(g * 0.45 + TIME * 1.4);
 		float band = smoothstep(0.0, 0.08, f) * (1.0 - smoothstep(0.35, 0.45, f));
-		a = 0.22 + band * 0.7;
-		a *= 1.0 - smoothstep(0.55, 0.75, d);
+		a = 0.40 + band * 0.6;
+		a *= 1.0 - smoothstep(0.62, 0.8, d);
+		a = max(a, (1.0 - smoothstep(0.0, 0.06, abs(d - 0.92))) * 0.55);
 	}
 	a *= alpha * (1.0 - smoothstep(0.985, 1.0, d));
 	ALBEDO = c;
@@ -200,7 +203,7 @@ func setup(p_sim: HHSim, p_id: String, p_body: Node3D = null) -> void:
 		_lane_mats.append(_tile_mat(0, YELLOW))
 	_safe_mat = _tile_mat(1, SAFE)
 	_cluster_mat = _tile_mat(2, EL.fire)
-	_path_mat = _tile_mat(3, Color(1.0, 0.55, 0.12))
+	_path_mat = _tile_mat(3, Color(1.0, 0.32, 0.08))
 	_heat = _disc(ENRAGE, 0)
 	_pulse = _disc(EL.fire, 0)
 	_purge = _disc(EL.water, 0)
@@ -461,6 +464,8 @@ func _draw_fakeout(u: Dictionary, _T: Dictionary, act: Dictionary, vis: Dictiona
 	for i in lanes.size():
 		var ln: Dictionary = lanes[i]
 		var line: Array = ln.line
+		if line.size() < HHTierBrain.ti("fk_min_len"):
+			line = ln.get("reach", line)
 		if line.is_empty():
 			continue
 		var is_true := i == truth

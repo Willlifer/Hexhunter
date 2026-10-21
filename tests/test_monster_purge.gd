@@ -70,8 +70,10 @@ func test_meter_triggers_purge_only_past_the_line(c: HHSelfTest.HHCheck) -> void
 	for i in 240:
 		var ev := s.step({})
 		peak = maxf(peak, float((m.get("tier", {}) as Dictionary).get("meter", 0.0)))
-		if not _tier_events(ev, "purge").is_empty():
+		var pe := _tier_events(ev, "purge")
+		if not pe.is_empty():
 			fired_at = s.tick
+			peak = maxf(peak, float(pe[0].get("meter", 0.0)))
 			break
 	c.ok(fired_at > 0, "fire 3 under it: a Purge fires (tick %d)" % fired_at)
 	c.ok(peak >= HHTierBrain.t("pain_pct"), "the meter passed the line first (peak %.2f %% >= %.1f %%)" % [peak, HHTierBrain.t("pain_pct")])
@@ -117,13 +119,13 @@ func test_discharge_roar_is_contained(c: HHSelfTest.HHCheck) -> void:
 	var inner := [m.hex + Vector2i(4, 0), m.hex + Vector2i(-4, 0), m.hex + Vector2i(0, 4)]
 	for h in inner:
 		s.paint([h], "fire", "p1", 2)
-	var rim := m.hex + Vector2i(0, -5)
+	var rim: Vector2i = m.hex + Vector2i(0, -5)
 	s.paint([rim], "dark", "p1", 1)
 	# outside, touching the rim hex: must survive (no chain)
-	var outside := rim + Vector2i(0, -1)
+	var outside: Vector2i = rim + Vector2i(0, -1)
 	s.paint([outside], "fire", "p1", 2)
 	# an armed fuse on empty ground inside: not charged, so not part of the roar, stays armed
-	var fuse := m.hex + Vector2i(-2, 3)
+	var fuse: Vector2i = m.hex + Vector2i(-2, 3)
 	s.paint([fuse], "thunder", "p1", 1)
 	# the hunter stands on a charged hex inside, nearly dead: DECIDE-C (never kills)
 	p.hex = inner[2]
@@ -145,7 +147,7 @@ func test_discharge_roar_is_contained(c: HHSelfTest.HHCheck) -> void:
 				var got: Array = (tg[0].hexes as Array).duplicate()
 				got.sort()
 				c.eq(got, want, "the telegraph shows exactly the charged hexes in reach")
-				c.eq(int(tg[0].left), HHTierBrain.ti("purge_windup_ticks"), "a 1 s tell")
+				c.eq(int(tg[0].left), HHTierBrain.ti("purge_windup_ticks") - 1, "a 1 s tell (one tick already counted down)")
 		if not _tier_events(ev, "purge_done").is_empty():
 			done_ev = ev
 			break
@@ -153,6 +155,7 @@ func test_discharge_roar_is_contained(c: HHSelfTest.HHCheck) -> void:
 	var dets := _count(done_ev, "detonate")
 	c.eq(dets, 5, "one detonation per charged hex in reach (centre, three fire 2, the dark rim)")
 	c.eq(_count(done_ev, "overheat") + _count(done_ev, "overfreeze") + _count(done_ev, "gale"), 0, "nothing else went off in the same action")
+	c.ok(done_ev.filter(func(e): return str(e.type) == "detonate").all(func(e): return bool(e.get("contained", false))), "every blast is the roar's own (contained)")
 	for h in inner + [rim]:
 		c.ok(not s.charge.charged(h), "inside %s: cashed out" % [h])
 	c.eq(s.charge.intensity(outside, "fire"), 2, "outside, touching a blast: untouched (no chain)")
@@ -186,12 +189,12 @@ func test_quench_wave_is_contained(c: HHSelfTest.HHCheck) -> void:
 	var fires := [m.hex + Vector2i(3, 0), m.hex + Vector2i(-3, 1), m.hex + Vector2i(1, 4)]
 	for h in fires:
 		s.paint([h], "fire", "p1", 1)
-	var fuse := m.hex + Vector2i(-4, 0)
+	var fuse: Vector2i = m.hex + Vector2i(-4, 0)
 	s.paint([fuse], "thunder", "p1", 1)
-	var glazed := m.hex + Vector2i(2, -4)
+	var glazed: Vector2i = m.hex + Vector2i(2, -4)
 	s.paint([glazed], "water", "p1", 1)
 	s.paint([glazed], "ice", "p1", 1)
-	var gale := m.hex + Vector2i(4, -1)
+	var gale: Vector2i = m.hex + Vector2i(4, -1)
 	s.paint([gale], "wind", "p1", 1)
 	c.ok(s.charge.is_glazed(glazed), "a glazed hex inside")
 	var done_ev: Array = []

@@ -96,6 +96,7 @@ func _tick(f: HHFight, n: int = 1) -> void:
 
 ## Draw a few frames (bodies cross-fade, shaders animate) at the given camera.
 func _settle(f: HHFight, look: Vector3, yaw: float, dist: float = 30.0, pitch: float = 44.0, frames: int = 6) -> void:
+	Input.warp_mouse(Vector2(2, 2))                      # off the monster: no Attack Ring hover
 	for k in frames:
 		f._draw(1.0 / 30.0)
 		_cam(f, look, yaw, dist, pitch)
@@ -121,6 +122,25 @@ func _put(f: HHFight, id: String, h: Vector2i) -> void:
 	u.path = [] as Array[Vector2i]
 	u.target = ""
 	u.attacking = false
+
+
+## Stand the monster on open ground near the arena centre (clear lanes round it).
+func _centre(f: HHFight, mon: String) -> void:
+	var m := f.sim.unit(mon)
+	var best: Vector2i = m.hex
+	var best_s := -1
+	for h in f.sim.arena.area(HHTierBrain.centre_hex(f.sim), 6):
+		if HHTierBrain._nearest_fit(f.sim, m, h, 0) != h:
+			continue
+		var open := 0
+		for n in f.sim.arena.area(h, 9):
+			if f.sim.arena.walkable(n) and str(f.sim.arena.kind(n)) in ["floor", "sun", "shade", "pad"]:
+				open += 1
+		if open > best_s:
+			best_s = open
+			best = h
+	_put(f, mon, best)
+	f.sim.brains[mon].set("busy_until", 0)
 
 
 func _aggro(f: HHFight, mon: String) -> Dictionary:
@@ -158,8 +178,8 @@ func _fakeout() -> void:
 		var m := _aggro(f, "colambros")
 		var sim := f.sim
 		var p := sim.unit("p1")
+		_centre(f, "colambros")
 		_put(f, "p1", _spot(f, m, 13, sim.arena.spawns.player[0]))
-		_tick(f)
 		var T: Dictionary = m.tier
 		HHTierBrain._start_fakeout(sim, sim.brains["colambros"], m, T)
 		T.act.variant = variant
@@ -194,7 +214,7 @@ func _sweep() -> void:
 	# the lance hunter guards 5 out, a little clockwise of the beam's start
 	var a0 := float(T.act.a0) - deg_to_rad(80.0)
 	var c: Vector2 = HHHex.to_world(m.hex, 1.0)
-	var gh := HHHex.from_world(c + Vector2(sin(a0), cos(a0)) * 6.0, 1.0)
+	var gh: Vector2i = HHHex.from_world(c + Vector2(sin(a0), cos(a0)) * 6.0, 1.0)
 	_put(f, "p1", gh)
 	for k in 200:
 		p.guard = 30
@@ -202,34 +222,40 @@ func _sweep() -> void:
 		if int(T.act.get("start", -1)) > 0 and sim.tick >= int(T.act.start) + 24:
 			break
 	p.guard = 30
-	var look: Vector3 = m.pos
-	await _settle(f, look, _yaw_from(p.pos, m.pos) + PI + 0.5, 34.0, 62.0, 8)
+	var look: Vector3 = (m.pos as Vector3).lerp(p.pos, 0.9)
+	await _settle(f, look, _yaw_from(m.pos, p.pos) + PI, 36.0, 66.0, 8)
 	await _shot("sweep_wedge")
 	f.queue_free()
 	await process_frame
 
 
 func _siphon() -> void:
-	var f := _fight("colambros", "caldera")
+	# on the glade: a hunter's fire there cannot be mistaken for the caldera's lava
+	var f := _fight("colambros", "glade")
 	await process_frame
 	var m := _aggro(f, "colambros")
 	var sim := f.sim
-	_put(f, "p1", _spot(f, m, 6, sim.arena.spawns.player[0]))
-	var p := sim.unit("p1")
-	var to := p.hex
-	var dir := Vector2(HHHex.to_world(to, 1.0) - HHHex.to_world(m.hex, 1.0)).normalized()
-	var ch := HHHex.from_world(HHHex.to_world(m.hex, 1.0) + dir * 11.0, 1.0)
+	_centre(f, "colambros")
+	var best: Vector2i = m.hex
+	var bo := -1
+	for h in sim.arena.ring(m.hex, 13):
+		var open := 0
+		for n in HHHex.area(h, 2):
+			if sim.arena.walkable(n) and str(sim.arena.kind(n)) == "floor":
+				open += 1
+		if open > bo:
+			bo = open
+			best = h
 	var cluster: Array = []
-	for h in HHHex.area(ch, 1):
+	for h in HHHex.area(best, 1):
 		if sim.arena.walkable(h):
 			cluster.append(h)
 	sim.paint(cluster, "fire", "p1", 2)
-	_put(f, "p1", _spot(f, m, 7, ch + Vector2i(-6, 0)))
-	_tick(f)
+	_put(f, "p1", _spot(f, m, 9, best + Vector2i(6, 0)))
 	HHTierBrain._start_siphon(sim, sim.brains["colambros"], m, m.tier)
-	_tick(f, 18)
-	var look: Vector3 = (m.pos as Vector3).lerp(sim.arena.stand(ch), 0.5)
-	await _settle(f, look, _yaw_from(sim.arena.stand(ch), m.pos) + 1.1, 32.0, 56.0, 8)
+	_tick(f, 4)
+	var look: Vector3 = (m.pos as Vector3).lerp(sim.arena.stand(best), 0.5)
+	await _settle(f, look, _yaw_from(sim.arena.stand(best), m.pos) + 1.4, 30.0, 58.0, 8)
 	await _shot("siphon_path")
 	f.queue_free()
 	await process_frame
@@ -268,7 +294,9 @@ func _idle() -> void:
 		var sim := f.sim
 		sim.brains.clear()                               # hold the pose: idle only
 		_put(f, "p1", _spot(f, m, 7, sim.arena.spawns.player[0]))
-		m.tier.aggro_at = sim.tick - (0 if e == 0.0 else 200 * 30)
+		if e > 0.0:
+			sim.tick += 200 * 30                         # the fight is 200 s older
+		m.tier.aggro_at = 1
 		HHTierBrain._enrage(sim, m, m.tier)
 		f._consume({ "type": "monster_anim", "id": "colambros", "clip": "aggravated_idle", "speed": 1.0, "tick": sim.tick })
 		var p := sim.unit("p1")

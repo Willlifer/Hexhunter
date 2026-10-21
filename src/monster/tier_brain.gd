@@ -538,6 +538,7 @@ static func _start_purge(sim: HHSim, brain: Object, u: Dictionary, T: Dictionary
 			var el := str(prof.get("pulse", ""))
 			sim.telegraph(u.id, outside, w, { "dmg_pct": 0.0, "element": el, "paint_steps": 0, "name": "tier_flare" })
 			_anim(sim, u, T, _clip(T, "roar"), 1.0, true)
+	var meter_at := float(T.meter)
 	T.pain = []
 	T.meter = 0.0
 	T.fire_meter = 0.0
@@ -546,7 +547,7 @@ static func _start_purge(sim: HHSim, brain: Object, u: Dictionary, T: Dictionary
 	T.fx["purge"] = sim.tick
 	T.fx["purge_at"] = sim.tick + w
 	T.fx["purge_kind"] = kind
-	_log(sim, u, T, "purge", { "purge": kind, "at": sim.tick + w })
+	_log(sim, u, T, "purge", { "purge": kind, "at": sim.tick + w, "meter": meter_at })
 
 
 static func _run_purge(sim: HHSim, brain: Object, u: Dictionary, T: Dictionary) -> void:
@@ -561,7 +562,7 @@ static func _run_purge(sim: HHSim, brain: Object, u: Dictionary, T: Dictionary) 
 			res = { "doused": (r.doused as Array).size(), "changed": (r.changed as Array).size() }
 		"roar":
 			var r2 := HHElementBridge.discharge(sim, u, act.hexes)
-			res = { "detonated": (r2.detonated as Array).size(), "players": r2.players }
+			res = { "detonated": (r2.detonated as Array).size(), "players": r2.players, "monster": r2.monster }
 		_:
 			var el := str(prof.get("pulse", ""))
 			res = { "changed": HHElementBridge.paint_own(sim, u, act.hexes, el, 1).size() }
@@ -621,6 +622,9 @@ static func _run_move(sim: HHSim, brain: Object, u: Dictionary, T: Dictionary) -
 			"leap":
 				_anim(sim, u, T, _clip(T, "leap"), 1.0, true)
 				sim.begin_leap(u, goal, ti("leap_ticks"), Callable())
+				var sp_el := str(profile(str(T.kind)).get("pulse", ""))
+				if sp_el != "" and not (u.leap as Dictionary).is_empty():
+					u.leap["splash"] = sp_el                    # H269: every leap lands with the contained splash (dev's path, no own damage)
 				return
 			"dive":
 				u.untargetable = true
@@ -743,34 +747,39 @@ static func fakeout_lanes(sim: HHSim, u: Dictionary, toward: Vector2i) -> Array:
 	var a := _angle(u.hex, toward)
 	var c: Vector2 = HHHex.to_world(u.hex, 1.0)
 	var fan := deg_to_rad(t("fk_fan_deg"))
-	var reach := float(int(u.size) + ti("fk_len"))
+	var span := float(int(u.size) + ti("fk_len"))
 	var hull := {}
 	for h in sim.footprint(u):
 		hull[h] = true
 	var out: Array = []
 	for k in [-1, 0, 1]:
 		var ang := a + fan * float(k)
-		var end := HHHex.from_world(c + Vector2(sin(ang), cos(ang)) * reach, 1.0)
-		var line: Array = []
+		var end := HHHex.from_world(c + Vector2(sin(ang), cos(ang)) * span, 1.0)
+		var line: Array = []                      # where the hull can run
+		var reach: Array = []                     # where a hunter can stand (a decoy's drawn length)
 		var prev: Vector2i = u.hex
+		var running := true
 		for h in HHHex.line(u.hex, end):
 			if h == u.hex:
 				continue
-			if not _fits(sim, u, h, blocked):
+			if not sim.arena.walkable(h):
 				break
-			if absf(sim.arena.hex_height(h) - sim.arena.hex_height(prev)) > HHTune.value("max_step_m"):
-				break
-			line.append(h)
-			prev = h
+			reach.append(h)
+			if running and (not _fits(sim, u, h, blocked) or absf(sim.arena.hex_height(h) - sim.arena.hex_height(prev)) > HHTune.value("max_step_m")):
+				running = false
+			if running:
+				line.append(h)
+				prev = h
 		var seen := {}
 		var lane: Array = []
-		for h in line:
+		var drawn: Array = line if line.size() >= ti("fk_min_len") else reach
+		for h in drawn:
 			for n in HHHex.area(h, 1):
 				if sim.arena.exists(n) and not hull.has(n) and not seen.has(n):
 					seen[n] = true
 					lane.append(n)
 		lane.sort()
-		out.append({ "side": k, "line": line, "lane": lane })
+		out.append({ "side": k, "line": line, "reach": reach, "lane": lane })
 	return out
 
 
@@ -818,7 +827,7 @@ static func _run_fakeout(sim: HHSim, brain: Object, u: Dictionary, T: Dictionary
 					segs.append([])
 				for i in line.size():
 					var h: Vector2i = line[i]
-					if not owner.has(h):
+					if not owner.has(h) and not sim.in_hull(u, h):
 						owner[h] = i
 						segs[i].append(h)
 				for i in line.size():

@@ -75,14 +75,14 @@ func test_tier_in_state_hash_and_deterministic(c: HHSelfTest.HHCheck) -> void:
 ## the first behaviours (spec 7 and 8) on NORMAL, so this test now proves
 ## EASY untouched instead: every monster on its biome, seeds 1 and 2, 900
 ## ticks of the bot, state_hash at 300 / 600 / 900 equal to the hashes
-## recorded on dev 455e2ef BEFORE any gate existed. A lane that changes EASY
+## recorded on dev 3ca3285 (Lane P's push-out damage and leap splash in) BEFORE any gate existed. A lane that changes EASY
 ## on purpose (and says so in DECIDE / DECISIONS) re-records EASY_BASELINE with
 ## the printed values; a lane that did not mean to has broken EASY.
 const EASY_BASELINE := {
-	"swampfang": { 1: [2601370570, 4035524293, 602630068], 2: [819866009, 2817945527, 3352696997] },
-	"colambros": { 1: [772734022, 1060920298, 1304489024], 2: [3377750115, 1150314469, 1881194558] },
-	"rimeslithe": { 1: [2063619023, 2581957993, 3572603836], 2: [2942525458, 3327141680, 1180565078] },
-	"spirewalker": { 1: [760228968, 1564917287, 826376885], 2: [2788904138, 920991410, 3842980882] },
+	"swampfang": { 1: [4137863332, 2910394239, 3485773875], 2: [2539899379, 1497362353, 685962210] },
+	"colambros": { 1: [3104441952, 2188491851, 1915478950], 2: [4012568853, 837472370, 3277010512] },
+	"rimeslithe": { 1: [1168184649, 2274449084, 3044997964], 2: [477278860, 2532625276, 942162693] },
+	"spirewalker": { 1: [3891298095, 2779858977, 393722395], 2: [2203944939, 513824960] },   # seed 2: the bot falls at tick 870
 }
 
 

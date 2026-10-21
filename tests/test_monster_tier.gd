@@ -114,7 +114,8 @@ func test_enrage_curve_and_scaling(c: HHSelfTest.HHCheck) -> void:
 	b._force_phase(s, m, "aggravated")
 	be._force_phase(e, me, "aggravated")
 	s.step({})
-	m.tier.aggro_at = s.tick - 180 * 30
+	s.tick += 180 * 30                                    # the fight is 3 minutes older
+	m.tier.sp_next = s.tick + 99999
 	s.step({})
 	c.eq(float(m.tier.enrage), 1.0, "3 minutes in: full enrage")
 	c.near(float(m.tier.windup), HHTierBrain.t("enrage_windup_min"), 0.001, "windows at their minimum")
@@ -153,6 +154,7 @@ func test_enrage_curve_and_scaling(c: HHSelfTest.HHCheck) -> void:
 # ------------------------------------------------------------------ 7.2 pulse
 
 func test_element_pulse_overrides_the_hull(c: HHSelfTest.HHCheck) -> void:
+	_quiet(true, ["tier_pulse_every_s"])
 	for kind in ["swampfang", "colambros", "rimeslithe", "spirewalker"]:
 		var r := _stub(kind, "normal")
 		var s: HHSim = r[0]
@@ -190,12 +192,13 @@ func test_element_pulse_overrides_the_hull(c: HHSelfTest.HHCheck) -> void:
 	c.ok(not (res.overheat as Array).is_empty(), "fresh fire on the pulse's fire 3 overheats")
 	c.ok(float(m2.hp) < hp2, "and the eruption hurts the monster (the pulse is cash-in-able)")
 	HHTune.set_value("tier_pulse_tier", HHTune.default_of("tier_pulse_tier"))
+	_quiet(false)
 
 
 # ------------------------------------------------------------------ 7.4 avoidance
 
 func test_avoidance_leaves_the_fire(c: HHSelfTest.HHCheck) -> void:
-	_quiet(true, ["tier_avoid_frac"])
+	_quiet(true, ["tier_avoid_frac", "tier_pain_pct"])
 	for kind in ["colambros", "swampfang", "spirewalker"]:
 		var r := _stub(kind, "normal")
 		var s: HHSim = r[0]
@@ -365,7 +368,7 @@ func test_siphon(c: HHSelfTest.HHCheck) -> void:
 	c.eq(si.size(), 1, "it siphoned")
 	c.eq(int(si[0].points) if not si.is_empty() else 0, 14, "all 14 points")
 	c.ok(float(m.hp) > float(m.max_hp) * 0.5, "it healed")
-	c.near(float(T.buff), 1.0 + 14.0 * HHTierBrain.t("si_buff_per_point"), 0.001, "an attack buff")
+	c.near(float(T.buff), minf(HHTierBrain.t("si_buff_max"), 1.0 + 14.0 * HHTierBrain.t("si_buff_per_point")), 0.001, "an attack buff (capped)")
 	c.eq(HHTierBrain.clusters(s, m, "fire").size(), 0, "the cluster is gone")
 	# counter-play: douse it first; it arrives at empty ground
 	var r2 := _stub("colambros", "normal", Vector2i(0, -8), Vector2i(-9, 6))
