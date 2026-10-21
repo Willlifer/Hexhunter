@@ -19,7 +19,7 @@ extends RefCounted
 ##   7.2 Element Pulse: every pulse_every_s the monster overrides its own hull
 ##       with its own element at pulse_tier (+ the enrage bonus). It is how a
 ##       monster resists standing in a DOT; the paint is its own, so a hunter
-##       can cash it in (Overheat today; EL's 3.3 trigger rule after merge).
+##       can cash it in (Overheat, or thunder detonating it under EL's 3.3 rule).
 ##   7.3 dot_pain_meter: ground-tile damage (fire standing / crossing, dark
 ##       drain) in the last pain_window_s, as pct of the monster's unscaled max
 ##       HP. Past pain_pct: a Purge at the next safe moment (no telegraph of its
@@ -63,7 +63,6 @@ const TUNE := {
 	"quench_steps": 2,              # water 2
 	"quench_dmg_pct": 6.0,          # the wave's own hit on hunters (pct max HP)
 	"quench_stagger": 0.4,
-	"roar_player_mult": 0.5,        # DECIDE-C until EL's 3.3: x reaction_unit_other x blast mult, never below 1 HP
 	"reposition_min": 8,            # the clean corner is at least this far
 	"reposition_s": 6.0,            # give up the move after this long
 	"slide_ticks": 5.0,             # ticks per hex: a slide / swim / lap leg
@@ -559,7 +558,7 @@ static func _run_purge(sim: HHSim, brain: Object, u: Dictionary, T: Dictionary) 
 	match str(act.purge):
 		"quench":
 			var r := HHElementBridge.quench(sim, u, act.hexes, ti("quench_steps"))
-			res = { "doused": (r.doused as Array).size(), "changed": (r.changed as Array).size() }
+			res = { "steam": (r.steam as Array).size(), "doused": (r.doused as Array).size(), "changed": (r.changed as Array).size() }
 		"roar":
 			var r2 := HHElementBridge.discharge(sim, u, act.hexes)
 			res = { "detonated": (r2.detonated as Array).size(), "players": r2.players, "monster": r2.monster }
@@ -982,7 +981,7 @@ static func _run_sweep(sim: HHSim, brain: Object, u: Dictionary, T: Dictionary) 
 			var key := "%d,%d" % [b.x, b.y]
 			hits[key] = int(hits.get(key, 0)) + 1
 			if int(hits[key]) >= ti("sw_block_hits") and not b in (act.broken as Array):
-				if HHElementBridge.break_block(sim, b):
+				if HHElementBridge.break_block(sim, b, str(u.id)):
 					(act.broken as Array).append(b)
 					_log(sim, u, T, "block_broken", { "hex": b })
 		act.issued = r1

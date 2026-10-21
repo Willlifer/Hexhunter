@@ -188,6 +188,7 @@ func test_fight_20s_with_effects(c: HHSelfTest.HHCheck) -> void:
 		var peak := 0
 		var made := 0
 		var p := f.sim.unit("p1")
+		p.hp = 1.0e9                                 # H422: a hunter that only attacks dies by design now; this test is about the effects layer
 		for i in 600:
 			if i == 30:
 				f._order({ "target": m, "attack": true, "run": true })

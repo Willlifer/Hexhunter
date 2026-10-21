@@ -26,12 +26,17 @@ func test_axis_and_decay(c: HHSelfTest.HHCheck) -> void:
 
 
 func test_douse(c: HHSelfTest.HHCheck) -> void:
-	# H260 / H362 (supersedes H2's Douse): a tier-1 tile only nets; tier 2+ erupts as Steam (test_el_steam)
+	# H420 (supersedes H2's Douse, H260 / H362's tier-2 line): every fresh contact erupts as Steam
+	# (test_el_steam); only spread / contained output still douses
 	var g := _grid()
 	var h := Vector2i(1, 0)
 	g.apply([h], "fire", "p", 1)
 	var r := g.apply([h], "water", "p", 1)
-	c.ok(h in r.doused, "fire 1 met water: doused")
+	c.eq(r.eruptions.size(), 1, "fire 1 met fresh water: Steam")
+	c.ok(g.at(h).is_empty(), "nothing lingers")
+	g.apply([h], "fire", "p", 1)
+	r = g.apply([h], "water", "p", 1, false)
+	c.ok(h in r.doused and r.eruptions.is_empty(), "spread water on fire 1: doused, no eruption")
 	c.ok(g.at(h).is_empty(), "nothing lingers")
 	g.apply([h], "water", "p", 2)
 	g.apply([h], "dark", "p", 1)
@@ -49,13 +54,13 @@ func test_fuse(c: HHSelfTest.HHCheck) -> void:
 	c.ok(r.detonations.is_empty(), "no blast on empty ground")
 	r = g.apply([h], "fire", "p", 2)
 	c.eq(r.detonations.size(), 1, "fire on a fuse detonates")
-	c.near(float(r.detonations[0].mult), HHTune.value("det_mult_per_point") * 2, 1e-6, "H50 / H370: x per point (fire 2)")
+	c.near(float(r.detonations[0].mult), HHTune.value("det_aa_mult_per_point") * 2, 1e-6, "H50 / H370: x per point (fire 2)")
 	c.ok(g.at(h).is_empty(), "blown hex is bare")
 	g.apply([h], "water", "p", 2)
 	g.apply([h], "light", "p", 1)
 	r = g.apply([h], "thunder", "p")
 	c.eq(r.detonations.size(), 1, "thunder on charge detonates")
-	c.near(float(r.detonations[0].mult), HHTune.value("det_mult_per_point") * 3 + 3.0 * 1 + HHTune.value("det_mult_per_water") * 2, 1e-6, "H50: x per point, +3 for the second axis, + per water conducted")
+	c.near(float(r.detonations[0].mult), HHTune.value("det_aa_mult_per_point") * 3 + 3.0 * 1 + HHTune.value("det_aa_mult_per_water") * 2, 1e-6, "H50: x per point, +3 for the second axis, + per water conducted")
 	var mix: Dictionary = r.detonations[0].mix
 	c.eq(int(mix.get("water", 0)), 2, "mix carries water")
 	c.eq(int(mix.get("light", 0)), 1, "mix carries light")
@@ -86,7 +91,7 @@ func test_glaze_and_shatter(c: HHSelfTest.HHCheck) -> void:
 	c.eq(g.intensity(k, "light"), 0, "light washes off the frost")
 	r = g.apply([k], "thunder", "p")
 	c.eq(r.detonations.size(), 1, "thunder detonates authored frost")
-	c.near(float(r.detonations[0].mult), (HHTune.value("det_mult_per_point") * 1 + HHTune.value("det_mult_per_water") * 1) * 1.5, 1e-6, "x1.5 on frost (H2's shatter, kept for the shade)")
+	c.near(float(r.detonations[0].mult), (HHTune.value("det_aa_mult_per_point") * 1 + HHTune.value("det_aa_mult_per_water") * 1) * 1.5, 1e-6, "x1.5 on frost (H2's shatter, kept for the shade)")
 	g.author(k, -1, 0, "", true)
 	g.apply([k], "fire", "p", 1)
 	c.ok(not g.is_glazed(k), "fire melts the frost")

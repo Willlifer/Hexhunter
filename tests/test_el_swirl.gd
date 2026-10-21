@@ -125,5 +125,5 @@ func test_swirl_damage_rule(c: HHSelfTest.HHCheck) -> void:
 	var mhp := float(m.hp)
 	var r := s.paint([Vector2i(0, -1)], "wind", "p1")
 	c.eq(r.bursts.size(), 1, "condensed to fire 3 under the monster: Overheat")
-	c.near(mhp - float(m.hp), s.reaction_unit("p1") * HHTune.value("overheat_mult"), 1.0, "the monster takes it at the hunter's rate")
+	c.near(mhp - float(m.hp), s.reaction_unit("p1") * HHTune.value("overheat_aa_mult"), 1.0, "the monster takes it at the hunter's rate")
 	c.near(float(p.hp), float(p.max_hp), 0.01, "the hunter is untouched")

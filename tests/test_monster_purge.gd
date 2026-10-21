@@ -155,14 +155,14 @@ func test_discharge_roar_is_contained(c: HHSelfTest.HHCheck) -> void:
 	var dets := _count(done_ev, "detonate")
 	c.eq(dets, 5, "one detonation per charged hex in reach (centre, three fire 2, the dark rim)")
 	c.eq(_count(done_ev, "overheat") + _count(done_ev, "overfreeze") + _count(done_ev, "gale"), 0, "nothing else went off in the same action")
-	c.ok(done_ev.filter(func(e): return str(e.type) == "detonate").all(func(e): return bool(e.get("contained", false))), "every blast is the roar's own (contained)")
+	c.ok(done_ev.filter(func(e): return str(e.type) == "detonate").all(func(e): return str(e.get("trigger", "")) == str(m.id)), "every blast is the roar's own (EL's react_at, the monster the trigger)")
 	for h in inner + [rim]:
 		c.ok(not s.charge.charged(h), "inside %s: cashed out" % [h])
 	c.eq(s.charge.intensity(outside, "fire"), 2, "outside, touching a blast: untouched (no chain)")
 	c.eq(s.charge.marker(fuse), "fuse", "the empty fuse inside is still armed (the roar fires charge, not markers)")
-	c.ok(float(p.hp) >= 1.0 and float(p.hp) < 40.0, "the hunter on a blast took damage but lives (hp %.1f, DECIDE-C)" % float(p.hp))
+	c.ok(float(p.hp) >= 1.0 and float(p.hp) < 40.0, "the hunter on a blast took damage but lives (hp %.1f, 3.3 / DECIDE-C)" % float(p.hp))
 	c.ok(not bool(p.get("downed", false)) and s.over == "", "nobody went down")
-	c.ok(float(m.hp) < float(m.max_hp), "the hunter's own setup hurt the monster")
+	c.ok(float(m.hp) < float(m.max_hp), "the hunter's own setup hurt the monster (3.3: monster_reaction_frac)")
 	# then the reposition: a leap to a clean corner
 	var T: Dictionary = m.tier
 	c.eq(str((T.act as Dictionary).get("kind", "")), "move", "it repositions after the purge")
@@ -191,12 +191,12 @@ func test_quench_wave_is_contained(c: HHSelfTest.HHCheck) -> void:
 		s.paint([h], "fire", "p1", 1)
 	var fuse: Vector2i = m.hex + Vector2i(-4, 0)
 	s.paint([fuse], "thunder", "p1", 1)
-	var glazed: Vector2i = m.hex + Vector2i(2, -4)
-	s.paint([glazed], "water", "p1", 1)
-	s.paint([glazed], "ice", "p1", 1)
+	var crystal: Vector2i = m.hex + Vector2i(2, -4)
+	s.paint([crystal], "water", "p1", 1)
+	s.paint([crystal], "ice", "p1", 1)
 	var gale: Vector2i = m.hex + Vector2i(4, -1)
 	s.paint([gale], "wind", "p1", 1)
-	c.ok(s.charge.is_glazed(glazed), "a glazed hex inside")
+	c.ok(s.charge.is_crystal(crystal), "a crystal inside (EL: ice on charge)")
 	var done_ev: Array = []
 	var dived := false
 	for i in 300:
@@ -205,13 +205,15 @@ func test_quench_wave_is_contained(c: HHSelfTest.HHCheck) -> void:
 			done_ev = ev
 			break
 	c.ok(not done_ev.is_empty(), "the Quench Wave landed")
-	c.eq(_count(done_ev, "detonate") + _count(done_ev, "overheat") + _count(done_ev, "overfreeze") + _count(done_ev, "gale"), 0,
-		"no detonation, eruption or gale in the same action")
+	c.eq(_count(done_ev, "detonate") + _count(done_ev, "overheat") + _count(done_ev, "geyser") + _count(done_ev, "shatter") + _count(done_ev, "gale"), 0,
+		"no detonation, burst, shatter or gale in the same action")
+	c.eq(_count(done_ev, "steam"), fires.size() + 1, "H420: each hunter fire in reach erupts as Steam, once")
+	c.ok(done_ev.filter(func(e): return str(e.type) == "steam").all(func(e): return str(e.get("trigger", "")) == str(m.id)), "monster-triggered (3.3)")
 	for h in fires + [m.hex]:
-		c.eq(s.charge.intensity(h, "fire"), 0, "fire at %s doused" % [h])
+		c.eq(s.charge.intensity(h, "fire"), 0, "fire at %s cashed out" % [h])
 	c.eq(s.charge.marker(fuse), "fuse", "the armed fuse did not fire (contained)")
 	c.eq(s.charge.marker(gale), "gale", "the gale marker did not fire")
-	c.ok(s.charge.is_glazed(glazed) and s.charge.intensity(glazed, "water") == 1, "the glazed hex is skipped")
+	c.ok(s.charge.is_crystal(crystal) and s.charge.intensity(crystal, "water") == 1, "the crystal is skipped (not shattered, not fed)")
 	c.eq(s.charge.intensity(m.hex + Vector2i(0, 4), "water"), HHTierBrain.ti("quench_steps"), "empty ground in reach: water 2")
 	var T: Dictionary = m.tier
 	c.eq(str((T.act as Dictionary).get("style", "")), "dive", "Swampfang dives to its corner")

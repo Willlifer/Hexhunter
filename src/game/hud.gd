@@ -815,6 +815,9 @@ func _orb(pt: Paint, c: Vector2, r: float, p: Dictionary) -> void:
 			var arc := circle_pts(c, r, 28, ar, PI - ar, true)
 			for i in range(1, arc.size() - 1):
 				pts.append(arc[i])
+			if hw < 1.5 or Geometry2D.triangulate_polygon(pts).is_empty():
+				pts = PackedVector2Array()          # a sliver (1 HP after a reaction's floor) or a wave folding over the rim: skip this frame's fill
+
 		var cols := PackedColorArray()
 		var top := Color(0.95, 0.22, 0.14)
 		var bot := Color(0.38, 0.02, 0.03)

@@ -45,24 +45,24 @@ const TUNE := {
 	"charge_len_min": 6,              # a charge line shorter than this is not worth it: approach instead
 	"charge_len_max": 16,             # the line is clamped to walkable hexes, at most this long
 	"charge_width": 1,                # hexes either side of the line that the body covers
-	"charge_dmg_pct": 24.0,
+	"charge_dmg_pct": 30.0,          # H422 easy calibration x1.25 (was 24)
 	"charge_stagger": 0.9,            # heavy
 	"charge_paint_steps": 1,          # the burning trail (smouldering only)
 	"vent_paint_steps": 2,            # ... hotter on vents
 	"charge_chance": 0.75,            # when a line is open and the player is far, charge (else spit / leap)
 	"bite_range": 2,                  # cone length beyond the footprint
 	"bite_cone_deg": 42.0,
-	"bite_dmg_pct": 14.0,
+	"bite_dmg_pct": 17.5,            # H422 easy calibration x1.25 (was 14)
 	"bite_stagger": 0.3,
 	"lash_range": 3,                  # arc reach beyond the footprint
 	"lash_arc_deg": 100.0,            # half-angle of the arc, centred on the player's bearing (side/rear)
-	"lash_dmg_pct": 18.0,
+	"lash_dmg_pct": 22.5,            # H422 easy calibration x1.25 (was 18)
 	"lash_stagger": 0.6,
 	"spit_min": 3,                    # ember spit when the player is 3..9 hexes out (edge)
 	"spit_max": 9,
 	"spit_areas": 3,                  # three small areas along the ray toward the player
 	"spit_radius": 1,
-	"spit_dmg_pct": 10.0,
+	"spit_dmg_pct": 12.5,            # H422 easy calibration x1.25 (was 10)
 	"spit_paint_steps": 2,            # fire 2
 	"burn_ticks": 120,                # 4 s of burn
 	"leap_min": 3,                    # leap and stomp when the player is 3..8 out
@@ -72,7 +72,7 @@ const TUNE := {
 	# the hunters under it take the push-out's push_land_pct (HHTune), and the ring gets the splash
 	"leap_splash": "fire",            # H269: the element it splashes on the Attack Ring as it lands (HHTune leap_splash_steps)
 	"roll_radius": 3,                 # back-roll reach beyond the footprint
-	"roll_dmg_pct": 22.0,
+	"roll_dmg_pct": 27.5,            # H422 easy calibration x1.25 (was 22)
 	"roll_stagger": 0.8,
 	"roll_chance": 0.4,               # at melee range, roll vs bite/lash
 	"roll_scatter": 10,               # smouldering quills scattered: this many hexes within roll_radius + 3 get fire 1

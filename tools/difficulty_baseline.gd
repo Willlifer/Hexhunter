@@ -14,6 +14,8 @@ extends "res://tools/coop_bot.gd"
 
 const MONSTER_BIOME := { "swampfang": "pond", "colambros": "caldera", "rimeslithe": "cave", "spirewalker": "glade" }
 var pair: Array = ["fire", "water"]   ## the bot's active / backup element (--pair)
+var bot_kind := "dodge"               ## --bot dodge (coop_bot's bot) | facetank (H267 / H422: auto attacks only, walks INTO telegraphs)
+var dmg_scale := 1.0                  ## --dmg-scale: calibration probe only, scales every monster telegraph's dmg_pct as it is issued
 
 
 func _initialize() -> void:
@@ -50,6 +52,8 @@ func _main() -> void:
 	var seeds := int(_opt(args, "--seeds", "10"))
 	var cap := int(float(_opt(args, "--cap", "300")) * 30.0)
 	pair = Array(_opt(args, "--pair", "fire,water").split(","))
+	bot_kind = _opt(args, "--bot", "dodge")
+	dmg_scale = float(_opt(args, "--dmg-scale", "1.0"))
 	var rows: Array = []
 	var t0 := Time.get_ticks_msec()
 	for monster in monsters:
@@ -58,7 +62,7 @@ func _main() -> void:
 				for s in range(1, seeds + 1):
 					var r := run_one(monster, weapon, tier, s, cap)
 					rows.append(r)
-					print("%s %s %s seed %d: %s at %.1f s (monster %.0f%% left)  [%.0f s wall]" % [monster, weapon, tier, s, r.outcome, r.seconds, r.monster_left_pct, (Time.get_ticks_msec() - t0) / 1000.0])
+					print("[%s %s] %s %s %s seed %d: %s at %.1f s (monster %.0f%% left, hunter %.0f%%)  [%.0f s wall]" % [bot_kind, r.pair, monster, weapon, tier, s, r.outcome, r.seconds, r.monster_left_pct, r.hunter_left_pct, (Time.get_ticks_msec() - t0) / 1000.0])
 	var out_json := _opt(args, "--json", "")
 	if out_json != "":
 		var f := FileAccess.open(out_json, FileAccess.WRITE)
@@ -83,13 +87,58 @@ func run_one(monster: String, weapon: String, tier: String, seed: int, cap: int)
 		brain.setup(s, m)
 	var bot := { "dodging": 0, "next_cast": 60, "next_rev": 0 }
 	var ids := ["p1"]
+	var scaled := {}
 	while s.tick < cap and s.over == "":
-		var o := _decide(s, s.unit("p1"), m, bot, ids)
+		var o := _facetank(s, s.unit("p1"), m) if bot_kind == "facetank" else _decide(s, s.unit("p1"), m, bot, ids)
 		s.step({ "p1": o } if not o.is_empty() else {})
+		if dmg_scale != 1.0:
+			for tg in s.telegraphs:
+				if str(tg.owner) == monster and not scaled.has(int(tg.id)):
+					scaled[int(tg.id)] = true
+					tg.payload["dmg_pct"] = float(tg.payload.get("dmg_pct", 0.0)) * dmg_scale
 	var outcome := s.over if s.over != "" else "timeout"
 	return { "monster": monster, "weapon": weapon, "tier": s.difficulty, "seed": seed, "outcome": outcome,
 		"seconds": snappedf(s.tick * HHSim.TICK, 0.1), "monster_left_pct": snappedf(100.0 * float(m.hp) / float(m.max_hp), 0.1),
-		"cap_s": snappedf(cap * HHSim.TICK, 0.1), "pair": "%s/%s" % [pair[0], pair[1]] }
+		"cap_s": snappedf(cap * HHSim.TICK, 0.1), "pair": "%s/%s" % [pair[0], pair[1]], "bot": bot_kind,
+		"hunter_left_pct": snappedf(100.0 * float(s.unit("p1").hp) / float(s.unit("p1").max_hp), 0.1) }
+
+
+## H422: the author's "easy mode" test bot (H267). It only ever gives the
+## attack order on the monster (auto attacks: no Q/W/E/R, no dash, no potion,
+## no element swap) and never walks away. When a monster telegraph is shown
+## within two steps and it is not already standing in one, it walks INTO it.
+func _facetank(s: HHSim, u: Dictionary, m: Dictionary) -> Dictionary:
+	if not s.alive(u) or s.held(u):
+		return {}
+	var danger := {}
+	for tg in s.telegraphs:
+		if str(tg.owner) != str(m.id):
+			continue
+		for h in tg.hexes:
+			danger[h] = true
+	if danger.has(u.hex):
+		if not bool(u.attacking) and (u.path as Array).is_empty() and s.targetable(m) and s.in_attack_range(u, m):
+			return { "target": m.id, "attack": true }    # in it and in reach: swing from here
+		return {}                                        # standing in it: take it
+	if not danger.is_empty():
+		var blocked := s.blocked_for(u)
+		var best: Vector2i = u.hex
+		var best_d := 99
+		var keys := danger.keys()
+		keys.sort()
+		for h in keys:
+			var d: int = HHHex.distance(u.hex, h)
+			if d <= 2 and d < best_d and s.arena.walkable(h) and not blocked.has(h):
+				best = h
+				best_d = d
+		if best != u.hex:
+			var path: Array = u.path
+			if path.is_empty() or path.back() != best:
+				return { "move": best, "move_pos": s.arena.stand(best) }
+			return {}
+	if s.targetable(m) and (str(u.target) != m.id or not bool(u.attacking)):
+		return { "target": m.id, "attack": true }
+	return {}
 
 
 static func median(xs: Array) -> float:
@@ -130,7 +179,10 @@ static func report(rows: Array, note: String) -> String:
 		seeds[int(r.seed)] = true
 		pairs[str(r.get("pair", "fire/water"))] = true
 		cap = maxf(cap, float(r.get("cap_s", 0.0)))
-	L.append("Solo bot (tools/coop_bot.gd's bot via tools/difficulty_baseline.gd), each monster on its biome, element pair %s, seeds 1-%d per cell, %.0f s cap per fight (still running then = timeout, counted as not a win). %d fights." % [", ".join(pairs.keys()), seeds.size(), cap, rows.size()])
+	var bots := {}
+	for r in rows:
+		bots[str(r.get("bot", "dodge"))] = true
+	L.append("Solo bot (%s; tools/difficulty_baseline.gd), each monster on its biome, element pair %s, seeds 1-%d per cell, %.0f s cap per fight (still running then = timeout, counted as not a win). %d fights." % [", ".join(bots.keys()), ", ".join(pairs.keys()), seeds.size(), cap, rows.size()])
 	if note != "":
 		L.append("")
 		L.append(note)

@@ -1,8 +1,8 @@
 extends RefCounted
 ## Lane EL (spec 2.2, H261 DECIDE-B, H264 DECIDE-E): Ice crystallises a charged
 ## tile into an Elemental Crystal; it shatters on a monster crushing it, a
-## hunter's weapon hit, or overcharge. Shatter = shatter_mult_per_point x
-## stored charge + shatter_mult_per_ice x ice, heavy stagger, fragments splash
+## hunter's weapon hit, or overcharge. Shatter = shatter_aa_mult_per_point x
+## stored charge + shatter_aa_mult_per_ice x ice, heavy stagger, fragments splash
 ## tier 1 of the stored element onto the ring (contained). Crystals wall
 ## hunters (the pathfinder routes round them) and never form on a hunter: it
 ## is pushed to the nearest open hex.
@@ -48,7 +48,7 @@ func test_feed_and_overcharge(c: HHSelfTest.HHCheck) -> void:
 	c.eq(g.crystal(h), 3, "ice feeds it to 3")
 	r = g.apply([h], "fire", "p", 1)
 	c.eq(r.shatters.size(), 1, "charge past the cap shatters it (DECIDE-E)")
-	var want := HHTune.value("shatter_mult_per_point") * 3.0 + HHTune.value("shatter_mult_per_ice") * 3.0
+	var want := HHTune.value("shatter_aa_mult_per_point") * 3.0 + HHTune.value("shatter_aa_mult_per_ice") * 3.0
 	c.near(float(r.shatters[0].mult), want, 1e-6, "mult = per_point x 3 + per_ice x 3")
 	c.ok(g.crystal(h) == 0 and g.intensity(h, "fire") == 0, "the hex is cleared")
 	for n in HHHex.neighbors(h):
@@ -106,7 +106,7 @@ func test_weapon_hit_shatters_player_triggered(c: HHSelfTest.HHCheck) -> void:
 	var mhp := float(m.hp)
 	var php := float(p.hp)
 	var blow := s.strike(p, m, 100.0, hx, "basic")
-	var mult := HHTune.value("shatter_mult_per_point") * 3.0 + HHTune.value("shatter_mult_per_ice") * 1.0
+	var mult := HHTune.value("shatter_aa_mult_per_point") * 3.0 + HHTune.value("shatter_aa_mult_per_ice") * 1.0
 	c.near(mhp - float(m.hp), blow + s.reaction_unit("p1") * mult, 1.5, "the blow + Shatter at the hunter's full rate")
 	c.ok(not s.crystal_at(hx), "shattered")
 	c.ok(int(m.stagger) > 0, "heavy stagger")
@@ -133,7 +133,7 @@ func test_crush_is_monster_triggered(c: HHSelfTest.HHCheck) -> void:
 				crushed = true
 				hp_after = float(p.hp)
 	c.ok(crushed, "the monster walking onto it crushes it")
-	var mult := HHTune.value("shatter_mult_per_point") * 2.0 + HHTune.value("shatter_mult_per_ice") * 1.0
+	var mult := HHTune.value("shatter_aa_mult_per_point") * 2.0 + HHTune.value("shatter_aa_mult_per_ice") * 1.0
 	var want := s.reaction_unit("p1") * mult * HHTune.value("monster_reaction_frac")
 	c.near(mhp - float(m.hp), want, 1.5, "monster-triggered: the monster takes monster_reaction_frac of the player-cast damage")
 	c.ok(hp_after >= 1.0 and hp_after < 10.0, "a hunter caught in it is hurt but never killed (DECIDE-C): %.1f HP" % hp_after)

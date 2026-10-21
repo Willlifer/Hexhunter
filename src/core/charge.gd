@@ -34,11 +34,15 @@ extends RefCounted
 ##         Geyser (massive stagger), light = Glint (a dazzle stagger), dark =
 ##         Flux (the monster vulnerable). Each splashes its element onto the
 ##         ring (contained) and vents the centre to 2.
-##   Steam / Eclipse (spec 3.1, 3.2, H260): a fresh element meeting its
-##         opposite on a hex at tier 2+ consumes ALL of that axis and erupts
-##         (consumed x steam / eclipse_mult_per_point). A tier-1 tile is only
-##         evaporated (water 1 under fire) or doused (fire 1 under water): the
-##         two net, no reaction. Light and dark net the same way.
+##   Steam (spec 3.1, H420, the author): a fresh fire or water meeting its
+##         opposite on a hex at steam_min_tier (1: EVERY contact) or more
+##         consumes all fire and water there and erupts: HHFormulas.steam_mult
+##         by T = consumed (2..6), x2.5 .. x18 today. A fresh cast no longer
+##         douses or evaporates (spread and contained output still net).
+##   Eclipse (spec 3.2, H362, H425): light meeting dark at eclipse_min_tier
+##         (2) or more consumes that axis and erupts (consumed x
+##         eclipse_aa_mult_per_point) and exposes the monster; tier 1 only nets.
+##   Every reaction reads only its own HHTune keys (H423).
 ##   Crystal / Shatter (spec 2.2, H261, H264): ice on EMPTY ground still arms a
 ##         stasis marker (the old tier-1 "glaze"); ice on a CHARGED tile (or an
 ##         element landing on armed ice) freezes it into a crystal: decay
@@ -69,8 +73,6 @@ const OPERATORS := { "thunder": "fuse", "ice": "stasis", "wind": "gale" }
 const MARKER_ELEMENT := { "fuse": "thunder", "stasis": "ice", "gale": "wind" }
 const BURST := { "fire": "overheat", "water": "geyser", "light": "glint", "dark": "flux" }
 const ERUPTION := { "fire": "steam", "water": "steam", "light": "eclipse", "dark": "eclipse" }
-const SHATTER_MULT := 1.5           # thunder on authored frost (H2's glaze shatter, kept for the shade)
-const OVERHEAT_RING_STEPS := 2
 const BURST_VENT_TO := 2
 
 var arena: HHArena
@@ -498,7 +500,7 @@ func _route(e: Dictionary, element: String, fresh: bool, steps: int, caster: Str
 			return { "op": "none" }               # everything else washes off
 		var opp: String = OPPOSITE[element]
 		var t_opp := amount(h, v, opp)
-		if mk_here == "" and t_opp > 0 and fresh and t_opp >= int(HHTune.value("steam_min_tier")):
+		if mk_here == "" and t_opp > 0 and fresh and t_opp >= int(HHTune.value("%s_min_tier" % ERUPTION[element])):
 			# Steam / Eclipse (H360s): the whole axis is consumed and erupts
 			var consumed := t_opp + mini(steps, AXIS_MAX)
 			var kind: String = ERUPTION[element]
@@ -689,7 +691,7 @@ func _burst_finish(centres: Array, element: String, caster: String, out: Diction
 			continue
 		var owner := str(e.get("source", caster))
 		var painted: Array = []
-		var steps := OVERHEAT_RING_STEPS if element == "fire" else int(HHTune.value("burst_splash_steps"))
+		var steps := int(HHTune.value("%s_splash_steps" % BURST[element]))
 		for n in arena.ring(c, 1):
 			if n in centres:
 				continue
@@ -716,8 +718,9 @@ func _record_burst(c: Vector2i, element: String, owner: String, caster: String, 
 	for n in arena.ring(c, 1):
 		if arena.exists(n):
 			ring.append(n)
+	var mult := float(HHFormulas.burst_mult(kind).value) * (HHTune.value("swirl_reaction_mult") if swirl else 1.0)
 	var rec := { "hex": c, "ring": ring, "painted": painted, "element": element, "kind": kind, "swirl": swirl,
-		"mult": float(HHFormulas.burst_mult(kind).value), "pct": float(HHFormulas.burst_mult(kind).value), "source": owner, "trigger": caster }
+		"mult": mult, "pct": mult, "source": owner, "trigger": caster }
 	out.bursts.append(rec)
 	if element == "fire":
 		out.overheat.append(rec)
@@ -795,14 +798,15 @@ func _swirl(hexes: Array, caster: String, out: Dictionary) -> bool:
 	var w := int(sums.water)
 	var li := int(sums.light)
 	var d := int(sums.dark)
-	var min_t := int(HHTune.value("steam_min_tier"))
+	var min_steam := int(HHTune.value("steam_min_tier"))
+	var min_ecl := int(HHTune.value("eclipse_min_tier"))
 	var h_net := clampi(f - w, -AXIS_MAX, AXIS_MAX)
 	var v_net := clampi(li - d, -AXIS_MAX, AXIS_MAX)
 	var cands: Array = []                             # [mult, order, kind, data]
-	if f > 0 and w > 0 and maxi(f, w) >= min_t:
+	if f > 0 and w > 0 and maxi(f, w) >= min_steam:
 		var cs := mini(f + w, 2 * AXIS_MAX)
 		cands.append([float(HHFormulas.eruption_mult("steam", cs).value), 0, "steam", cs])
-	if li > 0 and d > 0 and maxi(li, d) >= min_t:
+	if li > 0 and d > 0 and maxi(li, d) >= min_ecl:
 		var ce := mini(li + d, 2 * AXIS_MAX)
 		cands.append([float(HHFormulas.eruption_mult("eclipse", ce).value), 1, "eclipse", ce])
 	if absi(h_net) >= AXIS_MAX:
@@ -830,7 +834,7 @@ func _swirl(hexes: Array, caster: String, out: Dictionary) -> bool:
 	var copies: Array = []
 	if kind == "steam" or kind == "eclipse":
 		out.eruptions.append({ "hex": landing, "kind": kind, "element": "fire" if kind == "steam" else "light", "consumed": int(pick[3]),
-			"mult": float(pick[0]), "source": caster, "swirl": true })
+			"mult": float(pick[0]) * HHTune.value("swirl_reaction_mult"), "source": caster, "swirl": true })
 	elif kind == "burst":
 		var el: String = pick[3]
 		kind = str(BURST[el])
