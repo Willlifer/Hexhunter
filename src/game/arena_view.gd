@@ -22,6 +22,7 @@ var fx := {}                 # hex -> { face_h, face_v, cards_h, cards_v, mark, 
 var fxl: HHFxLayer           # Lane FX: wind-ups, impacts, state effects
 var hull: HHHullFx           # Lane H (H255): the monster hull outline, the Attack Ring, push-out dust
 var aim: HHAimFx             # Lane W (H56): range ring, charge preview + pips, charge glows, heal zones, dash streaks, exposed rings
+var react: HHReactionFx      # Lane EL (H360-H389): crystal prisms; shatter, swirl, geyser, steam, eclipse, glint, flux bursts
 var _player_id := ""
 var tg_pool: Array = []      # MeshInstance3D for telegraph hexes
 var true_hex: MeshInstance3D
@@ -79,6 +80,11 @@ func build(a: HHArena, p_asset: GKAsset = null) -> void:
 	hull.name = "Hull"
 	add_child(hull)
 	hull.setup(arena)
+	react = HHReactionFx.new()
+	react.name = "Reactions"
+	add_child(react)
+	react.setup(arena)
+	react.skill = fxl.skill
 
 
 func _build_floor() -> void:
@@ -191,6 +197,8 @@ func sync(sim: HHSim, player_id: String, delta: float) -> void:
 		aim.sync(sim, player_id, delta)
 	if hull != null:
 		hull.sync(sim, player_id, delta)
+	if react != null:
+		react.sync(sim, delta)
 
 
 ## One sim event for the one-shot effects (strike, cast, pierce, eruption,
@@ -203,6 +211,8 @@ func on_event(e: Dictionary, sim: HHSim) -> void:
 		aim.on_event(e, sim)
 	if hull != null:
 		hull.on_event(e, sim)
+	if react != null:
+		react.on_event(e, sim)
 
 
 ## R-U3: the hunter's own telegraphs (its id as owner, or the upgrade shapes
@@ -347,6 +357,7 @@ func _sync_fx(charge: HHCharge, delta: float) -> void:
 		_set_face(node, "h", L.h, delta)
 		_set_face(node, "v", L.v, delta)
 		_set_mark(node, L, delta)
+		node.frozen = bool(L.get("frozen", false))
 		_set_cards(node, "h")
 		_set_cards(node, "v")
 	for hex in fx.keys():
@@ -403,7 +414,7 @@ func _set_cards(node: Dictionary, axis: String) -> void:
 	var el := str(node["el_" + axis])
 	var t := float(node["tier_" + axis])
 	var floor_t := float(HHTileFX.CARD_FLOOR.get(el, 99.0))
-	mi.visible = t > floor_t and HHTileFX.CARDS.has(el)
+	mi.visible = t > floor_t and HHTileFX.CARDS.has(el) and not bool(node.get("frozen", false))
 	if not mi.visible:
 		return
 	var m := HHTileFX.material(HHTileFX.CARDS[el])

@@ -374,6 +374,10 @@ func blocked_for(me: Dictionary) -> Dictionary:
 		for h in arena.cells:
 			if not arena.kind(h) in allowed:
 				b[h] = true
+	if str(me.kind) == "player":                         # H366: crystals wall hunters (a monster crushes them); not the one underfoot
+		for h in charge.entries:
+			if int((charge.entries[h] as Dictionary).get("crystal", 0)) > 0 and h != me.hex:
+				b[h] = true
 	return b
 
 
@@ -734,6 +738,7 @@ func _leap_splash(m: Dictionary, element: String) -> void:
 			hexes.append(h)
 	if hexes.is_empty():
 		return
+	charge.begin_action("%d:%s:splash" % [tick, m.id])   # H361: its own contained action (no stale containment sets)
 	var r := charge.apply(hexes, element, str(m.id), int(HHTune.value("leap_splash_steps")), false)
 	_emit({ "type": "paint", "id": m.id, "element": element, "hexes": hexes.duplicate(), "changed": (r.changed as Array).duplicate(),
 		"splash": true, "contained": true })
@@ -838,6 +843,11 @@ func step(orders: Dictionary = {}) -> Array:
 	_projectiles()
 	if env != null:
 		env.tick()
+	var airborne: Array = []                             # H367: monsters in the air this tick crush what they land on
+	for id in order:
+		var u: Dictionary = units[id]
+		if u.kind == "monster" and alive(u) and not (u.leap as Dictionary).is_empty():
+			airborne.append(id)
 	for id in order:
 		var u: Dictionary = units[id]
 		if alive(u):
@@ -846,12 +856,15 @@ func step(orders: Dictionary = {}) -> Array:
 				_walk_free(u)
 			else:
 				_walk_hex(u)
+	for id in airborne:
+		_crush_landed(units[id])
 	_telegraphs()
 	_push_out()                                          # H253: after the landing's own damage, before anyone acts on the new spot
 	for id in order:
 		var u: Dictionary = units[id]
 		if alive(u) and u.kind == "player":
 			_auto_attack(u)
+	_crystal_safety()                                    # H366: a crystal never holds a hunter
 	if tick % int(HHTune.value("ground_tick_every")) == 0:
 		for id in order:
 			var u: Dictionary = units[id]
@@ -1202,8 +1215,8 @@ func _walk_free(u: Dictionary) -> void:
 			u.unpull_until = tick + 15
 			u.pos = centre if off.length() <= step else from + off / off.length() * step
 			return
-		if hull_hexes().has(nh) and _reroute(u, blocked):
-			return                                    # H254: a hull stepped into the way: go round it
+		if (hull_hexes().has(nh) or charge.is_crystal(nh)) and _reroute(u, blocked):
+			return                                    # H254: a hull stepped into the way: go round it (H366: a crystal too)
 		_stop(u)                                      # the edge, a cliff, the monster's body
 		_emit({ "type": "blocked", "id": u.id, "hex": nh })
 		return
@@ -1368,6 +1381,8 @@ func begin_recovery(u: Dictionary, ticks: int) -> void:
 
 
 func _enter(u: Dictionary, hex: Vector2i) -> void:
+	if u.kind == "monster":
+		_crush(u)                                        # H367: the hull's leading edge crushes crystals
 	var pct := charge.crossing_pct(hex)
 	if pct > 0.0 and u.crossed != hex and not charge.owned_by(hex, _ground_owner(u, hex)):
 		hurt(u, HHFormulas.tile_damage(dot_base(u), pct, resist_of(u, "fire")).value, "fire_cross")
@@ -1550,6 +1565,8 @@ func strike(u: Dictionary, t: Dictionary, base: float, hex: Vector2i, cause: Str
 	var ev := { "type": "strike", "id": u.id, "target": t.id, "hex": hex, "amount": dmg, "cause": cause, "rear": mult > 1.0 }
 	ev.merge(extra)
 	_emit(ev)
+	if str(u.get("kind", "")) == "player" and charge.is_crystal(hex):
+		shatter_as([hex], str(u.id))                     # H365: a hunter's weapon hit shatters the crystal it lands on
 	return dmg
 
 
@@ -1929,79 +1946,166 @@ func damage_cells(hexes: Array, amount: float) -> Array:
 	return broke
 
 
-## Lay `element` on `hexes` as `caster` and resolve what the ground did. The
-## caster is immune to its own blasts and bursts (H33).
+## Lay `element` on `hexes` as `caster` and resolve what the ground did. One
+## caster's paints in one tick are one ACTION (H361, spec 0.3): each hex
+## reacts at most once in it and reaction output never reacts again in it
+## (HHCharge.begin_action). Damage follows the one 3.3 rule (reaction_hit).
 func paint(hexes: Array, element: String, caster: String, steps: int = 1, fresh: bool = true) -> Dictionary:
 	if caster != "":
 		var u := unit(caster)
 		if not u.is_empty():
 			damage_cells(hexes, HHTune.value("pillar_paint_dmg") * float(steps))
+	charge.begin_action("%d:%s" % [tick, caster])
 	var r := charge.apply(hexes, element, caster, steps, fresh)
 	_emit({ "type": "paint", "id": caster, "element": element, "hexes": hexes.duplicate(), "changed": r.changed.duplicate() })
-	var hits := {}                                       # H50: unit id -> [{ amount, cause, stagger }] from this paint
+	resolve_ground(r, caster)
+	return r
+
+
+## Turn what the charge grid reported (HHCharge.apply / shatter_at /
+## detonate_at) into events and damage, `trigger` being the unit whose action
+## completed it. All blasts of one action on one unit land together
+## (_land_reactions: strongest in full + reaction_chain_frac of each other).
+func resolve_ground(r: Dictionary, trigger: String) -> void:
+	var hits := {}                                       # H50: unit id -> [{ amount, cause, stagger, source, floor }]
+	var riders: Array = []                               # [kind, hexes] applied after the damage lands
+	for h in r.get("crystals", []):
+		var e := charge.at(h)
+		_emit({ "type": "crystal", "hex": h, "ice": int(e.get("crystal", 1)), "element": HHCharge.dominant(int(e.get("h", 0)), int(e.get("v", 0))), "id": trigger })
 	for d in r.detonations:
-		_blast(hits, d.hex, float(d.mult), "detonate", d.mix, str(d.source))
-	for o in r.overheat:
-		_emit({ "type": "overheat", "hex": o.hex, "ring": o.ring })
-		var unit_o := reaction_unit(str(o.source))
-		for u in units_in(o.ring, str(o.source)):
-			if allies(str(o.source), u.id):
-				continue
-			_react(hits, u, unit_o * float(o.mult) * (1.0 - resist_of(u, "fire") / 100.0), "overheat", 0.0, str(o.source))
-	for o in r.overfreeze:
-		_emit({ "type": "overfreeze", "hex": o.hex, "ring": o.ring })
-		var unit_f := reaction_unit(str(o.source))
-		for u in units_in([o.hex] + o.ring, str(o.source)):
-			if allies(str(o.source), u.id):
-				continue
-			_react(hits, u, unit_f * float(o.mult) * (1.0 - resist_of(u, "ice") / 100.0), "overfreeze", 0.0, str(o.source))
-			apply_status(u, "slow", int(HHTune.value("overfreeze_slow_ticks")))
+		_emit({ "type": "detonate", "hex": d.hex, "mult": float(d.mult), "pct": float(d.mult), "mix": d.mix, "source": str(d.source), "trigger": trigger })
+		_area_hits(hits, d.hex, float(d.mult), "detonate", "thunder", HHTune.value("detonate_stagger"), HHTune.value("detonate_ring_frac"), trigger, str(d.source))
+	for b in r.get("bursts", []):
+		var swirl := bool(b.get("swirl", false))
+		_emit({ "type": str(b.kind), "hex": b.hex, "ring": b.painted, "mult": float(b.mult), "element": str(b.element), "swirl": swirl, "trigger": trigger })
+		var st := 0.0
+		match str(b.kind):
+			"geyser": st = HHTune.value("geyser_stagger")
+			"glint": st = HHTune.value("glint_stagger")
+		_area_hits(hits, b.hex, float(b.mult), "swirl" if swirl else str(b.kind), str(b.element), st, 1.0, trigger, str(b.source))
+		if str(b.kind) == "flux":
+			riders.append(["vulnerable", [b.hex] + (b.ring as Array)])
+	for s in r.get("shatters", []):
+		_emit({ "type": "shatter", "hex": s.hex, "mult": float(s.mult), "mix": s.mix, "ring": s.ring, "ice": int(s.ice), "trigger": trigger, "source": str(s.source) })
+		_area_hits(hits, s.hex, float(s.mult), "shatter", "ice", HHTune.value("shatter_stagger"), HHTune.value("shatter_ring_frac"), trigger, str(s.source))
+	for x in r.get("eruptions", []):
+		var kind := str(x.kind)
+		var swirl_x := bool(x.get("swirl", false))
+		_emit({ "type": kind, "hex": x.hex, "mult": float(x.mult), "consumed": int(x.consumed), "swirl": swirl_x, "trigger": trigger })
+		_area_hits(hits, x.hex, float(x.mult), "swirl" if swirl_x else kind, "water" if kind == "steam" else "light", HHTune.value("detonate_stagger"),
+			HHTune.value("eruption_ring_frac"), trigger, str(x.source))
+		if kind == "eclipse":
+			riders.append(["exposed", [x.hex] + arena.ring(x.hex, 1)])
 	_land_reactions(hits)
+	for rd in riders:
+		for u in units_in(rd[1]):
+			if str(u.kind) != "monster":
+				continue
+			if rd[0] == "vulnerable":                    # H363 Flux: reaction damage taken x flux_vuln_mult
+				apply_status(u, "vulnerable", int(HHTune.value("flux_vuln_ticks")))
+			elif rd[0] == "exposed":                     # H362 Eclipse: H57's punish window
+				var was := int(u.get("exposed", 0))
+				u.exposed = maxi(was, int(HHTune.value("eclipse_exposed_ticks")))
+				if was <= 0:
+					_emit({ "type": "exposed", "id": u.id, "ticks": u.exposed, "cause": "eclipse" })
+	var sw: Dictionary = r.get("swirl", {})
+	if not sw.is_empty():
+		_emit({ "type": "swirl", "hex": sw.centre, "landing": sw.landing, "radius": int(sw.radius), "pulled": sw.pulled, "pulled_el": sw.pulled_el,
+			"reaction": str(sw.reaction), "copies": sw.copies, "id": trigger })
 	for g in r.gales:
 		_emit({ "type": "gale", "hex": g.origin, "copies": g.copies })
 	for h in r.doused:
 		_emit({ "type": "douse", "hex": h })
-	return r
 
 
 ## H50: one reaction's "auto attack": the caster's basic damage at the lance's
 ## cadence (daggers hit half as hard twice as often; their reactions match the
-## lance's), or reaction_unit_other when a monster or the arena set it off.
+## lance's). For anyone else it is the player-cast unit (player_reaction_unit);
+## the 3.3 rule scales it (reaction_hit).
 func reaction_unit(source: String) -> float:
 	var u := unit(source)
 	if u.is_empty() or u.kind != "player":
-		return HHTune.value("reaction_unit_other")
+		return player_reaction_unit()
 	var w := str(u.weapon)
 	return HHWeapons.basic_damage(w) * HHTune.value("lance_basic_ticks") / maxf(1.0, float(HHWeapons.basic_ticks(w)))
 
 
-func _blast(hits: Dictionary, hex: Vector2i, mult: float, cause: String, mix: Dictionary, source: String) -> void:
-	_emit({ "type": "detonate", "hex": hex, "mult": mult, "pct": mult, "mix": mix, "source": source })
-	var unit_d := reaction_unit(source)
+## H364: the "player-cast damage" a reaction nobody's hunter laid is measured
+## against: the lance's auto attack.
+func player_reaction_unit() -> float:
+	return HHWeapons.basic_damage("lance") * HHTune.value("lance_basic_ticks") / maxf(1.0, float(HHWeapons.basic_ticks("lance")))
+
+
+## H364, spec 3.3: THE rule for who a reaction or eruption hurts and how hard.
+## Every reaction (Detonate, Overheat, Geyser, Glint, Flux, Shatter, Steam,
+## Eclipse, a Swirl's burst) goes through this one function.
+##   `trigger`: the unit whose action completed it (a cast, a basic, a weapon
+##   hit, a monster's spell or crush; "env" or "" for the arena).
+##   `owner`: whose charge it was (for a monster-triggered reaction on a
+##   hunter's charge, that hunter's auto attack is the player-cast damage).
+## Player-triggered: it damages monsters by the trigger's auto attack x mult;
+##   it never damages the trigger or an allied hunter.
+## Monster- or arena-triggered: monsters take monster_reaction_frac of the
+##   player-cast damage (the triggering monster too); every hunter in it takes
+##   monster_reaction_player_frac and is never killed by it (DECIDE-C: left
+##   at 1 HP at worst, _land_reactions).
+## Then resistance to the reaction's element, and Flux's vulnerability.
+## A hunter never takes more than detonate_stagger from a reaction.
+func reaction_hit(hits: Dictionary, victim: Dictionary, mult: float, cause: String, element: String, stagger: float, trigger: String, owner: String = "") -> void:
+	if victim.is_empty() or not targetable(victim) or mult <= 0.0:
+		return
+	var by_player := str(unit(trigger).get("kind", "")) == "player"
+	var frac := 1.0
+	var floor := false
+	var unit_dmg := 0.0
+	if by_player:
+		if victim.id == trigger or allies(trigger, str(victim.id)):
+			return
+		unit_dmg = reaction_unit(trigger)
+	else:
+		unit_dmg = reaction_unit(owner)
+		if str(victim.kind) == "player":
+			frac = HHTune.value("monster_reaction_player_frac")
+			floor = true
+		else:
+			frac = HHTune.value("monster_reaction_frac")
+	var vuln := 1.0
+	if str(victim.kind) == "monster" and (victim.statuses as Dictionary).has("vulnerable"):
+		vuln = HHTune.value("flux_vuln_mult")
+	var amount: float = HHFormulas.reaction_damage(unit_dmg, mult, frac, resist_of(victim, element), vuln).value
+	var st := stagger if str(victim.kind) == "monster" else minf(stagger, HHTune.value("detonate_stagger"))
+	_react(hits, victim, amount, cause, st, trigger if by_player else "", floor)
+
+
+## A reaction's area: units on `hex` take the full multiple, units on its
+## ring `ring_frac` of it (each unit once, at its best).
+func _area_hits(hits: Dictionary, hex: Vector2i, mult: float, cause: String, element: String, stagger: float, ring_frac: float, trigger: String, owner: String) -> void:
 	var seen := {}
 	for u in unit_at(hex):
-		if not targetable(u) or u.id == source or allies(source, u.id):
-			continue
 		seen[u.id] = true
-		_react(hits, u, unit_d * mult * (1.0 - resist_of(u, "thunder") / 100.0), cause, HHTune.value("detonate_stagger"), source)
-	var ring_mult: float = HHFormulas.detonation_ring_pct(mult).value
+		reaction_hit(hits, u, mult, cause, element, stagger, trigger, owner)
+	if ring_frac <= 0.0:
+		return
 	for n in arena.ring(hex, 1):
 		for u in unit_at(n):
-			if not seen.has(u.id) and targetable(u) and u.id != source and not allies(source, u.id):
-				seen[u.id] = true
-				_react(hits, u, unit_d * ring_mult * (1.0 - resist_of(u, "thunder") / 100.0), cause, 0.0, source)
+			if seen.has(u.id):
+				continue
+			seen[u.id] = true
+			reaction_hit(hits, u, mult * ring_frac, cause, element, stagger if ring_frac >= 1.0 else 0.0, trigger, owner)
 
 
-func _react(hits: Dictionary, u: Dictionary, amount: float, cause: String, stagger: float, source: String = "") -> void:
+func _react(hits: Dictionary, u: Dictionary, amount: float, cause: String, stagger: float, source: String = "", floor: bool = false) -> void:
 	if not hits.has(u.id):
 		hits[u.id] = []
-	(hits[u.id] as Array).append({ "amount": amount, "cause": cause, "stagger": stagger, "source": source })
+	(hits[u.id] as Array).append({ "amount": amount, "cause": cause, "stagger": stagger, "source": source, "floor": floor })
 
 
-## Every unit a paint's reactions caught takes its strongest blast in full plus
-## reaction_chain_frac of each other one (a big body standing on a dozen
-## detonating hexes is hit by a chain, not a dozen full blasts). Emits
-## `reaction` with the total for the view and the log.
+## Every unit an action's reactions caught takes its strongest blast in full
+## plus reaction_chain_frac of each other one (a big body standing on a dozen
+## detonating hexes is hit by a chain, not a dozen full blasts), staggered by
+## the strongest stagger among them. A hunter caught by a monster- or
+## arena-triggered reaction is never killed by it (H364 / DECIDE-C: 1 HP at
+## worst). Emits `reaction` with the total for the view and the log.
 func _land_reactions(hits: Dictionary) -> void:
 	var ids := hits.keys()
 	ids.sort()
@@ -2013,10 +2117,145 @@ func _land_reactions(hits: Dictionary) -> void:
 		list.sort_custom(func(x, y): return float(x.amount) > float(y.amount))
 		var top: Dictionary = list[0]
 		var total := float(top.amount)
-		for i in range(1, list.size()):
-			total += float(list[i].amount) * HHTune.value("reaction_chain_frac")
+		var st := 0.0
+		var floor := false
+		for i in list.size():
+			if i > 0:
+				total += float(list[i].amount) * HHTune.value("reaction_chain_frac")
+			st = maxf(st, float(list[i].stagger))
+			floor = floor or bool(list[i].get("floor", false))
+		if floor and str(u.kind) == "player":
+			total = minf(total, maxf(0.0, float(u.hp) - 1.0))
 		_emit({ "type": "reaction", "id": u.id, "amount": total, "blasts": list.size(), "cause": top.cause })
-		hurt(u, total, str(top.cause), float(top.stagger), str(top.get("source", "")), false)   # H58: reactions never interrupt
+		hurt(u, total, str(top.cause), st, str(top.get("source", "")), false)   # H58: reactions never interrupt
+
+
+# ------------------------------------------------------------------ crystals (H365-H367) and the section 7-8 hooks
+
+## True when `hex` holds an Elemental Crystal (a sweep beam may stop there).
+func crystal_at(hex: Vector2i) -> bool:
+	return charge.is_crystal(hex)
+
+
+## Index of the first crystal along `line` (a beam's hexes in order), -1 none.
+func first_crystal(line: Array) -> int:
+	for i in line.size():
+		if charge.is_crystal(line[i]):
+			return i
+	return -1
+
+
+## Shatter the crystals in `hexes` as `trigger`'s action (a hunter's weapon
+## hit: player-triggered; a monster's crush: monster-triggered, 3.3).
+func shatter_as(hexes: Array, trigger: String) -> Dictionary:
+	charge.begin_action("%d:%s:shatter" % [tick, trigger])
+	var r := charge.shatter_at(hexes, trigger)
+	resolve_ground(r, trigger)
+	return r
+
+
+## Sections 7-8 hook: a monster sets off the ground in `hexes` as ONE
+## contained action, monster-triggered under the 3.3 rule. mode "detonate":
+## every charged hex blasts as if thunder hit it and every crystal shatters;
+## "shatter": crystals only; "quench": everything is cleared, no reaction.
+func react_at(hexes: Array, trigger: String, mode: String = "detonate") -> Dictionary:
+	charge.begin_action("%d:%s:%s" % [tick, trigger, mode])
+	var r := {}
+	match mode:
+		"quench":
+			r = HHCharge._out()
+			r.changed = charge.quench(hexes)
+			_emit({ "type": "quench", "id": trigger, "hexes": r.changed.duplicate() })
+			return r
+		"shatter":
+			r = charge.shatter_at(hexes, trigger)
+		_:
+			r = charge.detonate_at(hexes, trigger)
+	resolve_ground(r, trigger)
+	return r
+
+
+## H367: a monster stepping its hull onto new hexes crushes the crystals there
+## (monster-triggered Shatter). A submerged monster passes under them.
+func _crush(m: Dictionary) -> void:
+	if bool(m.untargetable) or charge.entries.is_empty():
+		return
+	var hit: Array = []
+	var size := int(m.size)
+	for h in HHHex.area(m.hex, size):
+		if HHHex.distance(h, m.prev) > size and charge.is_crystal(h):
+			hit.append(h)
+	if not hit.is_empty():
+		shatter_as(hit, str(m.id))
+
+
+## H367: a monster that landed from a leap this tick crushes every crystal
+## under its hull.
+func _crush_landed(m: Dictionary) -> void:
+	if not alive(m) or not (m.leap as Dictionary).is_empty() or bool(m.untargetable):
+		return
+	var hit: Array = []
+	for h in HHHex.area(m.hex, int(m.size)):
+		if charge.is_crystal(h):
+			hit.append(h)
+	if not hit.is_empty():
+		shatter_as(hit, str(m.id))
+
+
+## H366 (spec 2.2 safety): a crystal never holds a hunter. One that formed
+## under a hunter (or a hunter set down on one) is slid to the nearest open
+## hex: walkable, no crystal, outside every hull, not held by another hunter.
+## Not a hit. Event `push_out` with by "crystal" (the view eases the slide).
+func _crystal_safety() -> void:
+	if charge.entries.is_empty():
+		return
+	var taken := {}
+	for id in order:
+		var p: Dictionary = units[id]
+		if p.kind != "player" or not (alive(p) or bool(p.get("downed", false))):
+			continue
+		if not (p.leap as Dictionary).is_empty() or not charge.is_crystal(p.hex):
+			continue
+		var to := _open_hex_near(p, taken)
+		if to == NO_HEX:
+			continue
+		taken[to] = true
+		var from_hex: Vector2i = p.hex
+		var from_pos: Vector3 = p.pos
+		p.prev = from_hex
+		p.hex = to
+		p.pos = arena.stand(to)
+		p.crossed = to
+		if not (p.get("dash", {}) as Dictionary).is_empty():
+			p.dash = {}
+			p.dash_recover = int(HHTune.value("dash_recover_ticks"))
+			_emit({ "type": "dash_end", "id": p.id, "hex": to })
+		p.path = [] as Array[Vector2i]                  # a walk or an approach re-plans from here
+		p.goal_pos = NO_POS
+		_emit({ "type": "push_out", "id": p.id, "by": "crystal", "from": from_hex, "to": to, "from_pos": from_pos, "to_pos": p.pos })
+
+
+func _open_hex_near(p: Dictionary, taken: Dictionary) -> Vector2i:
+	var walls := hull_hexes()
+	var held := {}
+	for q in players():
+		if q.id != p.id and (alive(q) or bool(q.get("downed", false))):
+			held[q.hex] = true
+	var at: Vector3 = p.pos
+	for r in range(1, 7):
+		var best := NO_HEX
+		var best_key := []
+		for h in arena.ring(p.hex, r):
+			if not arena.walkable(h) or walls.has(h) or charge.is_crystal(h) or held.has(h) or taken.has(h):
+				continue
+			var s := arena.stand(h)
+			var key := [Vector2(s.x - at.x, s.z - at.z).length_squared(), h.y, h.x]
+			if best_key.is_empty() or _key_less(key, best_key):
+				best_key = key
+				best = h
+		if best != NO_HEX:
+			return best
+	return NO_HEX
 
 
 ## `by` (optional): the unit that dealt it. A hunter's hit on a monster is
@@ -2186,7 +2425,8 @@ func state_hash() -> int:
 	keys.sort()
 	for h in keys:
 		var e: Dictionary = charge.entries[h]
-		parts.append("%s:%d:%d:%s:%d:%d" % [h, int(e.h), int(e.v), e.marker, int(e.glaze), int(e.timer)])
+		parts.append("%s:%d:%d:%s:%d:%d:c%d:%d" % [h, int(e.h), int(e.v), e.marker, int(e.glaze), int(e.timer),
+			int(e.get("crystal", 0)), int(e.get("crystal_t", 0))])   # H365: crystals are fight state
 	for tg in telegraphs:
 		parts.append("tg%d:%d" % [int(tg.id), int(tg.left)])
 	if env != null:

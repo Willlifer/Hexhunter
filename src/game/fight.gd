@@ -706,7 +706,11 @@ func _note(e: Dictionary) -> void:
 		"exposed":
 			_log.append("t%d %s EXPOSED %d ticks" % [e.tick, e.id, int(e.ticks)])
 		"overheat": _log.append("t%d OVERHEAT %s" % [e.tick, e.hex])
-		"overfreeze": _log.append("t%d OVERFREEZE %s" % [e.tick, e.hex])
+		"geyser", "glint", "flux": _log.append("t%d %s %s" % [e.tick, str(e.type).to_upper(), e.hex])
+		"steam", "eclipse": _log.append("t%d %s %s (consumed %d)" % [e.tick, str(e.type).to_upper(), e.hex, int(e.get("consumed", 0))])
+		"shatter": _log.append("t%d SHATTER %s x%.1f by %s" % [e.tick, e.hex, float(e.get("mult", 0.0)), str(e.get("trigger", ""))])
+		"swirl": _log.append("t%d swirl %s r%d pulled %d -> %s" % [e.tick, e.hex, int(e.get("radius", 0)), (e.get("pulled", []) as Array).size(), str(e.get("reaction", ""))])
+		"crystal": _log.append("t%d crystal %s" % [e.tick, e.hex])
 		"douse": _log.append("t%d douse %s" % [e.tick, e.hex])
 		"gale": _log.append("t%d gale %s" % [e.tick, e.hex])
 		"strike":

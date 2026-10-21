@@ -203,20 +203,25 @@ func test_reactions_scale_with_the_auto_attack(c: HHSelfTest.HHCheck) -> void:
 	# one hex under the monster: dark 1, then thunder sets it off: x3
 	var h := Vector2i(0, 0)
 	sim.paint([h], "dark", "p1", 1)
+	sim.step()                                          # H361: one hex reacts once per action (a caster's tick): cast again next tick
 	var before := float(m.hp)
 	sim.paint([h], "thunder", "p1", 1)
 	var got := before - float(m.hp)
-	c.near(got, unit * 3.0, 1.0, "thunder setting off dark 1 deals 3x the auto attack (%d)" % int(got))
+	c.near(got, unit * HHTune.value("det_mult_per_point"), 1.0, "thunder setting off dark 1 deals per_point x the auto attack (%d)" % int(got))
 	# dark 3 + fire 3 on one hex: x21
+	sim.step()
 	sim.paint([h], "dark", "p1", 3)
 	sim.paint([h], "fire", "p1", 3)
+	sim.step()
 	before = float(m.hp)
 	sim.paint([h], "thunder", "p1", 1)
 	got = before - float(m.hp)
-	c.near(got, unit * 21.0, 1.0, "dark 3 + fire 3 set off: 21x (%d)" % int(got))
+	c.near(got, unit * (HHTune.value("det_mult_per_point") * 6.0 + HHTune.value("det_mult_per_axis")), 1.0, "dark 3 + fire 3 set off: per_point x 6 + per_axis (H50 21x, H370 18x) (%d)" % int(got))
 	# a dozen hexes under the monster, each dark 3: strongest + chain, far below 12 full blasts
 	var hexes: Array = a.area(h, 2)
+	sim.step()
 	sim.paint(hexes, "dark", "p1", 3)
+	sim.step()
 	before = float(m.hp)
 	sim.paint(hexes, "thunder", "p1", 1)
 	got = before - float(m.hp)

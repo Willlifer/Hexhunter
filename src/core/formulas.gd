@@ -50,6 +50,54 @@ static func detonation_ring_pct(pct: float) -> Dictionary:
 	return calc("ring blast", v, "pct * detonate_ring_frac", "%.1f * %.2f" % [pct, HHTune.value("detonate_ring_frac")])
 
 
+## H50 Fuse / Detonate: the multiple of the caster's auto attack a thunder
+## blast deals: per point of charge, per extra axis, per water step conducted;
+## x1.5 on authored frost (H2's glaze shatter).
+static func fuse_mult(points: int, axes: int, water: int, glazed: bool = false) -> Dictionary:
+	var v := HHTune.value("det_mult_per_point") * points + HHTune.value("det_mult_per_axis") * maxi(axes - 1, 0) \
+		+ HHTune.value("det_mult_per_water") * water
+	if glazed:
+		v *= HHCharge.SHATTER_MULT
+	return calc("fuse", v, "per_point * points + per_axis * (axes - 1) + per_water * water" + (" * 1.5" if glazed else ""),
+		"%.1f * %d + %.1f * %d + %.1f * %d" % [HHTune.value("det_mult_per_point"), points, HHTune.value("det_mult_per_axis"), maxi(axes - 1, 0),
+		HHTune.value("det_mult_per_water"), water])
+
+
+## Lane EL (spec 2.3, 2.5): a tier-3 burst's multiple (overheat, geyser,
+## glint, flux): "<kind>_mult".
+static func burst_mult(kind: String) -> Dictionary:
+	var key := "%s_mult" % kind
+	var v := HHTune.value(key) if HHTune.has(key) else 0.0
+	return calc(kind, v, key, "%.2f" % v)
+
+
+## Lane EL (spec 2.2): Shatter's multiple: per point of stored charge plus per
+## ice level.
+static func shatter_mult(points: int, ice: int) -> Dictionary:
+	var v := HHTune.value("shatter_mult_per_point") * points + HHTune.value("shatter_mult_per_ice") * ice
+	return calc("shatter", v, "per_point * points + per_ice * ice",
+		"%.2f * %d + %.2f * %d" % [HHTune.value("shatter_mult_per_point"), points, HHTune.value("shatter_mult_per_ice"), ice])
+
+
+## Lane EL (spec 3.1, 3.2): Steam / Eclipse: "<kind>_mult_per_point" x the
+## charge consumed (both sides of the axis).
+static func eruption_mult(kind: String, consumed: int) -> Dictionary:
+	var per := HHTune.value("%s_mult_per_point" % kind)
+	return calc(kind, per * consumed, "%s_mult_per_point * consumed" % kind, "%.2f * %d" % [per, consumed])
+
+
+## Lane EL (spec 3.3): one reaction's damage on one unit: the reaction unit
+## (an auto attack at the lance's cadence, H50) x the multiple x the 3.3
+## fraction (1 for a hunter's own reaction; monster_reaction_frac /
+## monster_reaction_player_frac when a monster or the arena triggered it),
+## cut by resistance, x a vulnerability (Flux).
+static func reaction_damage(unit_dmg: float, mult: float, frac: float, resist_pct: float, vuln: float) -> Dictionary:
+	var res := minf(resist_pct, RESIST_CAP)
+	var v := maxf(0.0, unit_dmg * mult * frac * (1.0 - res / 100.0) * vuln)
+	return calc("reaction", v, "unit * mult * frac * (1 - res/100) * vuln",
+		"%.0f * %.2f * %.2f * (1 - %.0f/100) * %.2f" % [unit_dmg, mult, frac, res, vuln])
+
+
 ## Hexes per second from ticks per hex.
 static func hexes_per_second(ticks_per_hex: float) -> float:
 	return 30.0 / maxf(ticks_per_hex, 1.0)

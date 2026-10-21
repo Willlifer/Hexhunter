@@ -69,7 +69,7 @@ const TUNE := {
 	"up_e_echo_ticks": 15,      # arcing_twice: bomblets land this many ticks after the first burst
 	"up_e_echo_pct": 0.5,       # arcing_twice: each bomblet's damage, pct of max HP
 	"up_e_echo_steps": 1,       # arcing_twice: element per bomblet
-	"up_r_glaze_steps": 1,      # arrowstorm_glaze: ice laid over the downfall (glazes charged hexes in place)
+	"up_r_glaze_steps": 1,      # arrowstorm_glaze: ice laid over the downfall (crystallises the charged hexes in place, H365)
 }
 
 
@@ -285,5 +285,5 @@ static func _arrowstorm_land(sim: HHSim, u: Dictionary) -> void:
 	sim.paint(area, u.element, u.id, int(_t("r_steps")))
 	sim._emit({ "type": "arrowstorm", "id": u.id, "hex": u.hex, "hexes": area, "element": u.element })
 	if HHUpgrades.has(u, "arrowstorm_glaze"):
-		sim.paint(area, "ice", u.id, int(_t("up_r_glaze_steps")))   # stasis: the charge under it freezes in place
+		sim.paint(area, "ice", u.id, int(_t("up_r_glaze_steps")))   # the charge under it freezes into crystals (H365)
 		sim._emit({ "type": "upgrade", "id": u.id, "upgrade": "arrowstorm_glaze", "hexes": area })

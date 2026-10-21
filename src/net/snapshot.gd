@@ -15,11 +15,10 @@ extends RefCounted
 ##
 ## delta(prev, cur) -> what changed between two captures; apply_delta(sim, d)
 ## turns a mirror holding `prev` into one holding `cur`. Countdowns that tick
-## every step are PREDICTED, not shipped: the charge grid is aged with a copy
-## of HHCharge.tick's decay rule (the host's numbers ride in the delta), and
-## telegraph / projectile `left` drop by one. Only what differs from that
-## prediction travels. If the rule ever changes in charge.gd the prediction
-## just misses more and the delta grows: it never goes wrong, only bigger.
+## every step are PREDICTED, not shipped: the charge grid is aged with
+## HHCharge.age_entry, the host's own decay rule (crystals thaw the same way;
+## the host's numbers ride in the delta), and telegraph / projectile `left`
+## drop by one. Only what differs from that prediction travels.
 
 const CELL_KEYS := ["kind", "walkable", "hp"]
 
@@ -188,36 +187,14 @@ static func apply_delta(sim: HHSim, d: Dictionary) -> bool:
 	return true
 
 
-## HHCharge.tick() on a copy: what one tick of decay does to `entries`.
+## HHCharge.tick() on a copy: what one tick of decay does to `entries`
+## (the very same rule: HHCharge.age_entry, crystals included).
 static func age_charge(entries: Dictionary, step_ticks: int, glaze_ticks: int) -> Dictionary:
 	var out := {}
 	for hex in entries:
 		var e: Dictionary = (entries[hex] as Dictionary).duplicate()
-		if bool(e.get("permanent", false)):
-			if bool(e.get("permanent_glaze", false)) and int(e.glaze) <= 0:
-				e.glaze = glaze_ticks
+		if HHCharge.age_entry(e, step_ticks, glaze_ticks):
 			out[hex] = e
-			continue
-		if int(e.glaze) > 0:
-			e.glaze = int(e.glaze) - 1
-			out[hex] = e
-			continue
-		e.timer = int(e.timer) - 1
-		if int(e.timer) > 0:
-			out[hex] = e
-			continue
-		if str(e.marker) != "":
-			continue
-		var ah := absi(int(e.h))
-		var av := absi(int(e.v))
-		if ah >= av:
-			e.h = int(e.h) - signi(int(e.h))
-		if av >= ah:
-			e.v = int(e.v) - signi(int(e.v))
-		if int(e.h) == 0 and int(e.v) == 0:
-			continue
-		e.timer = step_ticks
-		out[hex] = e
 	return out
 
 
