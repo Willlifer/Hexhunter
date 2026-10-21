@@ -1981,11 +1981,8 @@ func resolve_ground(r: Dictionary, trigger: String) -> void:
 	for b in r.get("bursts", []):
 		var swirl := bool(b.get("swirl", false))
 		_emit({ "type": str(b.kind), "hex": b.hex, "ring": b.painted, "mult": float(b.mult), "element": str(b.element), "swirl": swirl, "trigger": trigger })
-		var st := 0.0
-		match str(b.kind):
-			"geyser": st = HHTune.value("geyser_stagger")
-			"glint": st = HHTune.value("glint_stagger")
-		_area_hits(hits, b.hex, float(b.mult), "swirl" if swirl else str(b.kind), str(b.element), st, 1.0, trigger, str(b.source))
+		var bk := str(b.kind)                            # H423: each burst its own stagger and ring keys
+		_area_hits(hits, b.hex, float(b.mult), "swirl" if swirl else bk, str(b.element), HHTune.value(bk + "_stagger"), HHTune.value(bk + "_ring_frac"), trigger, str(b.source))
 		if str(b.kind) == "flux":
 			riders.append(["vulnerable", [b.hex] + (b.ring as Array)])
 	for s in r.get("shatters", []):
@@ -1995,8 +1992,8 @@ func resolve_ground(r: Dictionary, trigger: String) -> void:
 		var kind := str(x.kind)
 		var swirl_x := bool(x.get("swirl", false))
 		_emit({ "type": kind, "hex": x.hex, "mult": float(x.mult), "consumed": int(x.consumed), "swirl": swirl_x, "trigger": trigger })
-		_area_hits(hits, x.hex, float(x.mult), "swirl" if swirl_x else kind, "water" if kind == "steam" else "light", HHTune.value("detonate_stagger"),
-			HHTune.value("eruption_ring_frac"), trigger, str(x.source))
+		_area_hits(hits, x.hex, float(x.mult), "swirl" if swirl_x else kind, "water" if kind == "steam" else "light", HHTune.value(kind + "_stagger"),
+			HHTune.value(kind + "_ring_frac"), trigger, str(x.source))
 		if kind == "eclipse":
 			riders.append(["exposed", [x.hex] + arena.ring(x.hex, 1)])
 	_land_reactions(hits)
@@ -2053,7 +2050,7 @@ func player_reaction_unit() -> float:
 ##   monster_reaction_player_frac and is never killed by it (DECIDE-C: left
 ##   at 1 HP at worst, _land_reactions).
 ## Then resistance to the reaction's element, and Flux's vulnerability.
-## A hunter never takes more than detonate_stagger from a reaction.
+## A hunter never takes more than reaction_hunter_stagger_max from a reaction.
 func reaction_hit(hits: Dictionary, victim: Dictionary, mult: float, cause: String, element: String, stagger: float, trigger: String, owner: String = "") -> void:
 	if victim.is_empty() or not targetable(victim) or mult <= 0.0:
 		return
@@ -2076,7 +2073,7 @@ func reaction_hit(hits: Dictionary, victim: Dictionary, mult: float, cause: Stri
 	if str(victim.kind) == "monster" and (victim.statuses as Dictionary).has("vulnerable"):
 		vuln = HHTune.value("flux_vuln_mult")
 	var amount: float = HHFormulas.reaction_damage(unit_dmg, mult, frac, resist_of(victim, element), vuln).value
-	var st := stagger if str(victim.kind) == "monster" else minf(stagger, HHTune.value("detonate_stagger"))
+	var st := stagger if str(victim.kind) == "monster" else minf(stagger, HHTune.value("reaction_hunter_stagger_max"))
 	_react(hits, victim, amount, cause, st, trigger if by_player else "", floor)
 
 

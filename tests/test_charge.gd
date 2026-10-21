@@ -26,12 +26,17 @@ func test_axis_and_decay(c: HHSelfTest.HHCheck) -> void:
 
 
 func test_douse(c: HHSelfTest.HHCheck) -> void:
-	# H260 / H362 (supersedes H2's Douse): a tier-1 tile only nets; tier 2+ erupts as Steam (test_el_steam)
+	# H420 (supersedes H2's Douse, H260 / H362's tier-2 line): every fresh contact erupts as Steam
+	# (test_el_steam); only spread / contained output still douses
 	var g := _grid()
 	var h := Vector2i(1, 0)
 	g.apply([h], "fire", "p", 1)
 	var r := g.apply([h], "water", "p", 1)
-	c.ok(h in r.doused, "fire 1 met water: doused")
+	c.eq(r.eruptions.size(), 1, "fire 1 met fresh water: Steam")
+	c.ok(g.at(h).is_empty(), "nothing lingers")
+	g.apply([h], "fire", "p", 1)
+	r = g.apply([h], "water", "p", 1, false)
+	c.ok(h in r.doused and r.eruptions.is_empty(), "spread water on fire 1: doused, no eruption")
 	c.ok(g.at(h).is_empty(), "nothing lingers")
 	g.apply([h], "water", "p", 2)
 	g.apply([h], "dark", "p", 1)

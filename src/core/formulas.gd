@@ -57,8 +57,8 @@ static func fuse_mult(points: int, axes: int, water: int, glazed: bool = false) 
 	var v := HHTune.value("det_mult_per_point") * points + HHTune.value("det_mult_per_axis") * maxi(axes - 1, 0) \
 		+ HHTune.value("det_mult_per_water") * water
 	if glazed:
-		v *= HHCharge.SHATTER_MULT
-	return calc("fuse", v, "per_point * points + per_axis * (axes - 1) + per_water * water" + (" * 1.5" if glazed else ""),
+		v *= HHTune.value("det_frost_mult")
+	return calc("fuse", v, "per_point * points + per_axis * (axes - 1) + per_water * water" + (" * det_frost_mult" if glazed else ""),
 		"%.1f * %d + %.1f * %d + %.1f * %d" % [HHTune.value("det_mult_per_point"), points, HHTune.value("det_mult_per_axis"), maxi(axes - 1, 0),
 		HHTune.value("det_mult_per_water"), water])
 
@@ -79,11 +79,26 @@ static func shatter_mult(points: int, ice: int) -> Dictionary:
 		"%.2f * %d + %.2f * %d" % [HHTune.value("shatter_mult_per_point"), points, HHTune.value("shatter_mult_per_ice"), ice])
 
 
-## Lane EL (spec 3.1, 3.2): Steam / Eclipse: "<kind>_mult_per_point" x the
-## charge consumed (both sides of the axis).
+## Lane EL (spec 3.1, 3.2): Steam / Eclipse by the charge consumed (both
+## sides of the axis). Steam has its own curve (steam_mult); Eclipse is
+## eclipse_mult_per_point x consumed.
 static func eruption_mult(kind: String, consumed: int) -> Dictionary:
+	if kind == "steam":
+		return steam_mult(consumed)
 	var per := HHTune.value("%s_mult_per_point" % kind)
 	return calc(kind, per * consumed, "%s_mult_per_point * consumed" % kind, "%.2f * %d" % [per, consumed])
+
+
+## H420 (author): Steam by T = water + fire consumed (2..6), linear from
+## steam_mult_min at T = 2 to steam_mult_max at T = 6. Its own keys: it never
+## reads thunder's (H423), though today's values match thunder on fire 1 (x2.5)
+## and on dark 3 + fire 3 (x18).
+static func steam_mult(consumed: int) -> Dictionary:
+	var lo := HHTune.value("steam_mult_min")
+	var hi := HHTune.value("steam_mult_max")
+	var t := clampi(consumed, 2, 6)
+	var v := lo + (hi - lo) * float(t - 2) / 4.0
+	return calc("steam", v, "min + (max - min) * (T - 2) / 4", "%.2f + (%.2f - %.2f) * (%d - 2) / 4" % [lo, hi, lo, t])
 
 
 ## Lane EL (spec 3.3): one reaction's damage on one unit: the reaction unit

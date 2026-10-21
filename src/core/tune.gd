@@ -48,42 +48,70 @@ const DEFAULTS := {
 	"light_heal_pct": 2.0,       # per light tier
 	"dark_drain_pct": 2.0,       # dark 3 only
 	"water_slow": [1.0, 1.0, 0.85, 0.7],   # speed multiplier by water tier
-	# detonations and bursts
-	"detonate_ring_frac": 0.5,   # neighbours take this fraction of the centre blast
-	# reactions (H50, author: "an auto attack does 1x, electric setting off a t1 dark 3x, t3 dark + t3 fire ~21x"):
-	# damage = the caster's auto attack (at lance cadence) x a multiplier; never pct of max HP.
-	"det_mult_per_point": 2.5,   # fuse: x per charge point on the hex (t1 = 1 point, t3 = 3). H370: 3.0 -> 2.5, one cash-in among four (design/elements/sim.md)
-	"det_mult_per_axis": 3.0,    # fuse: x per extra element axis mixed on the hex (fire/water + light/dark)
-	"det_mult_per_water": 0.5,   # fuse: x per water step conducted (H370: 1.0 -> 0.5, water/thunder was still the fastest pair)
-	"overheat_mult": 3.0,        # fresh fire on fire 3: the eruption ring (a fire basic re-triggers it every 2nd swing: fire 3 vents to 2)
-	"reaction_chain_frac": 0.15, # one cast's blasts on one unit: the strongest in full + this x each other one
-	"reaction_unit_other": 40.0, # superseded by monster_reaction_* (H364); kept for old readers, the sim no longer reads it
-	# the element pass (Lane EL, spec sections 2-3, H360-H389). Every number is a multiple of
-	# the caster's auto attack (H50) and runs through HHFormulas with a breakdown.
-	"geyser_mult": 3.0,          # 2.3: fresh water on water 3 (= overheat_mult: "burst damage equal to Overheat's")
-	"geyser_stagger": 1.0,       # ... and a massive stagger on the monster (0..1)
-	"glint_mult": 3.0,           # 2.5: fresh light on light 3 (the pair with Flux)
-	"glint_stagger": 0.5,        # ... Glint dazzles
-	"flux_mult": 3.0,            # 2.5: fresh dark on dark 3
-	"flux_vuln_ticks": 150.0,    # ... the monster is vulnerable this long (5 s)
-	"flux_vuln_mult": 1.25,      # ... reaction damage it takes while vulnerable
-	"burst_splash_steps": 1.0,   # geyser / glint / flux splash this much of their element on the ring (overheat keeps +2)
-	"steam_min_tier": 2.0,       # 3.1 / H260: a tile at this tier or more meeting its opposite erupts; tier 1 only nets (evaporate / douse)
-	"steam_mult_per_point": 1.0, # 3.1: Steam = this x charge consumed (both sides: water 2 + fire 1 = x3; 3 + 3 = x6)
-	"eclipse_mult_per_point": 1.0, # 3.2: Eclipse, the same model
-	"eclipse_exposed_ticks": 90.0, # ... and the monster is exposed (H57's punish window) this long (3 s)
-	"eruption_ring_frac": 0.5,   # Steam / Eclipse: the ring round the hex takes this fraction
-	"shatter_mult_per_point": 2.0, # 2.2: Shatter = this x stored charge ...
-	"shatter_mult_per_ice": 1.0, # ... + this x ice level (fire 3 + ice 1 = x7; fire 3 + light 3 + ice 3 = x15)
-	"shatter_stagger": 0.8,      # ... heavy stagger on the monster
-	"shatter_ring_frac": 0.5,    # ... the ring takes this fraction
-	"shatter_splash_steps": 1.0, # ... fragments: tier 1 of the stored element onto the ring
+	# ================= ERUPTIONS AND REACTIONS (H423, author: "they should be separate variables and easy to
+	# tune separately ... it should change them all independently"). Every reaction has its OWN keys below;
+	# no reaction reads another's. Damage = the trigger's auto attack (at lance cadence, H50) x the multiple,
+	# through HHFormulas with a breakdown, then the shared 3.3 rule at the end of this section.
+	# -- Detonate (thunder on charge, an element on an armed fuse; H50, H370)
+	"det_mult_per_point": 2.5,   # x per charge point on the hex (t1 = 1 point, t3 = 3). H370: 3.0 -> 2.5 (author: "Thunder is fine", H426)
+	"det_mult_per_axis": 3.0,    # x per extra element axis mixed on the hex (fire/water + light/dark)
+	"det_mult_per_water": 0.5,   # x per water step conducted (H370: 1.0 -> 0.5)
+	"det_frost_mult": 1.5,       # x on the cave's authored frost (H2's glaze shatter, kept for the shade)
+	"detonate_ring_frac": 0.5,   # the ring round the hex takes this fraction
+	"detonate_stagger": 0.35,    # stagger of a detonation (0..1)
+	# -- Steam (fire meets water; H420, author: "1 water into 1 fire should be as strong as a 1 fire 1 thunder eruption ...")
+	"steam_min_tier": 1.0,       # the opposite on the tile must be at least this tier to erupt (H420: every contact; was 2, DECIDE-A)
+	"steam_mult_min": 2.5,       # x at the smallest Steam: 2 consumed (water 1 + fire 1) (= today's thunder on fire 1)
+	"steam_mult_max": 18.0,      # x at the biggest Steam: 6 consumed (water 3 + fire 3) (= today's thunder on dark 3 + fire 3); linear between
+	"steam_ring_frac": 0.5,      # the ring round the hex takes this fraction
+	"steam_stagger": 0.35,       # stagger of a Steam eruption
+	# -- Eclipse (light meets dark; H362, H425)
+	"eclipse_min_tier": 2.0,     # the opposite on the tile must be at least this tier to erupt; tier 1 only nets
+	"eclipse_mult_per_point": 1.0, # x per point consumed (light + dark on the hex)
+	"eclipse_ring_frac": 0.5,    # the ring round the hex takes this fraction
+	"eclipse_stagger": 0.35,     # stagger of an Eclipse
+	"eclipse_exposed_ticks": 150.0, # the monster is exposed (H57: x exposed_dmg_mult from every hunter) this long (H425: 3 s -> 5 s)
+	# -- Overheat (fresh fire on fire 3)
+	"overheat_mult": 3.0,        # the burst (a fire basic re-triggers it every 2nd swing: fire 3 vents to 2)
+	"overheat_ring_frac": 1.0,   # the ring takes this fraction (bursts hit the ring in full)
+	"overheat_stagger": 0.0,
+	"overheat_splash_steps": 2.0, # fire laid on the ring (kept)
+	# -- Geyser (fresh water on water 3)
+	"geyser_mult": 3.0,          # 2.3: "burst damage equal to Overheat's"
+	"geyser_ring_frac": 1.0,
+	"geyser_stagger": 1.0,       # a massive stagger on the monster (0..1)
+	"geyser_splash_steps": 1.0,  # water splashed on the ring
+	# -- Glint (fresh light on light 3)
+	"glint_mult": 3.0,
+	"glint_ring_frac": 1.0,
+	"glint_stagger": 0.5,        # Glint dazzles
+	"glint_splash_steps": 1.0,
+	# -- Flux (fresh dark on dark 3)
+	"flux_mult": 3.0,
+	"flux_ring_frac": 1.0,
+	"flux_stagger": 0.0,
+	"flux_splash_steps": 1.0,
+	"flux_vuln_ticks": 150.0,    # the monster is vulnerable this long (5 s)
+	"flux_vuln_mult": 1.25,      # reaction damage it takes while vulnerable
+	# -- Shatter (a crystal breaks; H365)
+	"shatter_mult_per_point": 2.0, # x per stored charge point ...
+	"shatter_mult_per_ice": 1.0, # ... + x per ice level (fire 3 + ice 1 = x7; fire 3 + light 3 + ice 3 = x15)
+	"shatter_stagger": 0.8,      # heavy stagger on the monster
+	"shatter_ring_frac": 0.5,    # the ring takes this fraction
+	"shatter_splash_steps": 1.0, # fragments: tier 1 of the stored element onto the ring
 	"crystal_ticks": 1080.0,     # a crystal holds 36 s (decay paused), then thaws into its charge
-	"swirl_radius_line": 2.0,    # 2.1: a basic, a line or a band pulls charge from this far
+	# -- Swirl (wind on charge; H360)
+	"swirl_radius_line": 2.0,    # a basic, a line or a band pulls charge from this far
 	"swirl_radius_area": 3.0,    # ... a wide area cast from this far
 	"swirl_area_min_hexes": 7.0, # ... "wide": at least this many hexes filling most of the disk round its centre
+	"swirl_reaction_mult": 1.0,  # x on the reaction a Swirl condenses into (Steam / Eclipse / a burst), on top of that reaction's own keys
+	# -- Shared by every reaction: who gets hurt and how blasts add up (3.3, H364; not a reaction of its own)
+	"reaction_chain_frac": 0.15, # one action's blasts on one unit: the strongest in full + this x each other one
+	"reaction_hunter_stagger_max": 0.35, # a hunter never takes more stagger than this from any reaction
 	"monster_reaction_frac": 0.25,       # 3.3: a reaction a monster (or the arena) triggers hurts the monster this fraction of the player-cast damage
 	"monster_reaction_player_frac": 0.2, # 3.3 / DECIDE-C: ... and each hunter in it this fraction (never below 1 HP)
+	"reaction_unit_other": 40.0, # superseded by monster_reaction_* (H364); kept for old readers, the sim no longer reads it
+	# ================= end of eruptions and reactions
 	# the arena's own events (H51): one per biome, telegraphed, hits everyone, lays its element
 	"env_on": 1.0,               # 0 switches them off
 	"env_warn_s": 1.8,           # telegraph before each event lands
@@ -103,7 +131,6 @@ const DEFAULTS := {
 	"poison_pct_per_s": 1.5,
 	"stagger_max_ticks": 45.0,   # a full-strength hit holds you 1.5 s
 	"slow_mult": 0.6,            # the `slow` status (pollen, spores, Rimeslithe's frost) cuts speed to this
-	"detonate_stagger": 0.35,    # a blast under you staggers this much (0..1); a hunter never takes more from a reaction
 	# monsters
 	"monster_hp": 20000.0,
 	"monster_walk_ticks": 14.0,  # ticks per hex for a monster on the move (slow, weighty; H13)
