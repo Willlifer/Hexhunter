@@ -124,6 +124,9 @@ static func clean_name(s: String) -> String:
 ## The one transport function (Phase 5: WebSocketMultiplayerPeer here).
 ## Returns null and sets last_error on failure.
 func make_peer(server: bool, address: String, port: int, peers: int) -> MultiplayerPeer:
+	if OS.has_feature("web"):
+		last_error = "co-op is not in the browser build yet: play together from the desktop build"   # H79: no UDP in a browser
+		return null
 	var p := ENetMultiplayerPeer.new()
 	var err: Error
 	if server:
