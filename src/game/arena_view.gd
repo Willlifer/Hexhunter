@@ -20,6 +20,7 @@ var asset: GKAsset
 var floor_mi: MeshInstance3D
 var fx := {}                 # hex -> { face_h, face_v, cards_h, cards_v, mark, tier_h, tier_v, tier_m }
 var fxl: HHFxLayer           # Lane FX: wind-ups, impacts, state effects
+var hull: HHHullFx           # Lane H (H255): the monster hull outline, the Attack Ring, push-out dust
 var aim: HHAimFx             # Lane W (H56): range ring, charge preview + pips, charge glows, heal zones, dash streaks, exposed rings
 var _player_id := ""
 var tg_pool: Array = []      # MeshInstance3D for telegraph hexes
@@ -74,6 +75,10 @@ func build(a: HHArena, p_asset: GKAsset = null) -> void:
 	aim.name = "Aim"
 	add_child(aim)
 	aim.setup(arena)
+	hull = HHHullFx.new()
+	hull.name = "Hull"
+	add_child(hull)
+	hull.setup(arena)
 
 
 func _build_floor() -> void:
@@ -184,6 +189,8 @@ func sync(sim: HHSim, player_id: String, delta: float) -> void:
 		fxl.sync(sim, player_id, delta)
 	if aim != null:
 		aim.sync(sim, player_id, delta)
+	if hull != null:
+		hull.sync(sim, player_id, delta)
 
 
 ## One sim event for the one-shot effects (strike, cast, pierce, eruption,
@@ -194,6 +201,8 @@ func on_event(e: Dictionary, sim: HHSim) -> void:
 		fxl.on_event(e, sim, _player_id)
 	if aim != null:
 		aim.on_event(e, sim)
+	if hull != null:
+		hull.on_event(e, sim)
 
 
 ## R-U3: the hunter's own telegraphs (its id as owner, or the upgrade shapes

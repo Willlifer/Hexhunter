@@ -2,7 +2,7 @@ class_name HHFight
 extends Node3D
 ## The fight scene: owns an HHSim, steps it at 30 Hz, draws it (HHArenaView,
 ## bodies, HUD), and turns input into orders.
-##   right-click    on the monster: target it and auto-attack (H32); on the
+##   right-click    on the monster: target it and auto-attack from its Attack Ring / reach (H32, H252); on the
 ##                  ground: run to that exact point (free movement, H31)
 ##   left-drag      orbit the camera; a left click (sandbox) paints (H20)
 ##   Q              hold to charge, release to fire at the cursor (H56; a tap is level 1)
@@ -87,6 +87,8 @@ var _down_prev := {}         # hunter id -> downed last frame
 var _peer_unit := {}         # peer -> hunter id (host: whose orders go where)
 var _bot_t := 0.0
 var _drawn := {}             # unit id -> the position drawn last frame (client interpolation, H918)
+var _slides := {}            # unit id -> { from: Vector3, t } a push-out slide being eased (H253, view only)
+const SLIDE_S := 0.16        ## a push-out (H253) is drawn as a slide this long, not a jump
 var hitstop := {}            ## unit id -> seconds its animation stays frozen (H57, view only)
 var _q_held := false         ## H56: the local Q key is down
 var _q_aim := Vector2i(-9999, -9999)
@@ -506,6 +508,15 @@ func revive_frac(id: String) -> float:
 ## the drawn position eases toward it over ~INTERP_S (Lane N's report, H918).
 func draw_pos(id: String, target: Vector3, delta: float) -> Vector3:
 	var cur: Vector3 = _drawn.get(id, target)
+	if _slides.has(id):                                  # H253: the slide out of a hull, eased
+		var sl: Dictionary = _slides[id]
+		sl.t = float(sl.t) + delta
+		var k := clampf(float(sl.t) / SLIDE_S, 0.0, 1.0)
+		if k >= 1.0:
+			_slides.erase(id)
+		cur = (sl.from as Vector3).lerp(target, 1.0 - (1.0 - k) * (1.0 - k))
+		_drawn[id] = cur
+		return cur
 	if net_mode != "client" or cur.distance_to(target) > INTERP_SNAP_M:
 		cur = target
 	else:
@@ -593,6 +604,8 @@ func _draw(delta: float) -> void:
 			hitstop.erase(id)
 	if view != null and view.aim != null:
 		view.aim.aim_hex = _hex_under(get_viewport().get_mouse_position()) if _q_held else NO_HEX
+	if view != null and view.hull != null and camera != null and is_inside_tree():
+		view.hull.hover_id = _monster_hit(get_viewport().get_mouse_position())   # H255: the Attack Ring on attack hover
 	for id in bodies:
 		var u: Dictionary = sim.units[id]
 		var node: Node3D = bodies[id]
@@ -662,6 +675,9 @@ func _note(e: Dictionary) -> void:
 	if player_bodies.has(eid) and (player_bodies[eid] as Node).has_method("on_event"):
 		player_bodies[eid].on_event(e, sim)
 	match str(e.type):
+		"push_out":
+			_log.append("t%d %s slid out of %s's hull %s -> %s" % [e.tick, eid, str(e.get("by", "")), e.get("from"), e.get("to")])
+			_slides[eid] = { "from": _drawn.get(eid, e.get("from_pos", Vector3.ZERO)), "t": 0.0 }
 		"detonate": _log.append("t%d detonate %s x%.1f" % [e.tick, e.hex, float(e.get("mult", e.pct))])
 		"reaction":
 			_log.append("t%d REACTION on %s: %d (%d blast%s)" % [e.tick, e.id, int(e.amount), int(e.blasts), "" if int(e.blasts) == 1 else "s"])

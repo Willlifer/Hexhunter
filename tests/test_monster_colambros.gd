@@ -175,7 +175,7 @@ func test_charge_telegraphs_then_runs(c: HHSelfTest.HHCheck) -> void:
 	var hex_at := {}
 	var ev: Array = []
 	for i in 2400:
-		var back: bool = p.hex != home and (p.path as Array).is_empty() and not s.held(p)
+		var back: bool = i % 15 == 0 and p.hex != home and (p.path as Array).is_empty() and not s.held(p)
 		ev.append_array(_run(s, m, 1, { s.tick + 1: { "move": home } } if back else {}))
 		hex_at[s.tick] = p.hex
 	c.ok(not brain.charges.is_empty(), "charged (%d)" % brain.charges.size())

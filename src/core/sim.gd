@@ -408,7 +408,7 @@ func units_in(hexes: Array, skip: String = "") -> Array:
 ## A monster's hull is its footprint: every hex within `size` of its hex (the
 ## radius-2 monsters hold 19 hexes; a size-1 monster would hold 7). Hunters
 ## never step into a hull (blocked_for). The Attack Ring is the ring of hexes
-## bordering it (size + 1: 24 hexes at radius 2). A weapon hits from any hex
+## bordering it (size + 1: 18 hexes round a radius-2 hull, 12 round a radius-1). A weapon hits from any hex
 ## outside the hull within its reach of the hull's edge (daggers 1 = the
 ## Attack Ring, lance 2, bow 7: HHWeapons.reach). A monster that is moving
 ## may glide over a hunter (H338); once it stands still (arrived, stopped,
@@ -562,6 +562,23 @@ func _push_out() -> void:
 				continue
 			taken[to] = true
 			_shove(p, m, to)
+
+
+## H250: stepping a monster's hex to `next` would make its hull touch another
+## monster's (where it stands, or the hex it is gliding into). Paths are
+## planned round the other hulls; this catches two monsters walking at each
+## other. One monster alone never clashes.
+func _hull_clash(u: Dictionary, next: Vector2i) -> bool:
+	for id in order:
+		var o: Dictionary = units[id]
+		if o.id == u.id or o.kind != "monster" or not alive(o):
+			continue
+		var reach := int(o.size) + int(u.size)
+		if HHHex.distance(next, o.hex) <= reach:
+			return true
+		if not (o.path as Array).is_empty() and HHHex.distance(next, (o.path as Array)[0]) <= reach:
+			return true
+	return false
 
 
 ## Slide `p` to `to`: position and hex at once (the view eases it), no
@@ -1058,6 +1075,11 @@ func _walk_hex(u: Dictionary) -> void:
 			_face_pos(u, unit(u.target).pos)
 		return
 	var next: Vector2i = u.path[0]
+	if float(u.progress) <= 0.0 and _hull_clash(u, next):
+		u.path = [] as Array[Vector2i]                    # H250: another hull is in the way: stop, the brain re-plans
+		u.pos = arena.stand(u.hex)
+		_emit({ "type": "blocked", "id": u.id, "hex": next })
+		return
 	var ticks := float(u.get("walk_ticks", HHTune.value("monster_walk_ticks")))
 	if u.statuses.has("slow"):
 		ticks /= HHTune.value("slow_mult")
