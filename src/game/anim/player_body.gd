@@ -95,7 +95,10 @@ var model: Node3D
 var skeleton: Skeleton3D
 var meshes: Array[MeshInstance3D] = []
 var inks: Array[MeshInstance3D] = []  ## H84: the ink outline hulls (HHInk), shown while HHTune ink_on
-var suit_color := SUIT_DEFAULT       ## H83: the suit's colour (set_suit_color; bind() picks it from the id)
+var suit_color := SUIT_DEFAULT       ## H83: the suit's colour (set_suit_color); H430: the backup element's
+var weapon_color := Color.WHITE      ## H430: the weapon's tint, the active element's
+var _weapon_el_mats: Array = []      ## H430: the weapons' steel and gem materials (tinted by the active element)
+var _shown_els := ""                 ## H430: "active/backup" last applied
 var _role_mats := {}                 # role -> the body's material for it
 var weapon_main: Node3D = null       ## on the main-hand socket (bow: the left hand)
 var weapon_off: Node3D = null        ## the pair's second blade
@@ -298,6 +301,9 @@ func _instance(path: String, node_name: String) -> Node3D:
 				m.emission_enabled = true
 				m.emission = Color(0.6, 0.2, 0.9)
 				m.emission_energy_multiplier = 0.35
+			if role == "steel" or role == "gem":
+				m.set_meta("base_albedo", m.albedo_color)
+				_weapon_el_mats.append(m)                # H430: the active element tints these
 			if role == "feather" or role == "string":
 				m.cull_mode = BaseMaterial3D.CULL_DISABLED
 			m.resource_name = "hh_" + role
@@ -373,6 +379,46 @@ func bind(p_sim: HHSim, id: String) -> void:
 	sim = p_sim
 	unit_id = id
 	set_suit_color(suit_color_for(id))
+	_shown_els = ""
+	_sync_elements()
+
+
+## H430 (author): the ring under a hunter is its identity; the suit wears the
+## BACKUP element's colour and the weapon the ACTIVE element's, so a W swap
+## swaps them. Deep suit tones (a pale element reads washed out on the suit);
+## the weapon's steel takes the colour and a soft glow.
+static func suit_color_for_element(el: String) -> Color:
+	var c := HHLook.element_color(el)
+	return Color.from_hsv(c.h, clampf(c.s * 1.05, 0.0, 1.0), clampf(c.v * 0.78, 0.18, 0.85))
+
+
+func set_weapon_color(c: Color) -> void:
+	weapon_color = c
+	for m in _weapon_el_mats:
+		var mat := m as StandardMaterial3D
+		if mat == null:
+			continue
+		var base: Color = mat.get_meta("base_albedo", Color.WHITE)
+		mat.albedo_color = base.lerp(c, 0.55)
+		mat.emission_enabled = true
+		mat.emission = c
+		mat.emission_energy_multiplier = 0.3
+
+
+func _sync_elements() -> void:
+	if sim == null or unit_id == "":
+		return
+	var u := sim.unit(unit_id)
+	if u.is_empty() or str(u.get("kind", "")) != "player":
+		return
+	var key := "%s/%s" % [str(u.get("element", "")), str(u.get("backup", ""))]
+	if key == _shown_els:
+		return
+	_shown_els = key
+	if str(u.get("backup", "")) != "":
+		set_suit_color(suit_color_for_element(str(u.backup)))
+	if str(u.get("element", "")) != "":
+		set_weapon_color(HHLook.element_color(str(u.element)))
 
 
 ## R-U3: the ward. While the bound unit's `immune` ticks are above zero (H552)
@@ -796,6 +842,7 @@ func busy() -> bool:
 func update(delta: float) -> void:
 	if skeleton == null or clip == "":
 		return
+	_sync_elements()                                     # H430: suit = backup, weapon = active
 	_read_intent(delta)
 	_read_motion(delta)
 	if _pending_clip != "":

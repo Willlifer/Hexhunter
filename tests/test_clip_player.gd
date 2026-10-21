@@ -57,7 +57,7 @@ func test_rig_loads(c: HHSelfTest.HHCheck) -> void:
 	b.free()
 
 
-## H83: the suit takes the party colour; H84: the ink hulls follow HHTune.
+## H83/H430: the suit wears the backup element, the weapon the active; H84: the ink hulls follow HHTune.
 func test_suit_tint_and_ink(c: HHSelfTest.HHCheck) -> void:
 	var b := _body("lance")
 	if b == null:
@@ -67,10 +67,15 @@ func test_suit_tint_and_ink(c: HHSelfTest.HHCheck) -> void:
 	c.ok(suit != null, "a suit material")
 	c.ok(suit.albedo_color.is_equal_approx(HHPlayerBody.SUIT_DEFAULT), "solo: the reference crimson")
 	var sim := HHSim.new(HHArena.round_flat(1, 10.0, 0.6), 1)
-	sim.add_player("p2", Vector2i(0, 0))
+	var u := sim.add_player("p2", Vector2i(0, 0), "fire", "water", "lance")
 	b.bind(sim, "p2")
-	c.ok(b.role_material("suit").albedo_color.is_equal_approx(HHPlayerBody.suit_color_for("p2")), "p2: its own suit colour")
-	c.ok(not HHPlayerBody.suit_color_for("p2").is_equal_approx(HHPlayerBody.suit_color_for("p3")), "p2 and p3 differ")
+	c.ok(b.role_material("suit").albedo_color.is_equal_approx(HHPlayerBody.suit_color_for_element("water")), "H430: the suit wears the backup element (water)")
+	c.ok(b.weapon_color.is_equal_approx(HHLook.element_color("fire")), "H430: the weapon wears the active element (fire)")
+	u.element = "water"                                    # a W swap
+	u.backup = "fire"
+	b.update(0.016)
+	c.ok(b.role_material("suit").albedo_color.is_equal_approx(HHPlayerBody.suit_color_for_element("fire")), "after a swap the suit is fire")
+	c.ok(b.weapon_color.is_equal_approx(HHLook.element_color("water")), "... and the weapon water")
 	var skin := b.role_material("skin")
 	c.ok(skin.albedo_color.is_equal_approx(Color.WHITE), "skin is not tinted")
 	c.eq(b.inks.size(), b.meshes.size(), "one ink hull per body mesh")
