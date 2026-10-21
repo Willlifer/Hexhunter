@@ -95,7 +95,7 @@ CHEST_Z = 1.52
 NECK_Z = 1.84
 HEAD_Z = 1.95
 SHOULDER_Z = 1.795
-SHOULDER_X = 0.19
+SHOULDER_X = 0.20
 ARM_ABDUCT = 28.0
 UPPER_ARM = 0.34
 FOREARM = 0.29
@@ -307,7 +307,13 @@ class MeshBuilder:
         for k in range(m):
             self.face((centre_id, row[k], row[(k + 1) % m]), role, inside)
 
-    def ellipsoid(self, center, radii, w_of, role, seg=12, rings=8, keep=None, axes=None, col=None, group=""):
+    def ellipsoid(self, center, radii, w_of, role, seg=12, rings=8, keep=None, axes=None, col=None, group="", flat=False):
+        v0 = len(self.verts)
+        self._ellipsoid(center, radii, w_of, role, seg, rings, keep, axes, col, group)
+        if flat:
+            self.flat.update(range(v0, len(self.verts)))
+
+    def _ellipsoid(self, center, radii, w_of, role, seg=12, rings=8, keep=None, axes=None, col=None, group=""):
         """UV ellipsoid; `axes` = (ex, ey, ez) orientation (default world).
         keep(local) drops faces whose centroid (local, unit-free) fails it."""
         ex, ey, ez = axes or (V(1, 0, 0), V(0, 1, 0), V(0, 0, 1))
@@ -479,13 +485,13 @@ TORSO = [
     (1.305, 0.134, 0.075, 0.082, 0.0, 1.0),
     (1.360, 0.121, 0.072, 0.078, 0.0, 1.0),
     (1.410, 0.126, 0.074, 0.080, 0.0, 1.0),
-    (1.470, 0.138, 0.080, 0.085, 0.0, 0.96),
-    (1.530, 0.150, 0.086, 0.088, 0.0, 0.94),
-    (1.590, 0.157, 0.090, 0.088, 0.0, 0.92),
-    (1.650, 0.163, 0.088, 0.086, 0.0, 0.90),
-    (1.710, 0.170, 0.080, 0.080, 0.0, 0.86),
-    (1.765, 0.174, 0.068, 0.072, 0.005, 0.80),
-    (1.810, 0.145, 0.060, 0.064, 0.010, 0.88),
+    (1.470, 0.144, 0.082, 0.088, 0.0, 0.96),
+    (1.530, 0.158, 0.088, 0.093, 0.0, 0.94),
+    (1.590, 0.166, 0.092, 0.094, 0.0, 0.92),
+    (1.650, 0.173, 0.090, 0.092, 0.0, 0.90),
+    (1.710, 0.181, 0.082, 0.085, 0.0, 0.86),
+    (1.765, 0.184, 0.070, 0.075, 0.005, 0.80),
+    (1.810, 0.152, 0.062, 0.066, 0.010, 0.88),
     (1.850, 0.064, 0.052, 0.055, 0.012, 1.0),
     (1.900, 0.050, 0.047, 0.051, 0.012, 1.0),
     (1.975, 0.048, 0.045, 0.050, 0.012, 1.0),
@@ -530,10 +536,10 @@ LEG = [
 ARM = [
     (-0.06, 0.030, 0.030, 0.030, 0.030, 0.0, 0.0),
     (-0.035, 0.060, 0.052, 0.058, 0.060, 0.0, 0.0),
-    (0.00, 0.074, 0.058, 0.066, 0.068, 0.0, 0.0),
-    (0.07, 0.072, 0.056, 0.062, 0.064, 0.0, 0.0),
-    (0.14, 0.060, 0.052, 0.056, 0.058, 0.0, 0.0),
-    (0.22, 0.053, 0.050, 0.056, 0.052, 0.0, 0.0),
+    (0.00, 0.079, 0.061, 0.070, 0.072, 0.0, 0.0),
+    (0.07, 0.077, 0.059, 0.066, 0.068, 0.0, 0.0),
+    (0.14, 0.064, 0.055, 0.060, 0.062, 0.0, 0.0),
+    (0.22, 0.056, 0.052, 0.059, 0.055, 0.0, 0.0),
     (0.30, 0.046, 0.044, 0.046, 0.046, 0.0, 0.0),
     (0.34, 0.042, 0.041, 0.041, 0.045, 0.0, 0.0),
     (0.39, 0.051, 0.046, 0.048, 0.048, 0.0, 0.0),
@@ -614,16 +620,15 @@ NA = 12          # arm sides
 
 
 def torso_role(theta, z):
-    """skin above the suit's strapless line, suit below."""
-    front = math.sin(math.radians(theta)) > 0.2
-    top = plate_top(theta) - 0.004 if front else 1.645
-    return "skin" if z > top else "suit"
+    """H100: the suit runs up to a mock neck under the gorget; skin above."""
+    return "skin" if z > 1.872 else "suit"
 
 
 def plate_top(theta):
-    """the bust plate's upper edge: a sweetheart over each cup."""
-    return (1.648 + 0.024 * gauss(angdiff(theta, 63.0), 0, 18.0) + 0.024 * gauss(angdiff(theta, 117.0), 0, 18.0)
-            - 0.012 * gauss(angdiff(theta, 90.0), 0, 7.0))
+    """H100: the plate is a cuirass front: low under the arms, rising to the
+    gorget at the sternum (no neckline opening)."""
+    s = max(0.0, math.sin(math.radians(theta)))
+    return 1.665 + 0.140 * s ** 3
 
 
 def plate_bottom(theta):
@@ -741,7 +746,8 @@ def build_body(mb, groups):
         arm = Limb([sh, el, wr], s, ARM)
         limbs["arm_" + side] = arm
         ua, fa, hd, so = "upper_arm_" + side, "forearm_" + side, "hand_" + side, "shoulder_" + side
-        role = "suit" if s > 0 else "skin"          # the left arm is sleeved, the weapon arm bare (tattooed)
+        role = "suit" if s > 0 else "skin"          # the left arm is sleeved, the weapon arm bare below a short sleeve (H100)
+        sleeve = 1.0 if s > 0 else 0.15
         ds = [-0.06, -0.045, -0.025, 0.0, 0.03, 0.06, 0.10, 0.14, 0.18, 0.22, 0.26, 0.30, 0.325, 0.35, 0.375,
               0.40, 0.44, 0.48, 0.52, 0.56, 0.60, 0.63]
         arows = []
@@ -751,10 +757,12 @@ def build_body(mb, groups):
                 phi = 360.0 * i / NA
                 p = arm.pt(phi, d)
                 w = chain_w(d, arm.joints, [ua, fa], [0.0, 0.04, 0.02], start=so, start_blend=0.07, end=hd, end_blend=0.02)
-                row.append(mb.add(p, w, role, suit_col(j) if role == "suit" else None, "arm_" + side))
+                rj = "suit" if d < sleeve - 0.02 else role     # the hem ring takes the skin colour (under the hem band)
+                row.append(mb.add(p, w, rj, suit_col(j) if rj == "suit" else None, "arm_" + side))
             arows.append(row)
         ac = [arm.centre(d) for d in ds]
-        mb.grid(arows, lambda i, k: role, lambda i, k: (ac[i] + ac[i + 1]) * 0.5, closed=True)
+        mb.grid(arows, lambda i, k: "suit" if (ds[i] + ds[i + 1]) * 0.5 < sleeve else role,
+                lambda i, k: (ac[i] + ac[i + 1]) * 0.5, closed=True)
         c_in = mb.add(arm.centre(ds[0] - 0.012), {so: 0.45, ua: 0.55}, role, None, "arm_" + side)
         mb.fan(arows[0], c_in, role, arm.centre(ds[1]))
         c_out = mb.add(arm.centre(ds[-1]), {hd: 0.5, fa: 0.5}, role, None, "arm_" + side)
@@ -867,35 +875,83 @@ def build_head(mb, groups):
     bot = mb.add(V(0, -0.062, 1.915), hw, "skin", None, "head")
     mb.fan(rows[0], bot, "skin", V(0, -0.03, 1.97))
     groups["head"] = list(range(rows[0][0], bot + 1))
-    # face: a nose, eyes, brows, lips (small, proud of the surface)
-    nose_top = head_pt(90, 2.055, 0.002)
-    nose_tip = head_pt(90, 2.012, 0.020)
-    nose_l = head_pt(81, 2.005, 0.002)
-    nose_r = head_pt(99, 2.005, 0.002)
-    ids = [mb.add(p, hw, "skin") for p in (nose_top, nose_tip, nose_l, nose_r)]
-    mb.face((ids[0], ids[1], ids[2]), "skin", V(0, 0, 2.03))
-    mb.face((ids[0], ids[3], ids[1]), "skin", V(0, 0, 2.03))
-    mb.face((ids[2], ids[1], ids[3]), "skin", V(0, 0, 2.06))
+    build_face(mb, hw)
+
+
+def _strip(mb, top, bot, w, col, flat=True):
+    """A painted strip on the face: two point rows -> quads, proud of the skin."""
+    a = [mb.add(p, w, "skin", col) for p in top]
+    b = [mb.add(p, w, "skin", col) for p in bot]
+    for k in range(len(top) - 1):
+        mb.face((a[k], a[k + 1], b[k + 1], b[k]), "skin", HEAD_C)
+    if flat:
+        mb.flat.update(a + b)
+
+
+def build_face(mb, hw):
+    """H103: a comic face in hard planes and ink: an angular nose with a shadow
+    line, almond eyes (sclera, iris, a heavy upper lash line with a wing),
+    strong arched brows, two-tone red lips, and a jaw-line shadow. Every mark
+    is a few flat-shaded faces proud of the skin, so it holds at the gameplay
+    camera as dark eyes, brows and a red mouth."""
+    SCL = (0.96, 0.93, 0.90)
+    IRIS = (0.22, 0.12, 0.08)
+    INK = (0.07, 0.05, 0.07)
+    LIP_U = (0.58, 0.06, 0.09)
+    LIP_L = (0.82, 0.14, 0.15)
+    SHADE = (0.72, 0.50, 0.42)
+    # nose: a bridge ridge and a wedge tip, flat planes
+    pts = [head_pt(90, 2.062, 0.001), head_pt(90, 2.035, 0.008), head_pt(90, 2.010, 0.022),
+           head_pt(84, 2.004, 0.004), head_pt(96, 2.004, 0.004), head_pt(90, 2.000, 0.010),
+           head_pt(85, 2.04, 0.0015), head_pt(95, 2.04, 0.0015)]
+    ids = [mb.add(p, hw, "skin") for p in pts]
+    mb.flat.update(ids)
+    t, m, tip, nl, nr, under, sl, sr = ids
+    for f in ((t, sl, m), (t, m, sr), (sl, nl, tip, m), (m, tip, nr, sr), (nl, under, tip), (tip, under, nr)):
+        mb.face(f, "skin", V(0, 0.02, 2.03))
+    # the nose shadow line down her right side of the bridge (light from her left)
+    _strip(mb, [head_pt(95.5, z, 0.0035) for z in (2.058, 2.035, 2.012)],
+           [head_pt(97.5, z, 0.0035) for z in (2.058, 2.035, 2.010)], hw, SHADE)
     for s in (1, -1):
         c_th = 90 - s * 21.0
-        # eye: an almond of dark lash with a light centre
-        pts = [head_pt(c_th + s * da, 2.058 + dz, 0.0025) for da, dz in ((-12, 0.001), (-4, 0.010), (6, 0.009), (14, 0.004), (5, -0.005), (-4, -0.005))]
-        cen = head_pt(c_th, 2.059, 0.003)
-        ci = mb.add(cen, hw, "skin", EYE)
-        ring = [mb.add(p, hw, "skin", EYE) for p in pts]
+
+        def E(da, dz, off=0.003):
+            return head_pt(c_th + s * da, 2.059 + dz, off)
+        # sclera almond
+        ring = [mb.add(E(da, dz, 0.0026), hw, "skin", SCL) for da, dz in ((-12, 0.0), (-5, 0.007), (5, 0.007), (13, 0.002), (5, -0.005), (-5, -0.005))]
+        ci = mb.add(E(0, 0.001, 0.003), hw, "skin", SCL)
         mb.fan(ring, ci, "skin", HEAD_C)
-        # brow: a thin arched strip
-        bp = [head_pt(c_th + s * da, 2.078 + dz, 0.003) for da, dz in ((-11, -0.002), (-3, 0.004), (6, 0.004), (13, -0.001))]
-        lo = [mb.add(p, hw, "skin", BROW) for p in bp]
-        hi = [mb.add(p + V(0, 0, 0.009), hw, "skin", BROW) for p in bp]
-        for k in range(3):
-            mb.face((lo[k], lo[k + 1], hi[k + 1], hi[k]), "skin", HEAD_C)
-    # lips
-    lip_c = head_pt(90, 1.973, 0.004)
-    pts = [head_pt(90 + da, 1.972 + dz, 0.003) for da, dz in ((-16, 0.0), (-7, 0.008), (0, 0.005), (7, 0.008), (16, 0.0), (7, -0.009), (0, -0.012), (-7, -0.009))]
-    ci = mb.add(lip_c, hw, "skin", LIP)
-    ring = [mb.add(p, hw, "skin", LIP) for p in pts]
-    mb.fan(ring, ci, "skin", HEAD_C)
+        mb.flat.update(ring + [ci])
+        # iris
+        ring = [mb.add(E(2 + 4.2 * math.cos(a), 0.001 + 0.0055 * math.sin(a), 0.0034), hw, "skin", IRIS)
+                for a in [2 * math.pi * k / 7 for k in range(7)]]
+        ci = mb.add(E(2, 0.001, 0.0036), hw, "skin", INK)
+        mb.fan(ring, ci, "skin", HEAD_C)
+        mb.flat.update(ring + [ci])
+        # upper lash line with a flick: thick, dark, sweeping out and up
+        top = [E(-13, 0.002, 0.004), E(-5, 0.009, 0.004), E(5, 0.0095, 0.004), E(14, 0.005, 0.004), E(20, 0.011, 0.004)]
+        bot = [E(-13, -0.001, 0.004), E(-5, 0.0055, 0.004), E(5, 0.006, 0.004), E(13, 0.0015, 0.004), E(19, 0.008, 0.004)]
+        _strip(mb, top, bot, hw, INK)
+        # lower lash, thin
+        _strip(mb, [E(-8, -0.0045, 0.0038), E(4, -0.0055, 0.0038), E(12, -0.0015, 0.0038)],
+               [E(-8, -0.0062, 0.0038), E(4, -0.0072, 0.0038), E(12, -0.003, 0.0038)], hw, INK)
+        # brow: a strong arch, heavy at the inner end, tapering out and up
+        bt = [E(-12, 0.022, 0.0045), E(-3, 0.028, 0.0045), E(8, 0.029, 0.0045), E(17, 0.023, 0.0045)]
+        bb = [E(-12, 0.012, 0.0045), E(-3, 0.018, 0.0045), E(8, 0.022, 0.0045), E(17, 0.020, 0.0045)]
+        _strip(mb, bt, bb, hw, INK)
+    # lips: a darker upper lip with a cupid's bow, a fuller lighter lower lip
+    up_t = [head_pt(90 + da, 1.974 + dz, 0.0042) for da, dz in ((-16, 0.0), (-6, 0.008), (0, 0.0055), (6, 0.008), (16, 0.0))]
+    up_b = [head_pt(90 + da, 1.973 + dz, 0.0042) for da, dz in ((-16, -0.0005), (-6, 0.0005), (0, 0.001), (6, 0.0005), (16, -0.0005))]
+    _strip(mb, up_t, up_b, hw, LIP_U)
+    lo_t = [head_pt(90 + da, 1.9725 + dz, 0.0046) for da, dz in ((-14, 0.0), (-6, -0.0005), (0, -0.0005), (6, -0.0005), (14, 0.0))]
+    lo_b = [head_pt(90 + da, 1.972 + dz, 0.0046) for da, dz in ((-14, -0.001), (-6, -0.009), (0, -0.011), (6, -0.009), (14, -0.001))]
+    _strip(mb, lo_t, lo_b, hw, LIP_L)
+    _strip(mb, [head_pt(90 + da, 1.9728, 0.0050) for da in (-15, 0, 15)],
+           [head_pt(90 + da, 1.9718, 0.0050) for da in (-15, 0, 15)], hw, INK)
+    # a shadow under the cheekbones (the comic planes)
+    for s in (1, -1):
+        _strip(mb, [head_pt(90 - s * da, z, 0.0025) for da, z in ((28, 2.035), (34, 2.015), (36, 1.99))],
+               [head_pt(90 - s * da, z, 0.0025) for da, z in ((24, 2.028), (30, 2.008), (33, 1.985))], hw, SHADE)
 
 
 # --------------------------------------------------------------- hair
@@ -1017,35 +1073,44 @@ def build_hair(mb):
     # r4: the face-framing locks stay tubes; the big volume is a curtain of
     # flat overlapping ribbons (clumps) round the back and over the shoulders
     for ctrl, r0, r1, amp, ph, s in locks[:: 4][:2]:
-        pts = catmull_path(ctrl, 13)
-        out = []
-        for i, p in enumerate(pts):
-            u = i / 12
-            out.append(p + V(s, 0, 0) * (amp * math.sin(u * 2 * math.pi * 1.4 + ph) * u))
-        radii = [lerp(r0, r1, (i / 12) ** 1.2) * (1.0 + 0.18 * math.sin(i * 1.1 + ph)) for i in range(13)]
-        tube(mb, out, radii, None, "hair", sides=7, w_of=lambda q, i: hair_w(q.z))
+        # H104: the face-framing locks as flat waved clumps too
+        n = 13
+        pts = catmull_path(ctrl, n)
+        widths = [lerp(0.040, 0.008, (i / (n - 1)) ** 1.1) * (1.0 + 0.25 * math.sin(i * 1.3 + ph)) for i in range(n)]
+        thick = [lerp(0.020, 0.006, i / (n - 1)) for i in range(n)]
+        wave = [0.022 * math.sin(i / (n - 1) * 2 * math.pi * 1.4 + ph) * (i / (n - 1)) for i in range(n)]
+        ribbon(mb, pts, widths, thick, wave)
     prof = [(2.15, 0.112), (2.05, 0.15), (1.93, 0.205), (1.80, 0.27), (1.66, 0.325), (1.52, 0.31), (1.40, 0.265), (1.28, 0.20)]
-    n_rib = 9
+    # H104: two layers of clumps (a long inner curtain, a shorter outer layer
+    # between them), each waved with its own phase and length, the lower half
+    # swept by a wind toward her left and back, tips pointed.
+    n_rib = 14
     for j in range(n_rib):
-        th = -18.0 - (180.0 - 36.0) * j / (n_rib - 1)          # left side, round the back, right side
+        outer = j % 2 == 1
+        th = -16.0 - (180.0 - 32.0) * j / (n_rib - 1)
         t = math.radians(th)
-        ph = j * 1.9
-        tip = 1.24 + 0.10 * (0.5 + 0.5 * math.sin(j * 2.3))
+        ph = j * 2.17
+        tip = (1.20 + 0.14 * (0.5 + 0.5 * math.sin(j * 2.9))) + (0.16 if outer else 0.0)
         side = abs(math.cos(t))
-        ctrl = []
+        lift = 0.035 if outer else 0.0
+        ctrl = [V(0.035 * math.cos(t), 0.03 - 0.03 * math.sin(t), 2.215 - (0.03 if outer else 0.0))]   # from the crown: covers the cap
         for z, r in prof:
             if z < tip + 0.02:
                 break
-            rr = r * (1.0 + 0.10 * side)
+            rr = r * (1.0 + 0.12 * side) + lift
             ctrl.append(V(rr * math.cos(t), 0.035 - rr * 0.78 * math.sin(t), z))
         ctrl.append(V(ctrl[-1].x * 0.95, ctrl[-1].y, tip))
-        pts = catmull_path(ctrl, 14)
+        n = 15
+        pts = catmull_path(ctrl, n)
+        wind = [V(0.075, 0.035, 0.02) * ((i / (n - 1)) ** 1.6) for i in range(n)]
+        pts = [p + wnd for p, wnd in zip(pts, wind)]
         widths, thick = [], []
-        for i in range(14):
-            u = i / 13
-            widths.append(lerp(0.075, 0.020, u ** 1.4) * (1.0 + 0.2 * math.sin(u * 7.0 + ph)))
-            thick.append(lerp(0.040, 0.010, u))
-        wave = [0.03 * math.sin(i / 13 * 2 * math.pi * 1.3 + ph) * (i / 13) for i in range(14)]
+        for i in range(n):
+            u = i / (n - 1)
+            widths.append(lerp(0.070 if not outer else 0.06, 0.010, u ** 1.2) * (1.0 + 0.28 * math.sin(u * 8.0 + ph)))
+            thick.append(lerp(0.038, 0.008, u))
+        freq = 1.1 + 0.5 * (0.5 + 0.5 * math.sin(j * 1.7))
+        wave = [0.048 * math.sin(i / (n - 1) * 2 * math.pi * freq + ph) * (i / (n - 1)) ** 0.8 for i in range(n)]
         ribbon(mb, pts, widths, thick, wave)
 
 
@@ -1059,10 +1124,19 @@ def nearest_weights(mb, kd_by_group, groups, p):
     return {"chest": 1.0}
 
 
-def patch(mb, F, us, vs_of, off_of, role, inside_of, w_of, closed=False, rim=False, col_of=None):
+def patch(mb, F, us, vs_of, off_of, role, inside_of, w_of, closed=False, rim=False, col_of=None, flat=False):
     """A surface patch: columns at parameters `us`, rows at vs_of(u) (a list
     per column, same length), offset off_of(u, v). Rim: quads from the
-    patch edge down to the surface (off 0) so the shell reads thick."""
+    patch edge down to the surface (off 0) so the shell reads thick. `flat`:
+    every face takes its own normal (hard-edged armour facets, H102)."""
+    v0 = len(mb.verts)
+    cols = _patch(mb, F, us, vs_of, off_of, role, inside_of, w_of, closed, rim, col_of)
+    if flat:
+        mb.flat.update(range(v0, len(mb.verts)))
+    return cols
+
+
+def _patch(mb, F, us, vs_of, off_of, role, inside_of, w_of, closed=False, rim=False, col_of=None):
     cols = []
     for ui, u in enumerate(us):
         col = []
@@ -1099,16 +1173,27 @@ def build_outfit(mb, limbs, kd, groups_ids):
     tw = lambda p: nearest_weights(mb, kd, ["torso"], p)
 
     # -- bust plate (teal steel) over the front, sweetheart top, V bottom
-    us = [8.0 + (172.0 - 8.0) * i / 26 for i in range(27)]
-    nv = 9
+    us = [8.0 + (172.0 - 8.0) * i / 12 for i in range(13)]
+    nv = 6
+
+    def plate_off(th, z):
+        keel = 0.012 * max(0.0, 1.0 - abs(angdiff(th, 90.0)) / 26.0)          # a centre ridge line
+        ridge = 0.006 * gauss(z, 1.545, 0.02) * (1 - max(0.0, 1.0 - abs(angdiff(th, 90.0)) / 26.0))  # under-bust crease
+        return 0.013 + 0.004 * math.sin(math.radians(th)) + keel - ridge
     plate_cols = patch(
         mb, torso_F, us,
         lambda th: [lerp(plate_bottom(th), plate_top(th), j / (nv - 1)) for j in range(nv)],
-        lambda th, z: 0.012 + 0.004 * math.sin(math.radians(th)),
-        "plate", lambda th, z: torso_centre(z), tw, rim=True)
+        plate_off, "plate", lambda th, z: torso_centre(z), tw, rim=True, flat=True)
+    band_torso(mb, lambda th: plate_top(th) - 0.003, 0.006, 0.020, 12.0, 168.0, "leather", tw, closed=False)
+    # gorget: a faceted dark collar round the neck base, standing up to the jaw line
+    gz = [1.772, 1.80, 1.83, 1.858, 1.885]
+    patch(mb, torso_F, [360.0 * i / 12 + 15.0 for i in range(12)], lambda th: gz,
+          lambda th, z: 0.020 + 0.012 * ss(1.84, 1.885, z) + 0.006 * max(0.0, math.sin(math.radians(th))),
+          "armor", lambda th, z: torso_centre(z), tw, closed=True, flat=True)
+    band_torso(mb, lambda th: 1.776, 0.006, 0.024, 0.0, 360.0, "plate", tw, closed=True)
     # a centre ridge between the cups and the crest (original: a hex with an inset hex)
     cz = 1.548
-    cp = torso_pt(90.0, cz, 0.016)
+    cp = torso_pt(90.0, cz, 0.032)            # on the plate's centre ridge (H102 raised it)
     cn = (cp - torso_centre(cz)).normalized()
     mb.hexplate(cp - cn * 0.004, cn, V(0, 0, 1), 0.032, 0.008, tw(cp), "armor")
     mb.hexplate(cp + cn * 0.003, cn, V(0, 0, 1), 0.017, 0.006, tw(cp), "suit", (1.0, 1.0, 1.0))
@@ -1148,18 +1233,20 @@ def build_outfit(mb, limbs, kd, groups_ids):
             # the sleeved arm: dark strap bands and a flared bracer
             for dc in (0.13, 0.21, 0.29):
                 band_limb(mb, arm, lambda phi, dc=dc: dc + 0.012 * math.cos(math.radians(phi)), 0.012, 0.006, "leather", aw)
-            us_ = [360.0 * i / 16 for i in range(16)]
+            us_ = [360.0 * i / 9 for i in range(9)]
             patch(mb, lambda phi, d, off: arm.pt(phi, d, off), us_,
                   lambda phi: [0.43, 0.47, 0.51, 0.55, 0.59, 0.615],
-                  lambda phi, d: 0.010 + 0.016 * ss(0.56, 0.43, d),
-                  "armor", lambda phi, d: arm.centre(d), aw, closed=True, rim=False)
+                  lambda phi, d: 0.011 + 0.016 * ss(0.56, 0.43, d) + 0.010 * max(0.0, math.cos(math.radians(phi))) ** 6,
+                  "armor", lambda phi, d: arm.centre(d), aw, closed=True, rim=False, flat=True)
             band_limb(mb, arm, lambda phi: 0.445, 0.010, 0.026, "leather", aw)
             band_limb(mb, arm, lambda phi: 0.605, 0.008, 0.016, "leather", aw)
             build_pauldron(mb, arm, side, s)
         else:
             # the weapon arm: red tattoo bands on the upper arm, a wrapped forearm
-            for dc, hw in ((0.11, 0.006), (0.15, 0.004), (0.19, 0.010), (0.235, 0.004)):
+            band_limb(mb, arm, lambda phi: 0.15, 0.010, 0.006, "leather", aw)       # the sleeve's hem
+            for dc, hw in ((0.19, 0.006), (0.215, 0.003), (0.245, 0.009), (0.28, 0.003)):
                 band_limb(mb, arm, lambda phi, dc=dc: dc + 0.01 * math.cos(math.radians(phi)), hw, 0.0025, "suit", aw)
+            build_cap(mb, arm, side, s)
             us_ = [360.0 * i / 14 for i in range(14)]
             nrow = 16
 
@@ -1239,11 +1326,12 @@ def build_cape(mb):
 
 def build_greave(mb, leg, side, s, lw):
     sn, th = "shin_" + side, "thigh_" + side
-    us = [360.0 * i / 16 for i in range(16)]
-    rows_d = [0.555, 0.60, 0.66, 0.73, 0.80, 0.87, 0.94, 1.00, 1.05]
+    us = [360.0 * i / 10 + 9.0 for i in range(10)]
+    rows_d = [0.555, 0.60, 0.67, 0.75, 0.83, 0.91, 0.98, 1.05]
     patch(mb, lambda phi, d, off: leg.pt(phi, d, off), us, lambda phi: rows_d,
-          lambda phi, d: 0.009 + 0.028 * ss(0.68, 0.555, d) + 0.007 * gauss(d, 0.75, 0.05),
-          "armor", lambda phi, d: leg.centre(d), lambda p: nearest_weights(mb, KD, ["leg_" + side], p), closed=True)
+          lambda phi, d: (0.010 + 0.028 * ss(0.68, 0.555, d) + 0.007 * gauss(d, 0.75, 0.05)
+                          + 0.016 * max(0.0, math.sin(math.radians(phi))) ** 8),      # a keel down the shin
+          "armor", lambda phi, d: leg.centre(d), lambda p: nearest_weights(mb, KD, ["leg_" + side], p), closed=True, flat=True)
     # a cuff ridge at the top and a strap round the calf
     band_limb(mb, leg, lambda phi: 0.585, 0.010, 0.040, "armor", lw)
     band_limb(mb, leg, lambda phi: 0.80, 0.010, 0.020, "leather", lw)
@@ -1252,8 +1340,8 @@ def build_greave(mb, leg, side, s, lw):
     kc = p + fwd * 0.045
     kw = {sn: 0.8, th: 0.2}
     up = -t
-    mb.ellipsoid(kc, V(0.070, 0.050, 0.080), lambda q: kw, "armor", seg=12, rings=7,
-                 keep=lambda q: q.y > -0.3, axes=(lat, fwd, up))
+    mb.ellipsoid(kc, V(0.070, 0.052, 0.080), lambda q: kw, "armor", seg=8, rings=5,
+                 keep=lambda q: q.y > -0.3, axes=(lat, fwd, up), flat=True)
     # an eight-point star round the knee: the long points up and out
     for k in range(8):
         a = math.radians(90 + k * 45.0)
@@ -1281,8 +1369,9 @@ def build_boot(mb, side, s):
     rows_def = [(0.062, 0.030, 0.105), (0.040, 0.040, 0.140), (0.010, 0.043, 0.150), (-0.03, 0.046, 0.128),
                 (-0.075, 0.047, 0.098), (-0.12, 0.042, 0.072), (-0.16, 0.034, 0.052), (-0.195, 0.022, 0.036),
                 (-0.225, 0.006, 0.022)]
-    n = 12
+    n = 8
     rows, cs = [], []
+    v0 = len(mb.verts)
     for y, hw, ht in rows_def:
         c = V(ankle.x, y, ht * 0.5)
         cs.append(c)
@@ -1301,6 +1390,7 @@ def build_boot(mb, side, s):
     mb.fan(rows[0], e0, "armor", cs[1])
     e1 = mb.add(cs[-1] + V(0, -0.008, 0), {ft: 1}, "armor")
     mb.fan(rows[-1], e1, "armor", cs[-2])
+    mb.flat.update(range(v0, len(mb.verts)))           # H102: faceted boot
 
 
 def build_pauldron(mb, arm, side, s):
@@ -1313,19 +1403,21 @@ def build_pauldron(mb, arm, side, s):
     side_ax = out.cross(fwd).normalized()
     w = {ua: 0.65, so: 0.35}
     c = sh + out * 0.02 + V(0, 0.004, 0)
-    mb.ellipsoid(c, V(0.150, 0.150, 0.130), lambda q: w, "armor", seg=18, rings=10,
-                 keep=lambda q: q.z > -0.22, axes=(side_ax, fwd, out))
+    mb.ellipsoid(c, V(0.155, 0.152, 0.132), lambda q: w, "armor", seg=10, rings=6,
+                 keep=lambda q: q.z > -0.22, axes=(side_ax, fwd, out), flat=True)
     # a second, raised plate over the top: the layered read
-    mb.ellipsoid(c + out * 0.045 - V(s, 0, 0) * 0.02, V(0.115, 0.128, 0.100), lambda q: w, "armor", seg=16, rings=8,
-                 keep=lambda q: q.z > 0.05, axes=(side_ax, fwd, out))
+    mb.ellipsoid(c + out * 0.045 - V(s, 0, 0) * 0.02, V(0.118, 0.130, 0.102), lambda q: w, "armor", seg=10, rings=5,
+                 keep=lambda q: q.z > 0.05, axes=(side_ax, fwd, out), flat=True)
     # lames: partial bands round the arm's outer side below the dome
     for k, (dd, rr) in enumerate(((0.10, 0.075), (0.15, 0.062), (0.195, 0.05))):
-        us = [360.0 * i / 20 for i in range(-7, 8)]
+        us = [360.0 * i / 12 for i in range(-4, 5)]
         lam = []
+        v0 = len(mb.verts)
         for row_off in (0.0, 0.038):
             lam.append([mb.add(arm.pt(u, dd + row_off - 0.019, rr - row_off * 0.4), {ua: 1.0}, "armor") for u in us])
         for i in range(len(us) - 1):
             mb.face((lam[0][i], lam[0][i + 1], lam[1][i + 1], lam[1][i]), "armor", arm.centre(dd))
+        mb.flat.update(range(v0, len(mb.verts)))
     # spikes along the top ridge, raking back and out, and two off the outer rim
     for k, (u, ln) in enumerate(((-0.7, 0.09), (-0.35, 0.13), (0.0, 0.15), (0.35, 0.13), (0.7, 0.09))):
         base = c + out * 0.13 + fwd * (u * 0.12)
@@ -1335,6 +1427,29 @@ def build_pauldron(mb, arm, side, s):
         base = c + side_ax * 0.0 + fwd * (u * 0.13) + V(s, 0, 0) * 0.12 - out * 0.02
         tip = base + (V(s, 0, -0.35) + fwd * u * 0.5).normalized() * 0.08
         mb.cone(base, tip, 0.024, w, "armor", sides=5)
+
+
+def build_cap(mb, arm, side, s):
+    """H100: a small faceted cap on the weapon shoulder (the pauldron's lesser
+    twin), one lame, two short spikes."""
+    ua, so = "upper_arm_" + side, "shoulder_" + side
+    sh = arm.pts[0]
+    out = V(s * 0.62, 0, 0.78).normalized()
+    fwd = V(0, -1, 0)
+    side_ax = out.cross(fwd).normalized()
+    w = {ua: 0.65, so: 0.35}
+    c = sh + out * 0.015
+    mb.ellipsoid(c, V(0.108, 0.106, 0.092), lambda q: w, "armor", seg=9, rings=5,
+                 keep=lambda q: q.z > -0.2, axes=(side_ax, fwd, out), flat=True)
+    us = [360.0 * i / 12 for i in range(-3, 4)]
+    v0 = len(mb.verts)
+    lam = [[mb.add(arm.pt(u, 0.085 + ro - 0.017, 0.045 - ro * 0.4), {ua: 1.0}, "armor") for u in us] for ro in (0.0, 0.034)]
+    for i in range(len(us) - 1):
+        mb.face((lam[0][i], lam[0][i + 1], lam[1][i + 1], lam[1][i]), "armor", arm.centre(0.085))
+    mb.flat.update(range(v0, len(mb.verts)))
+    for u, ln in ((-0.35, 0.06), (0.35, 0.06)):
+        base = c + out * 0.085 + fwd * (u * 0.09)
+        mb.cone(base, base + (out * 0.9 + fwd * u * 0.4 + V(s * 0.3, 0, 0)).normalized() * ln, 0.02, w, "armor", sides=4)
 
 
 # ------------------------------------------------------------ materials
