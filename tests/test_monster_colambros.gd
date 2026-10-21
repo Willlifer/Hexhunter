@@ -168,15 +168,23 @@ func test_charge_telegraphs_then_runs(c: HHSelfTest.HHCheck) -> void:
 	var brain: HHColambros = r[1]
 	var m: Dictionary = r[2]
 	s.hurt(m, 10.0, "test")                                 # aggravate
-	var ev := _run(s, m, 2400)
+	# H253 (Lane H): a leap that lands on the player slides it to the Attack
+	# Ring; the player walks back to its spot, and its hex is read per tick
+	var p := s.unit("p1")
+	var home: Vector2i = p.hex
+	var hex_at := {}
+	var ev: Array = []
+	for i in 2400:
+		var back: bool = i % 15 == 0 and p.hex != home and (p.path as Array).is_empty() and not s.held(p)
+		ev.append_array(_run(s, m, 1, { s.tick + 1: { "move": home } } if back else {}))
+		hex_at[s.tick] = p.hex
 	c.ok(not brain.charges.is_empty(), "charged (%d)" % brain.charges.size())
 	if brain.charges.is_empty():
 		return
-	var p := s.unit("p1")
 	var ch: Dictionary = brain.charges[0]
 	var covered := false
 	for a in brain.attacks:
-		if a.clip == "charge" and p.hex in (a.hexes as Array):
+		if a.clip == "charge" and hex_at.get(int(a.tick), p.hex) in (a.hexes as Array):
 			covered = true
 			for x in brain.charges:
 				if int(x.tick) == int(a.tick):
@@ -293,7 +301,8 @@ func test_bald_window(c: HHSelfTest.HHCheck) -> void:
 	var ev: Array = []
 	var rolled_at := -1
 	for i in 3000:
-		ev.append_array(_run(s, m, 1, { s.tick + 1: { "move": m.hex + Vector2i(0, 3) } } if i % 30 == 0 else {}))
+		# H253 (Lane H): the hunter keeps to melee by attacking (it may no longer stand inside the hull)
+		ev.append_array(_run(s, m, 1, { s.tick + 1: { "target": "colambros", "attack": true } } if i % 30 == 0 else {}))
 		if rolled_at < 0 and brain.attacks.any(func(a): return a.clip == "back_roll"):
 			rolled_at = s.tick
 			break

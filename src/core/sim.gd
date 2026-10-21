@@ -345,15 +345,21 @@ func footprint(u: Dictionary) -> Array:
 	return HHHex.area(u.hex, int(u.size))
 
 
-## Walls for `me`: living monsters' footprints (not its own) plus, for a
-## monster, the cells outside its allowed kinds.
+## Walls for `me`: living monsters' hulls (not its own) plus, for a
+## monster, the cells outside its allowed kinds. H250: a monster's walls are
+## the other hulls grown by its own size (its centre may not stand where its
+## hull would overlap another's); a hunter standing inside a hull (a moving
+## monster glided onto it) is not walled by that hull, so it can walk out.
 func blocked_for(me: Dictionary) -> Dictionary:
 	var b := {}
+	var grow := int(me.size) if str(me.kind) == "monster" else 0
 	for id in order:
 		var o: Dictionary = units[id]
 		if o.id == me.id or not alive(o) or o.kind != "monster":
 			continue
-		for h in footprint(o):
+		if grow == 0 and in_hull(o, me.hex):
+			continue
+		for h in HHHex.area(o.hex, int(o.size) + grow):
 			b[h] = true
 	var allowed: Array = me.allowed_kinds
 	if not allowed.is_empty():
@@ -398,6 +404,235 @@ func units_in(hexes: Array, skip: String = "") -> Array:
 	return out
 
 
+# ------------------------------------------------------------------ the hull (H250-H259, Lane H)
+## A monster's hull is its footprint: every hex within `size` of its hex (the
+## radius-2 monsters hold 19 hexes; a size-1 monster would hold 7). Hunters
+## never step into a hull (blocked_for). The Attack Ring is the ring of hexes
+## bordering it (size + 1: 18 hexes round a radius-2 hull, 12 round a radius-1). A weapon hits from any hex
+## outside the hull within its reach of the hull's edge (daggers 1 = the
+## Attack Ring, lance 2, bow 7: HHWeapons.reach). A monster that is moving
+## may glide over a hunter (H338); once it stands still (arrived, stopped,
+## landed from a leap, surfaced) any hunter inside its hull is slid at once to
+## the nearest free Attack Ring hex (_push_out): not a hit, no damage, no
+## stagger, no interrupt. All of it is deterministic: no RNG, fixed tie-breaks.
+
+const NO_HEX := Vector2i(-9999, -9999)
+
+
+func in_hull(m: Dictionary, hex: Vector2i) -> bool:
+	return HHHex.distance(m.hex, hex) <= int(m.size)
+
+
+## Standing still: no glide under way and not in the air.
+func stationary(m: Dictionary) -> bool:
+	return (m.path as Array).is_empty() and (m.leap as Dictionary).is_empty()
+
+
+## H251: the hull holds its hexes (push-out acts): a living, surfaced monster
+## standing still. A submerged Swampfang (untargetable) or a monster mid-glide
+## or mid-leap does not push; it pushes the tick it stops.
+func occupying(m: Dictionary) -> bool:
+	return str(m.kind) == "monster" and alive(m) and not bool(m.untargetable) and stationary(m)
+
+
+func attack_ring(m: Dictionary) -> Array[Vector2i]:
+	return arena.ring(m.hex, int(m.size) + 1)
+
+
+## Every hex inside a living monster's hull (except `skip`'s).
+func hull_hexes(skip: String = "") -> Dictionary:
+	var out := {}
+	for id in order:
+		var o: Dictionary = units[id]
+		if o.kind != "monster" or not alive(o) or o.id == skip:
+			continue
+		for h in HHHex.area(o.hex, int(o.size)):
+			out[h] = true
+	return out
+
+
+## H252: `u` can hit `t` from `h`: outside the hull, within the weapon's reach
+## of the hull's edge.
+func in_attack_range(u: Dictionary, t: Dictionary, h: Vector2i = NO_HEX) -> bool:
+	var d := HHHex.distance(u.hex if h == NO_HEX else h, t.hex)
+	return d > int(t.size) and d <= int(t.size) + int(u.reach)
+
+
+## H252: where `u` goes to hit `t`, and the path there: { hex, path }. The
+## pathfinder never aims at the monster's centre. It takes the hex in range
+## (in_attack_range) fewest steps away, a spot another hunter stands on or is
+## heading to costing attack_spot_claimed_steps more (the party spreads round
+## the ring), then the nearest to the hunter's exact position, then hex order.
+## Already in range: { hex: u.hex, path: [] }. Nothing reachable: hex NO_HEX.
+func attack_spot(u: Dictionary, t: Dictionary) -> Dictionary:
+	var empty: Array[Vector2i] = []
+	if in_attack_range(u, t):
+		return { "hex": u.hex, "path": empty }
+	var blocked := blocked_for(u)
+	var claimed := {}
+	for p in players():
+		if p.id == u.id or not (alive(p) or bool(p.get("downed", false))):
+			continue
+		claimed[p.hex] = true
+		if str(p.target) == str(t.id) and not (p.path as Array).is_empty():
+			claimed[(p.path as Array)[-1]] = true
+	var cost := int(HHTune.value("attack_spot_claimed_steps"))
+	var start: Vector2i = u.hex
+	var prev := { start: start }
+	var depth := { start: 0 }
+	var queue: Array[Vector2i] = [start]
+	var qi := 0
+	var limit := 1 << 30
+	var best := NO_HEX
+	var best_key := []
+	var at: Vector3 = u.pos
+	while qi < queue.size():
+		var h := queue[qi]
+		qi += 1
+		var d: int = depth[h]
+		if d > limit:
+			break
+		if h != start and in_attack_range(u, t, h):
+			var s := arena.stand(h)
+			var key := [d + (cost if claimed.has(h) else 0), Vector2(s.x - at.x, s.z - at.z).length_squared(), h.y, h.x]
+			if best_key.is_empty() or _key_less(key, best_key):
+				best_key = key
+				best = h
+			if limit == 1 << 30:
+				limit = d + cost
+		for n in arena.walk_neighbors(h, blocked):
+			if not prev.has(n):
+				prev[n] = h
+				depth[n] = d + 1
+				queue.append(n)
+	if best == NO_HEX:
+		return { "hex": NO_HEX, "path": empty }
+	var out: Array[Vector2i] = []
+	var cur := best
+	while cur != start:
+		out.push_front(cur)
+		cur = prev[cur]
+	return { "hex": best, "path": out }
+
+
+## H253: where a hunter inside `m`'s hull is slid to: the Attack Ring hex
+## nearest its exact position that is walkable, outside every hull, and not
+## held by another hunter (nor taken by a push this tick) when one such
+## exists; else the nearest shared one; else the next ring out.
+func push_spot(m: Dictionary, p: Dictionary, taken: Dictionary = {}) -> Vector2i:
+	var walls := hull_hexes()
+	var held := {}
+	for q in players():
+		if q.id != p.id and (alive(q) or bool(q.get("downed", false))):
+			held[q.hex] = true
+	var at: Vector3 = p.pos
+	for r in range(int(m.size) + 1, int(m.size) + 2 + int(HHTune.value("push_out_max_rings"))):
+		var best := NO_HEX
+		var best_key := []
+		for h in arena.ring(m.hex, r):
+			if not arena.walkable(h) or walls.has(h):
+				continue
+			var s := arena.stand(h)
+			var key := [1 if (taken.has(h) or held.has(h)) else 0, Vector2(s.x - at.x, s.z - at.z).length_squared(), h.y, h.x]
+			if best_key.is_empty() or _key_less(key, best_key):
+				best_key = key
+				best = h
+		if best != NO_HEX:
+			return best
+	return NO_HEX
+
+
+## H253: every hunter (standing or downed, not in the air) inside a still
+## hull slides out. Monsters in `order`, then hunters in `order`; two hunters
+## never get the same hex when the ring has room.
+func _push_out() -> void:
+	var taken := {}
+	for mid in order:
+		var m: Dictionary = units[mid]
+		if not occupying(m):
+			continue
+		for pid in order:
+			var p: Dictionary = units[pid]
+			if p.kind != "player" or not (alive(p) or bool(p.get("downed", false))):
+				continue
+			if not (p.leap as Dictionary).is_empty() or not in_hull(m, p.hex):
+				continue
+			var to := push_spot(m, p, taken)
+			if to == NO_HEX:
+				continue
+			taken[to] = true
+			_shove(p, m, to)
+
+
+## H250: stepping a monster's hex to `next` would make its hull touch another
+## monster's (where it stands, or the hex it is gliding into). Paths are
+## planned round the other hulls; this catches two monsters walking at each
+## other. One monster alone never clashes.
+func _hull_clash(u: Dictionary, next: Vector2i) -> bool:
+	for id in order:
+		var o: Dictionary = units[id]
+		if o.id == u.id or o.kind != "monster" or not alive(o):
+			continue
+		var reach := int(o.size) + int(u.size)
+		if HHHex.distance(next, o.hex) <= reach:
+			return true
+		if not (o.path as Array).is_empty() and HHHex.distance(next, (o.path as Array)[0]) <= reach:
+			return true
+	return false
+
+
+## Slide `p` to `to`: position and hex at once (the view eases it), no
+## crossing burn, a dash under way ends, a walk re-routes from the new spot.
+func _shove(p: Dictionary, m: Dictionary, to: Vector2i) -> void:
+	var from_hex: Vector2i = p.hex
+	var from_pos: Vector3 = p.pos
+	p.prev = from_hex
+	p.hex = to
+	p.pos = arena.stand(to)
+	p.crossed = to
+	if not (p.get("dash", {}) as Dictionary).is_empty():
+		p.dash = {}
+		p.dash_recover = int(HHTune.value("dash_recover_ticks"))
+		_emit({ "type": "dash_end", "id": p.id, "hex": to })
+	var path: Array = p.path
+	if str(p.target) != "" and bool(p.attacking):
+		p.path = [] as Array[Vector2i]                  # the approach is re-planned from here (attack_spot)
+		p.goal_pos = NO_POS
+	elif not path.is_empty() or (p.goal_pos as Vector3) != NO_POS:
+		var dest: Vector2i = path[-1] if not path.is_empty() else arena.from_world(p.goal_pos)
+		var blocked := blocked_for(p)
+		var goal := arena.nearest_walkable(to, dest, blocked)
+		p.path = arena.path(to, goal, blocked)
+		if goal != dest or (p.path as Array).is_empty():
+			p.goal_pos = NO_POS
+	_emit({ "type": "push_out", "id": p.id, "by": m.id, "from": from_hex, "to": to, "from_pos": from_pos, "to_pos": p.pos })
+
+
+## A hunter's walk ran into a hull (a monster stepped into its way): route
+## round it to the same destination instead of stopping. From the hunter's
+## own hex centre, hex centre to hex centre for a moment (a centre-to-centre
+## step never clips a third hex). False when there is no way round.
+func _reroute(u: Dictionary, blocked: Dictionary) -> bool:
+	var path: Array = u.path
+	var dest: Vector2i
+	if not path.is_empty():
+		dest = path[-1]
+	elif (u.goal_pos as Vector3) != NO_POS:
+		dest = arena.from_world(u.goal_pos)
+	else:
+		return false
+	var goal := arena.nearest_walkable(u.hex, dest, blocked)
+	var np := arena.path(u.hex, goal, blocked)
+	if np.is_empty():
+		return false
+	if goal != dest:
+		u.goal_pos = NO_POS
+	np.push_front(u.hex)
+	u.path = np
+	u.unpull_until = tick + 15
+	return true
+
+
 # ------------------------------------------------------------------ the tick
 
 func step(orders: Dictionary = {}) -> Array:
@@ -434,6 +669,7 @@ func step(orders: Dictionary = {}) -> Array:
 			else:
 				_walk_hex(u)
 	_telegraphs()
+	_push_out()                                          # H253: after the landing's own damage, before anyone acts on the new spot
 	for id in order:
 		var u: Dictionary = units[id]
 		if alive(u) and u.kind == "player":
@@ -740,8 +976,8 @@ func _walk_free(u: Dictionary) -> void:
 		if t.is_empty() or not alive(t):
 			u.target = ""
 			u.attacking = false
-		elif targetable(t) and HHHex.distance(u.hex, t.hex) > int(u.reach) + int(t.size):
-			u.path = arena.path_to_reach(u.hex, t.hex, int(u.reach) + int(t.size), blocked)
+		elif targetable(t) and not in_attack_range(u, t):
+			u.path = attack_spot(u, t).path                  # H252: the nearest open spot in range, never the centre
 	var path: Array = u.path
 	var goal: Vector3 = u.goal_pos
 	if path.is_empty() and goal == NO_POS:
@@ -788,6 +1024,8 @@ func _walk_free(u: Dictionary) -> void:
 			u.unpull_until = tick + 15
 			u.pos = centre if off.length() <= step else from + off / off.length() * step
 			return
+		if hull_hexes().has(nh) and _reroute(u, blocked):
+			return                                    # H254: a hull stepped into the way: go round it
 		_stop(u)                                      # the edge, a cliff, the monster's body
 		_emit({ "type": "blocked", "id": u.id, "hex": nh })
 		return
@@ -837,6 +1075,11 @@ func _walk_hex(u: Dictionary) -> void:
 			_face_pos(u, unit(u.target).pos)
 		return
 	var next: Vector2i = u.path[0]
+	if float(u.progress) <= 0.0 and _hull_clash(u, next):
+		u.path = [] as Array[Vector2i]                    # H250: another hull is in the way: stop, the brain re-plans
+		u.pos = arena.stand(u.hex)
+		_emit({ "type": "blocked", "id": u.id, "hex": next })
+		return
 	var ticks := float(u.get("walk_ticks", HHTune.value("monster_walk_ticks")))
 	if u.statuses.has("slow"):
 		ticks /= HHTune.value("slow_mult")
@@ -1059,8 +1302,8 @@ func _auto_attack(u: Dictionary) -> void:
 	var t := unit(u.target)
 	if t.is_empty() or not targetable(t):
 		return
-	if HHHex.distance(u.hex, t.hex) > int(u.reach) + int(t.size) or not (u.path as Array).is_empty():
-		return
+	if not in_attack_range(u, t) or not (u.path as Array).is_empty():
+		return                                           # H252: from outside the hull, within reach of its edge
 	if int(u.cooldowns.basic) > 0 or charging(u):
 		return
 	u.cooldowns.basic = int(HHWeapons.basic_ticks(u.weapon))
