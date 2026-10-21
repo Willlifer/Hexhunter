@@ -1,7 +1,7 @@
 extends RefCounted
 ## Lane EL (spec 3.2): Eclipse, light meeting dark (a tier-2+ tile, its own
 ## eclipse_min_tier, meeting its opposite consumes all light and dark on the
-## hex; eclipse_mult_per_point x consumed; Steam has its own curve since H420),
+## hex; eclipse_aa_mult_per_point x consumed; Steam has its own curve since H420),
 ## and its own effect: the monster is `exposed` (H57's punish window, x
 ## exposed_dmg_mult from EVERY hunter) for eclipse_exposed_ticks, 5 s (H425,
 ## the author: "Extend vulnerable to 5s ... in a team of 4 you would want your
@@ -29,7 +29,7 @@ func test_eclipse_rule(c: HHSelfTest.HHCheck) -> void:
 	c.eq(r.eruptions.size(), 1, "dark 2 + light: Eclipse")
 	c.eq(str(r.eruptions[0].kind), "eclipse", "kind")
 	c.eq(int(r.eruptions[0].consumed), 3, "consumed 2 + 1")
-	c.near(float(r.eruptions[0].mult), HHTune.value("eclipse_mult_per_point") * 3.0, 1e-6, "same scaling as Steam")
+	c.near(float(r.eruptions[0].mult), HHTune.value("eclipse_aa_mult_per_point") * 3.0, 1e-6, "same scaling as Steam")
 	c.eq(g.intensity(h, "dark") + g.intensity(h, "light"), 0, "all light and dark consumed")
 	c.eq(g.intensity(h, "fire"), 2, "fire stays")
 
@@ -42,7 +42,7 @@ func test_eclipse_exposes_the_monster(c: HHSelfTest.HHCheck) -> void:
 	s.step()
 	var mhp := float(m.hp)
 	s.paint([hx], "light", "p1", 2)
-	var want := s.reaction_unit("p1") * HHTune.value("eclipse_mult_per_point") * 4.0
+	var want := s.reaction_unit("p1") * HHTune.value("eclipse_aa_mult_per_point") * 4.0
 	c.near(mhp - float(m.hp), want, 1.0, "the monster takes consumed x the auto attack")
 	c.eq(int(m.exposed), int(HHTune.value("eclipse_exposed_ticks")), "and is exposed")
 	var p := s.unit("p1")

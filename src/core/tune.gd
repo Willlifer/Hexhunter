@@ -51,51 +51,54 @@ const DEFAULTS := {
 	# ================= ERUPTIONS AND REACTIONS (H423, author: "they should be separate variables and easy to
 	# tune separately ... it should change them all independently"). Every reaction has its OWN keys below;
 	# no reaction reads another's. Damage = the trigger's auto attack (at lance cadence, H50) x the multiple,
-	# through HHFormulas with a breakdown, then the shared 3.3 rule at the end of this section.
+	# through HHFormulas with a breakdown, then the shared 3.3 rule at the end of this section. Every
+	# "*_aa_mult*" key is a multiple of that AUTO ATTACK (H427, author: "I would attach it to basically
+	# auto attack damage"). Side by side: design/elements/reaction_table.md (tools/reaction_table.gd) and
+	# the read-only table under these keys on F1.
 	# -- Detonate (thunder on charge, an element on an armed fuse; H50, H370)
-	"det_mult_per_point": 2.5,   # x per charge point on the hex (t1 = 1 point, t3 = 3). H370: 3.0 -> 2.5 (author: "Thunder is fine", H426)
-	"det_mult_per_axis": 3.0,    # x per extra element axis mixed on the hex (fire/water + light/dark)
-	"det_mult_per_water": 0.5,   # x per water step conducted (H370: 1.0 -> 0.5)
+	"det_aa_mult_per_point": 2.5,   # x per charge point on the hex (t1 = 1 point, t3 = 3). H370: 3.0 -> 2.5 (author: "Thunder is fine", H426)
+	"det_aa_mult_per_axis": 3.0,    # x per extra element axis mixed on the hex (fire/water + light/dark)
+	"det_aa_mult_per_water": 0.5,   # x per water step conducted (H370: 1.0 -> 0.5)
 	"det_frost_mult": 1.5,       # x on the cave's authored frost (H2's glaze shatter, kept for the shade)
 	"detonate_ring_frac": 0.5,   # the ring round the hex takes this fraction
 	"detonate_stagger": 0.35,    # stagger of a detonation (0..1)
 	# -- Steam (fire meets water; H420, author: "1 water into 1 fire should be as strong as a 1 fire 1 thunder eruption ...")
 	"steam_min_tier": 1.0,       # the opposite on the tile must be at least this tier to erupt (H420: every contact; was 2, DECIDE-A)
-	"steam_mult_min": 2.5,       # x at the smallest Steam: 2 consumed (water 1 + fire 1) (= today's thunder on fire 1)
-	"steam_mult_max": 18.0,      # x at the biggest Steam: 6 consumed (water 3 + fire 3) (= today's thunder on dark 3 + fire 3); linear between
+	"steam_aa_mult_min": 2.5,       # x at the smallest Steam: 2 consumed (water 1 + fire 1) (= today's thunder on fire 1)
+	"steam_aa_mult_max": 18.0,      # x at the biggest Steam: 6 consumed (water 3 + fire 3) (= today's thunder on dark 3 + fire 3); linear between
 	"steam_ring_frac": 0.5,      # the ring round the hex takes this fraction
 	"steam_stagger": 0.35,       # stagger of a Steam eruption
 	# -- Eclipse (light meets dark; H362, H425)
 	"eclipse_min_tier": 2.0,     # the opposite on the tile must be at least this tier to erupt; tier 1 only nets
-	"eclipse_mult_per_point": 1.0, # x per point consumed (light + dark on the hex)
+	"eclipse_aa_mult_per_point": 1.0, # x per point consumed (light + dark on the hex)
 	"eclipse_ring_frac": 0.5,    # the ring round the hex takes this fraction
 	"eclipse_stagger": 0.35,     # stagger of an Eclipse
 	"eclipse_exposed_ticks": 150.0, # the monster is exposed (H57: x exposed_dmg_mult from every hunter) this long (H425: 3 s -> 5 s)
 	# -- Overheat (fresh fire on fire 3)
-	"overheat_mult": 3.0,        # the burst (a fire basic re-triggers it every 2nd swing: fire 3 vents to 2)
+	"overheat_aa_mult": 3.0,        # the burst (a fire basic re-triggers it every 2nd swing: fire 3 vents to 2)
 	"overheat_ring_frac": 1.0,   # the ring takes this fraction (bursts hit the ring in full)
 	"overheat_stagger": 0.0,
 	"overheat_splash_steps": 2.0, # fire laid on the ring (kept)
 	# -- Geyser (fresh water on water 3)
-	"geyser_mult": 3.0,          # 2.3: "burst damage equal to Overheat's"
+	"geyser_aa_mult": 3.0,          # 2.3: "burst damage equal to Overheat's"
 	"geyser_ring_frac": 1.0,
 	"geyser_stagger": 1.0,       # a massive stagger on the monster (0..1)
 	"geyser_splash_steps": 1.0,  # water splashed on the ring
 	# -- Glint (fresh light on light 3)
-	"glint_mult": 3.0,
+	"glint_aa_mult": 3.0,
 	"glint_ring_frac": 1.0,
 	"glint_stagger": 0.5,        # Glint dazzles
 	"glint_splash_steps": 1.0,
 	# -- Flux (fresh dark on dark 3)
-	"flux_mult": 3.0,
+	"flux_aa_mult": 3.0,
 	"flux_ring_frac": 1.0,
 	"flux_stagger": 0.0,
 	"flux_splash_steps": 1.0,
 	"flux_vuln_ticks": 150.0,    # the monster is vulnerable this long (5 s)
 	"flux_vuln_mult": 1.25,      # reaction damage it takes while vulnerable
 	# -- Shatter (a crystal breaks; H365)
-	"shatter_mult_per_point": 2.0, # x per stored charge point ...
-	"shatter_mult_per_ice": 1.0, # ... + x per ice level (fire 3 + ice 1 = x7; fire 3 + light 3 + ice 3 = x15)
+	"shatter_aa_mult_per_point": 2.0, # x per stored charge point ...
+	"shatter_aa_mult_per_ice": 1.0, # ... + x per ice level (fire 3 + ice 1 = x7; fire 3 + light 3 + ice 3 = x15)
 	"shatter_stagger": 0.8,      # heavy stagger on the monster
 	"shatter_ring_frac": 0.5,    # the ring takes this fraction
 	"shatter_splash_steps": 1.0, # fragments: tier 1 of the stored element onto the ring

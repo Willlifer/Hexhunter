@@ -27,7 +27,7 @@ func test_player_trigger(c: HHSelfTest.HHCheck) -> void:
 	s.step()
 	var mhp := float(m.hp)
 	s.paint([hx, p1.hex, p2.hex], "thunder", "p1")
-	var want: float = HHFormulas.reaction_damage(s.reaction_unit("p1"), HHTune.value("det_mult_per_point") * 2.0, 1.0, 0.0, 1.0).value
+	var want: float = HHFormulas.reaction_damage(s.reaction_unit("p1"), HHTune.value("det_aa_mult_per_point") * 2.0, 1.0, 0.0, 1.0).value
 	c.near(mhp - float(m.hp), want, 1.0, "the monster: the trigger's auto attack x 6")
 	c.near(float(p1.hp), float(p1.max_hp), 0.01, "never the trigger")
 	c.near(float(p2.hp), float(p2.max_hp), 0.01, "never an ally")
@@ -43,7 +43,7 @@ func test_monster_trigger_and_floor(c: HHSelfTest.HHCheck) -> void:
 	var mhp := float(m.hp)
 	var php := float(p1.hp)
 	s.paint([hx, p1.hex], "thunder", "m")             # the monster's own spell completes it
-	var base := s.reaction_unit("p1") * HHTune.value("det_mult_per_point") * 2.0           # the charge is p1's: its player-cast damage
+	var base := s.reaction_unit("p1") * HHTune.value("det_aa_mult_per_point") * 2.0           # the charge is p1's: its player-cast damage
 	c.near(mhp - float(m.hp), base * HHTune.value("monster_reaction_frac"), 1.0, "the monster takes monster_reaction_frac")
 	c.near(php - float(p1.hp), base * HHTune.value("monster_reaction_player_frac"), 1.0, "the hunter in it takes monster_reaction_player_frac")
 	s.step()

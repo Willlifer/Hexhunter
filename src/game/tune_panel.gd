@@ -13,6 +13,8 @@ const SECTION := "tune"
 var _panel: PanelContainer
 var _spins := {}
 var _status: Label
+var _table: Label
+const REACTIONS_LAST_KEY := "reaction_unit_other"   # the last key of tune.gd's "eruptions and reactions" section
 
 
 ## Apply the saved values (boot, before the first screen). Returns the count.
@@ -108,7 +110,24 @@ func _ready() -> void:
 			_refresh_status())
 		grid.add_child(sb)
 		_spins[k] = sb
+		if str(k) == REACTIONS_LAST_KEY:              # H427: the read-only comparison under the reaction keys
+			_table = Label.new()
+			_table.add_theme_font_size_override("font_size", 11)
+			_table.add_theme_color_override("font_color", Color(1, 0.92, 0.75, 0.85))
+			grid.add_child(_table)
+			grid.add_child(Control.new())
 	_refresh_status()
+
+
+## H427: every reaction as x the triggering hunter's auto attack, and as damage
+## from the lance's (HHFormulas.reaction_table, the live values).
+static func reaction_lines() -> String:
+	var lance := HHWeapons.basic_damage("lance") * HHTune.value("lance_basic_ticks") / maxf(1.0, float(HHWeapons.basic_ticks("lance")))
+	var out: Array = ["REACTIONS  x auto attack  (lance dmg)"]
+	for r in HHFormulas.reaction_table():
+		var a := str(r.anchor).replace("anchor: ", "")
+		out.append("%s: %s  x%.2f  (%.0f)%s" % [r.reaction, r.case, float(r.mult), lance * float(r.mult), ("  " + a) if a != "" else ""])
+	return "\n".join(out)
 
 
 func open() -> void:
@@ -125,6 +144,8 @@ func is_open() -> bool:
 
 func _refresh_status() -> void:
 	_status.text = "changed: %d   saved to %s" % [changed_keys().size(), ProjectSettings.globalize_path(PATH)]
+	if _table != null:
+		_table.text = reaction_lines()
 
 
 func _reset() -> void:

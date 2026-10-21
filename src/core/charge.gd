@@ -41,7 +41,7 @@ extends RefCounted
 ##         douses or evaporates (spread and contained output still net).
 ##   Eclipse (spec 3.2, H362, H425): light meeting dark at eclipse_min_tier
 ##         (2) or more consumes that axis and erupts (consumed x
-##         eclipse_mult_per_point) and exposes the monster; tier 1 only nets.
+##         eclipse_aa_mult_per_point) and exposes the monster; tier 1 only nets.
 ##   Every reaction reads only its own HHTune keys (H423).
 ##   Crystal / Shatter (spec 2.2, H261, H264): ice on EMPTY ground still arms a
 ##         stasis marker (the old tier-1 "glaze"); ice on a CHARGED tile (or an
