@@ -139,6 +139,9 @@ const DEFAULTS := {
 	"aggro_commit_ticks": 60.0, # H54: a monster holds its target 2 s before it may switch
 	"revive_hit_setback": 30.0, # H54: a hit on a reviver costs 1 s of progress (was a full reset)
 	"aggro_memory_ticks": 150.0, # ... for this long after the hit (5 s)
+	# monster hull (H250-H259, Lane H): occupancy, the Attack Ring, push-out
+	"attack_spot_claimed_steps": 3.0, # an attack spot another hunter holds or heads for costs this many extra steps (the party spreads round the ring)
+	"push_out_max_rings": 6.0,   # push-out searches the Attack Ring, then this many rings further out, before it gives up (never in practice)
 	# look (H84-H85, Lane Y): the comic ink outline on the hunters and the monsters (HHInk)
 	"ink_on": 1.0,               # 1 = outline on (author, 2026-10-20: wanted, default on), 0 = off
 	"ink_px": 2.4,               # line width in pixels on a 1080-line screen (constant on screen: no fat lines up close)
