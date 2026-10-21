@@ -143,6 +143,9 @@ const DEFAULTS := {
 	"attack_spot_claimed_steps": 3.0, # an attack spot another hunter holds or heads for costs this many extra steps (the party spreads round the ring)
 	"push_out_max_rings": 6.0,   # push-out searches the Attack Ring, then this many rings further out, before it gives up (never in practice)
 	# look (H84-H85, Lane Y): the comic ink outline on the hunters and the monsters (HHInk)
+	# camera (H280): camera lag, a lazy follow. The rate is how fast the view eases onto the hunter (1/s): 6 was near-pinned
+	"cam_follow_rate": 2.5,
+	"cam_follow_max_m": 4.0,     # ... and how far the hunter may get from the screen centre before the view is dragged along
 	"ink_on": 1.0,               # 1 = outline on (author, 2026-10-20: wanted, default on), 0 = off
 	"ink_px": 2.4,               # line width in pixels on a 1080-line screen (constant on screen: no fat lines up close)
 	"ink_max_m": 0.05,           # ... capped at this many metres (bites only on small or far views)
