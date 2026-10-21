@@ -370,12 +370,14 @@ func update(delta: float) -> void:
 		return
 	if sim != null and unit_id != "":
 		set_state(sim.unit(unit_id))
+	var tier: Dictionary = state.get("tier") if state.get("tier") is Dictionary else {}
+	_tier_view(delta, tier)
 	_drive_state(delta)
 	HHInk.sync(inks, ink_scale)
 	if clip == "":
 		return
 	var d := duration(clip)
-	time += delta * speed
+	time += delta * speed * _idle_rush(tier)
 	if loop:
 		if d > 0.0:
 			time = fmod(time, d)
@@ -400,7 +402,61 @@ func update(delta: float) -> void:
 		cur = _mix(_sample_clip(_prev_clip, _prev_time), cur, w)
 		if _fade <= 0.0:
 			_prev_clip = ""
+	if not tier.is_empty():
+		cur = _tier_pose(cur, tier)
 	_write(cur)
+
+
+# ------------------------------------------------------------------ NORMAL tier (Lane M, H360-H389)
+
+const ENRAGE_EYE := Color(1.0, 0.16, 0.04)
+var tier_fx: Node3D = null            ## HHTierFx, made the first time the unit carries `tier` (never on EASY)
+
+
+## The ground effects of the tier mechanics, and the enraged eyes.
+func _tier_view(delta: float, tier: Dictionary) -> void:
+	if tier.is_empty() or sim == null:
+		if tier_fx != null:
+			tier_fx.update(delta)
+		return
+	if tier_fx == null and is_inside_tree():
+		tier_fx = HHTierFx.new()
+		add_child(tier_fx)
+		tier_fx.setup(sim, unit_id, self)
+	if tier_fx != null:
+		tier_fx.update(delta)
+	var e := float(tier.get("enrage", 0.0))
+	if e > 0.05:
+		fx_glow("eye", ENRAGE_EYE, 1.5 + 3.5 * e * (0.8 + 0.2 * sin(_state_t * (4.0 + 8.0 * e))))
+
+
+## Enraged, the idle loops run faster (7.1: "idle changes").
+func _idle_rush(tier: Dictionary) -> float:
+	if tier.is_empty() or not loop or not clip.ends_with("idle"):
+		return 1.0
+	return 1.0 + 0.7 * float(tier.get("enrage", 0.0))
+
+
+## Pose overlays: the enraged idle carries the head low and huffs; the
+## fakeout's body tell tilts the head toward the true lane (8.1).
+func _tier_pose(cur: Dictionary, tier: Dictionary) -> Dictionary:
+	_sample = cur
+	var e := float(tier.get("enrage", 0.0))
+	if e > 0.02 and loop and clip.ends_with("idle"):
+		rot("neck", Vector3(6.0 * e, 0, 0))
+		rot("head", Vector3(12.0 * e + 3.0 * e * sin(_state_t * 5.0), 0, 0))
+		move("chest", Vector3(0, 0.05 * e * sin(_state_t * 5.0), 0))
+	var act: Dictionary = tier.get("act", {})
+	if str(act.get("kind", "")) == "fakeout" and str(act.get("phase", "")) in ["chevrons", "vanish"]:
+		var k := float(int(act.get("tell", 0)))
+		if k == 0.0:
+			rot("head", Vector3(-14.0, 0, 0))
+		else:
+			rot("neck", Vector3(0, 12.0 * k, 0))
+			rot("head", Vector3(0, 18.0 * k, -16.0 * k))
+	var out := _sample
+	_sample = {}
+	return out
 
 
 # ------------------------------------------------------------------ reactive state (L-12)

@@ -507,7 +507,7 @@ func _attack(sim: HHSim, u: Dictionary, clip: String, hexes: Array, payload: Dic
 	_stop(u)
 	var contact := int(HHRimeslitheClips.CLIPS[clip].contact_tick)
 	var ticks := window if window > 0 else int(round(float(contact) * float(TUNE.windup_mult)))
-	ticks = clampi(ticks, int(TUNE.telegraph_min_ticks), int(TUNE.telegraph_max_ticks))
+	ticks = HHTierBrain.windup(u, clampi(ticks, int(TUNE.telegraph_min_ticks), int(TUNE.telegraph_max_ticks)))   # H360: identity on EASY
 	var speed := float(contact) / float(ticks) if contact > 0 else 1.0
 	payload["clip"] = clip
 	payload["flagged"] = flagged

@@ -447,7 +447,7 @@ func _charge(sim: HHSim, u: Dictionary, p: Dictionary, line: Array) -> void:
 	mode = "attack"
 	_stop(u)
 	var contact := int(HHColambrosClips.CLIPS.dirt_scrape.contact_tick)
-	var scrape := clampi(int(round(float(contact) * float(TUNE.windup_mult))), int(TUNE.telegraph_min_ticks), int(TUNE.telegraph_max_ticks))
+	var scrape := HHTierBrain.windup(u, clampi(int(round(float(contact) * float(TUNE.windup_mult))), int(TUNE.telegraph_min_ticks), int(TUNE.telegraph_max_ticks)))   # H360: identity on EASY
 	var speed := float(contact) / float(scrape)
 	var run := int(TUNE.run_ticks)
 	var trails := smouldering
@@ -549,7 +549,7 @@ func _attack(sim: HHSim, u: Dictionary, clip: String, hexes: Array, payload: Dic
 	mode = "attack"
 	_stop(u)
 	var contact := int(HHColambrosClips.CLIPS[clip].contact_tick)
-	var ticks := clampi(int(round(float(contact) * float(TUNE.windup_mult))), int(TUNE.telegraph_min_ticks), int(TUNE.telegraph_max_ticks))
+	var ticks := HHTierBrain.windup(u, clampi(int(round(float(contact) * float(TUNE.windup_mult))), int(TUNE.telegraph_min_ticks), int(TUNE.telegraph_max_ticks)))   # H360: identity on EASY
 	var speed := float(contact) / float(ticks) if contact > 0 else 1.0
 	payload["clip"] = clip
 	payload["name"] = clip

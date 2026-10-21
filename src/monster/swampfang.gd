@@ -350,7 +350,7 @@ func _attack(sim: HHSim, u: Dictionary, clip: String, hexes: Array, payload: Dic
 	mode = "attack"
 	_stop(u)
 	var contact := int(HHSwampfangClips.CLIPS[clip].contact_tick)
-	var ticks := clampi(int(round(float(contact) * float(TUNE.windup_mult))), int(TUNE.telegraph_min_ticks), int(TUNE.telegraph_max_ticks))
+	var ticks := HHTierBrain.windup(u, clampi(int(round(float(contact) * float(TUNE.windup_mult))), int(TUNE.telegraph_min_ticks), int(TUNE.telegraph_max_ticks)))   # H360: identity on EASY
 	var speed := float(contact) / float(ticks) if contact > 0 else 1.0     # the clip slows so its contact lands with the telegraph
 	payload["clip"] = clip
 	payload["flagged"] = flagged
