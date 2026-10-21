@@ -29,6 +29,8 @@ func test_snapshot_and_delta_round_trip(c: HHSelfTest.HHCheck) -> void:
 	var bad_full := 0
 	var fulls := 0
 	for i in 1800:
+		for p in host.standing_players():
+			p.hp = float(p.max_hp)                     # H422: the bench bots would fall before 60 s; this test is about the stream (the top-up travels in the delta)
 		host.step(HHNetBench.bot_orders(host, host.tick + 1))
 		var cur := HHSnapshot.capture(host)
 		var d: Dictionary = HHSnapshot.decode(HHSnapshot.encode(HHSnapshot.delta(prev, cur)))

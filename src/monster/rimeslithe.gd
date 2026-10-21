@@ -50,37 +50,37 @@ const TUNE := {
 	"medium_range": 4,                # ... swipe / charge / mist
 	"ranged_max": 10,                 # beam / meteor / pillar reach (hexes from the centre)
 	"beam_range": 10,
-	"beam_dmg_pct": 12.0,
+	"beam_dmg_pct": 24.0,            # H422 easy calibration x2 (was 12)
 	"beam_ice_steps": 2,
 	"beam_light_steps": 1,
 	"slam_radius": 3,
-	"slam_dmg_pct": 18.0,
+	"slam_dmg_pct": 36.0,            # H422 easy calibration x2 (was 18)
 	"slam_stagger": 0.6,
 	"slam_ice_steps": 1,
 	"charge_range": 5,
-	"charge_dmg_pct": 20.0,
+	"charge_dmg_pct": 40.0,          # H422 easy calibration x2 (was 20)
 	"charge_stagger": 0.9,
 	"bite_range": 3,
 	"bite_cone_deg": 30.0,
-	"bite_dmg_pct": 16.0,
+	"bite_dmg_pct": 32.0,            # H422 easy calibration x2 (was 16)
 	"bite_stagger": 0.3,
 	"swipe_radius": 3,
-	"swipe_dmg_pct": 14.0,
+	"swipe_dmg_pct": 28.0,           # H422 easy calibration x2 (was 14)
 	"swipe_stagger": 0.5,
 	"mist_range": 6,
 	"mist_cone_deg": 40.0,
-	"mist_dmg_pct": 8.0,
+	"mist_dmg_pct": 16.0,            # H422 easy calibration x2 (was 8)
 	"mist_ice_steps": 1,
 	"mist_every_ticks": 600,          # the arena-wide mist, every 20 s while aggravated
 	"mist_radius": 7,                 # ... over the arena centre, this wide
-	"mist_wide_dmg_pct": 5.0,
+	"mist_wide_dmg_pct": 10.0,       # H422 easy calibration x2 (was 5)
 	"mist_wide_ticks": 60,            # its telegraph window (2 s)
 	"meteor_radius": 2,
-	"meteor_dmg_pct": 25.0,
+	"meteor_dmg_pct": 50.0,          # H422 easy calibration x2 (was 25)
 	"meteor_ice_steps": 3,
 	"meteor_chance": 0.3,             # at range, meteor vs beam (enrage raises it)
 	"pillar_search": 6,               # a rock / pillar within this many hexes of the player
-	"pillar_dmg_pct": 15.0,
+	"pillar_dmg_pct": 30.0,          # H422 easy calibration x2 (was 15)
 	"pillar_ice_steps": 1,
 	"pillar_chance": 0.4,
 	"roar_chance": 0.3,

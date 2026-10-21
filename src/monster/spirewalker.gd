@@ -56,11 +56,11 @@ const TUNE := {
 	"close_range": 1,                 # hexes beyond the footprint: in its jaws
 	"punch_range": 3,                 # forearm reach beyond the footprint
 	"punch_cone_deg": 40.0,           # half-angle of the punch cone
-	"punch_dmg_pct": 14.0,
+	"punch_dmg_pct": 21.0,           # H422 easy calibration x1.5 (was 14)
 	"punch_stagger": 0.5,
 	"bite_range": 2,                  # bite cone length beyond the footprint
 	"bite_cone_deg": 32.0,
-	"bite_dmg_pct": 18.0,
+	"bite_dmg_pct": 27.0,            # H422 easy calibration x1.5 (was 18)
 	"bite_stagger": 0.4,
 	"squash_min": 2,                  # edge distance band for a leaping squash ...
 	"squash_max": 7,
@@ -72,23 +72,23 @@ const TUNE := {
 	"squash_chance": 0.35,            # at mid range, squash vs a ranged move (enrage raises it)
 	"barb_range": 8,                  # barbs reach this far from the centre
 	"barb_count": 3,                  # single-hex projectiles along the line through the player
-	"barb_dmg_pct": 8.0,
+	"barb_dmg_pct": 12.0,            # H422 easy calibration x1.5 (was 8)
 	"barb_paint_steps": 1,            # thunder: a fuse marker where each lands
 	"lash_len": 6,                    # reed lash line beyond the footprint
-	"lash_dmg_pct": 12.0,
+	"lash_dmg_pct": 18.0,            # H422 easy calibration x1.5 (was 12)
 	"lash_stagger": 0.3,
 	"lash_paint_steps": 1,            # thunder
 	"tail_reach": 3,                  # a player behind, this close, draws the tail drag
 	"tail_ring": 2,                   # the half ring reaches this far beyond the footprint
 	"tail_arc_deg": 90.0,             # half-angle of the half ring (centred on the tail): a semicircle
-	"tail_dmg_pct": 15.0,
+	"tail_dmg_pct": 22.5,            # H422 easy calibration x1.5 (was 15)
 	"tail_stagger": 0.6,
 	"pollen_radius": 3,               # the cloud, beyond the footprint
 	"pollen_range": 5,                # only shaken with a player this close (edge distance)
 	"pollen_chance": 0.6,             # when charged and in range, pollen vs anything else
 	"pollen_pulses": 3,               # the cloud pulses this many times ...
 	"pollen_pulse_ticks": 45,         # ... this far apart (1.5 s): it lingers 3 s past the first hit
-	"pollen_dmg_pct": 4.0,            # per pulse
+	"pollen_dmg_pct": 6.0,           # H422 easy calibration x1.5 (was 4)
 	"pollen_paint_steps": 1,          # dark 1 on the ground
 	"pollen_slow_ticks": 90,          # slow on every pulse
 	"pollen_poison_ticks": 120,       # dark's status, on every pulse
@@ -96,14 +96,14 @@ const TUNE := {
 	"pollen_paralysis_ticks": 60,
 	"breath_range": 6,                # cone length from the centre
 	"breath_cone_deg": 30.0,
-	"thunder_dmg_pct": 10.0,
+	"thunder_dmg_pct": 15.0,         # H422 easy calibration x1.5 (was 10)
 	"thunder_paint_steps": 1,
 	"thunder_paralysis_ticks": 36,
-	"dark_dmg_pct": 10.0,
+	"dark_dmg_pct": 15.0,            # H422 easy calibration x1.5 (was 10)
 	"dark_paint_steps": 2,
 	"dark_poison_ticks": 150,
 	"spore_radius": 3,                # wind ring beyond the footprint
-	"spore_dmg_pct": 5.0,
+	"spore_dmg_pct": 7.5,            # H422 easy calibration x1.5 (was 5)
 	"spore_paint_steps": 1,           # gale markers copy the dark around them
 	"spore_slow_ticks": 60,
 	"ranged_max": 8,                  # past this it walks in

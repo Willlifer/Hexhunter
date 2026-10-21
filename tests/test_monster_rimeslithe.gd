@@ -260,13 +260,14 @@ func test_slow_then_freeze(c: HHSelfTest.HHCheck) -> void:
 	var brain: HHRimeslithe = r[1]
 	var m: Dictionary = r[2]
 	var p := s.unit("p1")
+	s.unit("p1").hp = 1.0e9                         # H422: x2 damage kills a hunter that never moves; this test is about the brain
 	var ev := _run(s, m, 1800)
 	var ice := brain.attacks.filter(func(a): return str(a.element) == "ice")
 	c.ok(ice.size() >= 2, "two or more ice attacks (%d)" % ice.size())
 	c.ok(ev.any(func(e): return e.type == "status" and e.id == "p1" and e.status == "slow"), "slowed first")
 	c.ok(brain.freezes > 0, "then frozen (%d)" % brain.freezes)
 	c.ok(ev.any(func(e): return e.type == "status" and e.id == "p1" and e.status == "freeze"), "freeze status event")
-	c.ok(float(p.hp) < float(p.max_hp), "took damage")
+	c.ok(float(p.hp) < 1.0e9, "took damage")
 	c.ok(float(m.cold) > 0.2, "cold rose with the ice attacks (%.2f)" % float(m.cold))
 
 
@@ -293,6 +294,7 @@ func test_mist_paints_ice_wide(c: HHSelfTest.HHCheck) -> void:
 	var s: HHSim = r[0]
 	var brain: HHRimeslithe = r[1]
 	var m: Dictionary = r[2]
+	s.unit("p1").hp = 1.0e9                         # H422: x2 damage kills a hunter that never moves; this test is about the brain
 	_run(s, m, 10, {}, { 5: 0.05 })
 	c.eq(brain.state, "aggravated", "aggravated")
 	_run(s, m, 900)
@@ -389,6 +391,7 @@ func test_charge_drives_forward(c: HHSelfTest.HHCheck) -> void:
 	var brain: HHRimeslithe = r[1]
 	var m: Dictionary = r[2]
 	var p := s.unit("p1")
+	s.unit("p1").hp = 1.0e9                         # H422: x2 damage kills a hunter that never moves; this test is about the brain
 	var before: Vector2i = m.hex
 	brain._shoulder_charge(s, m, p)
 	c.eq(brain.mode, "charge", "charging")

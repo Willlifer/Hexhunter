@@ -47,21 +47,21 @@ const TUNE := {
 	"ranged_max": 9,                  # spray / jet reach (hexes from the centre)
 	"spray_range": 6,                 # cone length from the centre
 	"spray_cone_deg": 34.0,           # half-angle of the dark spray cone
-	"spray_dmg_pct": 12.0,
+	"spray_dmg_pct": 18.0,           # H422 easy calibration x1.5 (was 12)
 	"spray_paint_steps": 2,           # dark on the ground
 	"spray_poison_ticks": 150,        # 5 s of poison
 	"jet_range": 9,                   # line length
-	"jet_dmg_pct": 10.0,
+	"jet_dmg_pct": 15.0,             # H422 easy calibration x1.5 (was 10)
 	"jet_paint_steps": 2,             # water on the ground
-	"thrash_dmg_pct": 15.0,
+	"thrash_dmg_pct": 22.5,          # H422 easy calibration x1.5 (was 15)
 	"thrash_stagger": 0.5,
 	"thrash_paint_steps": 2,          # water
 	"roll_radius": 2,                 # hexes beyond the footprint
-	"roll_dmg_pct": 30.0,
+	"roll_dmg_pct": 45.0,            # H422 easy calibration x1.5 (was 30)
 	"roll_stagger": 1.0,              # heavy stagger
 	"roll_chance": 0.5,               # at close range, roll vs thrash (phases raise it)
 	"lunge_radius": 1,                # hexes beyond the footprint at the surface hex
-	"lunge_dmg_pct": 22.0,
+	"lunge_dmg_pct": 33.0,           # H422 easy calibration x1.5 (was 22)
 	"lunge_stagger": 0.7,
 	"lunge_paint_steps": 3,           # dark water
 	"roar_chance": 0.35,              # chance to roar instead of a ranged attack when not yet flagged
