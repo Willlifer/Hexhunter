@@ -691,6 +691,7 @@ func _leap_splash(m: Dictionary, element: String) -> void:
 			hexes.append(h)
 	if hexes.is_empty():
 		return
+	charge.begin_action("%d:%s:splash" % [tick, m.id])   # H361: its own contained action (no stale containment sets)
 	var r := charge.apply(hexes, element, str(m.id), int(HHTune.value("leap_splash_steps")), false)
 	_emit({ "type": "paint", "id": m.id, "element": element, "hexes": hexes.duplicate(), "changed": (r.changed as Array).duplicate(),
 		"splash": true, "contained": true })

@@ -54,7 +54,7 @@ const DEFAULTS := {
 	# damage = the caster's auto attack (at lance cadence) x a multiplier; never pct of max HP.
 	"det_mult_per_point": 2.5,   # fuse: x per charge point on the hex (t1 = 1 point, t3 = 3). H370: 3.0 -> 2.5, one cash-in among four (design/elements/sim.md)
 	"det_mult_per_axis": 3.0,    # fuse: x per extra element axis mixed on the hex (fire/water + light/dark)
-	"det_mult_per_water": 1.0,   # fuse: x per water step conducted
+	"det_mult_per_water": 0.5,   # fuse: x per water step conducted (H370: 1.0 -> 0.5, water/thunder was still the fastest pair)
 	"overheat_mult": 3.0,        # fresh fire on fire 3: the eruption ring (a fire basic re-triggers it every 2nd swing: fire 3 vents to 2)
 	"reaction_chain_frac": 0.15, # one cast's blasts on one unit: the strongest in full + this x each other one
 	"reaction_unit_other": 40.0, # superseded by monster_reaction_* (H364); kept for old readers, the sim no longer reads it
