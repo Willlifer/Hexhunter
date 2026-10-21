@@ -139,6 +139,12 @@ const DEFAULTS := {
 	"aggro_commit_ticks": 60.0, # H54: a monster holds its target 2 s before it may switch
 	"revive_hit_setback": 30.0, # H54: a hit on a reviver costs 1 s of progress (was a full reset)
 	"aggro_memory_ticks": 150.0, # ... for this long after the hit (5 s)
+	# web look (Lane Z, H90-H92): the Compatibility renderer only; desktop ignores these
+	"web_ambient": 1.0,          # the sky ambient the *_web GK shaders add (x the sky's irradiance estimate)
+	"web_reflection": 0.5,       # the sky a glossy GK surface mirrors (water)
+	"web_fog": 1.0,              # x the arena's fog density, drawn by the *_web GK shaders
+	"web_glow_whiten": 0.45,     # additive light pools (torches, lava) pulled toward warm white, as Filmic does on desktop
+	"web_glow_gain": 1.1,        # ... and scaled
 }
 
 static var _v := {}

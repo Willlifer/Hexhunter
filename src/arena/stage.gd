@@ -70,6 +70,7 @@ static func sky(lights: Dictionary) -> WorldEnvironment:
 		if fog.has("height"):                     # low-lying haze (the caldera's cloud deck, the glade's mist)
 			env.fog_height = float(fog.height)
 			env.fog_height_density = float(fog.get("height_density", 0.1))
+	HHWebLook.apply_env(env)                        # Lane Z (H90): the web build's ambient
 	var we := WorldEnvironment.new()
 	we.name = "Sky"
 	we.environment = env

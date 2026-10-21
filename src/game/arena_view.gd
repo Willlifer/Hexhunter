@@ -133,6 +133,7 @@ func _build_lights() -> void:
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.ambient_light_energy = 0.8
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	HHWebLook.apply_env(env)                        # Lane Z (H90): the web build's ambient
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)

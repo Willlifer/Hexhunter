@@ -20,6 +20,7 @@ extends RefCounted
 const SHADER := "res://shaders/gk_surface.gdshader"
 const SHADER_CLEAR := "res://shaders/gk_surface_clear.gdshader"   ## roles with `alpha` (G61): see-through polymer
 const SHADER_FADE := "res://src/arena/shaders/gk_fade.gdshader"   ## roles with `fade: [near, far]` (H759): scenery that dissolves near the camera
+const SHADER_GLOW_WEB := "res://shaders/gk_glow_web.gdshader"   ## Lane Z (H92): additive light pools on the web build
 const PAT := { "plain": 0, "grain": 1, "plaster": 2, "blocks": 3, "cobble": 4, "siding": 5, "membrane": 6,
 	"stipple": 7, "brushed": 8, "asphalt": 9, "grass": 10, "concrete": 11, "pavers": 12, "checker": 13, "speckle": 14 }
 
@@ -194,13 +195,17 @@ static func get_material(role: String) -> Material:
 	if _cache.has(role):
 		return _cache[role]
 	var s := _spec(role)
+	if str(s.get("blend", "")) == "add" and _web() and ResourceLoader.exists(SHADER_GLOW_WEB):
+		_cache[role] = _glow_web(s)                 # Lane Z (H92): light pools on the web
+		return _cache[role]
 	if s.has("blend") or s.has("emit"):
 		_cache[role] = _special(s)
 		return _cache[role]
 	var m := ShaderMaterial.new()
-	m.shader = load(SHADER_CLEAR if s.has("alpha") else SHADER)
+	var web := _web()
+	m.shader = load(_variant(SHADER_CLEAR if s.has("alpha") else SHADER, web))
 	if s.has("fade") and ResourceLoader.exists(SHADER_FADE):    # H759: dissolves near the camera
-		m.shader = load(SHADER_FADE)
+		m.shader = load(_variant(SHADER_FADE, web))
 		var fd: Array = s.fade
 		m.set_shader_parameter("fade_near", float(fd[0]))
 		m.set_shader_parameter("fade_far", float(fd[1]))
@@ -221,6 +226,30 @@ static func get_material(role: String) -> Material:
 	m.set_shader_parameter("axis", Vector3(float(ax[0]), float(ax[1]), float(ax[2])))
 	_cache[role] = m
 	return m
+
+
+## Lane Z (H90): on the Compatibility renderer (the web build) the shaders
+## come in a *_web variant that sums ambient and sun in one pass (see
+## HHWebLook); desktop keeps the originals.
+static func _web() -> bool:
+	if HHWebLook.active():
+		HHWebLook.ensure_globals()
+		return true
+	return false
+
+
+static func _glow_web(s: Dictionary) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = load(SHADER_GLOW_WEB)
+	m.set_shader_parameter("albedo", Color(str(s.a)))
+	m.set_shader_parameter("whiten", HHTune.value("web_glow_whiten"))
+	m.set_shader_parameter("gain", HHTune.value("web_glow_gain"))
+	return m
+
+
+static func _variant(path: String, web: bool) -> String:
+	var w := path.replace(".gdshader", "_web.gdshader")
+	return w if web and ResourceLoader.exists(w) else path
 
 
 ## H752: glowing roles (`emit`) and unshaded sheets (`blend`: add / mix).
