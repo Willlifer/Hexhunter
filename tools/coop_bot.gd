@@ -52,6 +52,7 @@ func _fight(biome: String, monster: String, seed: int, n: int, weapons: PackedSt
 	var brain: Object = load("res://src/monster/%s.gd" % monster).new()
 	var allowed: Array = brain.allowed_kinds() if brain.has_method("allowed_kinds") else []
 	var m := s.add_monster(monster, arena.spawns.monster, HHTune.value("monster_hp"), 2, allowed)
+	HHTierBrain.apply_own_resist(m)                    # H429: as the fight does
 	s.brains[monster] = brain
 	if brain.has_method("setup"):
 		brain.setup(s, m)

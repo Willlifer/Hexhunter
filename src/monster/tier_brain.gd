@@ -117,6 +117,16 @@ const TUNE := {
 	"rt_stun_s": 4.0,               # [FILL] corrupted root: stunned (and exposed) this long
 }
 
+## H429: a monster resists its own elements (PROFILES' pair) by
+## monster_own_resist percent, on every tier: blows, reactions and ground
+## damage of those elements (the pond's own water no longer feeds Geysers that
+## melt Swampfang). Called wherever a fight adds a monster by its id.
+static func apply_own_resist(u: Dictionary) -> void:
+	var prof: Dictionary = PROFILES.get(str(u.id), {})
+	for el in prof.get("elements", []):
+		u.resist[str(el)] = maxf(float((u.resist as Dictionary).get(str(el), 0.0)), HHTune.value("monster_own_resist"))
+
+
 ## Set-piece and purge assignment by element pair (spec 8: "assign each
 ## set-piece to the current roster by element pair"). H402, H403.
 const PROFILES := {

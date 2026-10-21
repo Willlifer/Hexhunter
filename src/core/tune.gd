@@ -207,6 +207,7 @@ const DEFAULTS := {
 	# look (H84-H85, Lane Y): the comic ink outline on the hunters and the monsters (HHInk)
 	# camera (H280): camera lag, a lazy follow. The rate is how fast the view eases onto the hunter (1/s): 6 was near-pinned
 	"cam_follow_rate": 2.5,
+	"monster_own_resist": 75.0,  # H429: % a monster resists its own elements (blows, reactions, ground); capped by HHFormulas.RESIST_CAP
 	"push_walk_into_is_self": 0.0, # H281: 1 = a hunter walking into a moving hull counts as self-caused (5%); the author meant leaps/dashes
 	"cam_follow_max_m": 4.0,     # ... and how far the hunter may get from the screen centre before the view is dragged along
 	"ink_on": 1.0,               # 1 = outline on (author, 2026-10-20: wanted, default on), 0 = off

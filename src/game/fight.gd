@@ -220,6 +220,7 @@ func _add_monster(id: String) -> void:
 				allowed = brain.allowed_kinds()
 	var hp := HHTune.value("monster_hp")
 	var u := sim.add_monster(id, arena.spawns.monster, hp, 2, allowed)
+	HHTierBrain.apply_own_resist(u)                    # H429
 	if brain != null and net_mode != "client":
 		sim.brains[id] = brain
 		if brain.has_method("setup"):
