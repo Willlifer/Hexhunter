@@ -26,7 +26,7 @@ const T := 1.0 / 30.0
 const RUN_STRIDE := 3.46
 const WALK_STRIDE := 2.4
 const ANKLE_Y := 0.09
-const HIP_Y := 1.0
+const HIP_Y := 1.19                  ## H81: rig v2 hip joint (was 1.0)
 
 const SPINE := ["hips", "spine", "chest"]
 const ARM_L := ["upper_arm_l", "forearm_l", "hand_l"]
