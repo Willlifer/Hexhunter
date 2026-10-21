@@ -620,12 +620,12 @@ NA = 12          # arm sides
 
 
 def torso_role(theta, z):
-    """H100: the suit runs up to a mock neck under the gorget; skin above."""
+    """H230: the suit runs up to a mock neck under the gorget; skin above."""
     return "skin" if z > 1.872 else "suit"
 
 
 def plate_top(theta):
-    """H100: the plate is a cuirass front: low under the arms, rising to the
+    """H230: the plate is a cuirass front: low under the arms, rising to the
     gorget at the sternum (no neckline opening)."""
     s = max(0.0, math.sin(math.radians(theta)))
     return 1.665 + 0.140 * s ** 3
@@ -746,7 +746,7 @@ def build_body(mb, groups):
         arm = Limb([sh, el, wr], s, ARM)
         limbs["arm_" + side] = arm
         ua, fa, hd, so = "upper_arm_" + side, "forearm_" + side, "hand_" + side, "shoulder_" + side
-        role = "suit" if s > 0 else "skin"          # the left arm is sleeved, the weapon arm bare below a short sleeve (H100)
+        role = "suit" if s > 0 else "skin"          # the left arm is sleeved, the weapon arm bare below a short sleeve (H230)
         sleeve = 1.0 if s > 0 else 0.15
         ds = [-0.06, -0.045, -0.025, 0.0, 0.03, 0.06, 0.10, 0.14, 0.18, 0.22, 0.26, 0.30, 0.325, 0.35, 0.375,
               0.40, 0.44, 0.48, 0.52, 0.56, 0.60, 0.63]
@@ -889,7 +889,7 @@ def _strip(mb, top, bot, w, col, flat=True):
 
 
 def build_face(mb, hw):
-    """H103: a comic face in hard planes and ink: an angular nose with a shadow
+    """H233: a comic face in hard planes and ink: an angular nose with a shadow
     line, almond eyes (sclera, iris, a heavy upper lash line with a wing),
     strong arched brows, two-tone red lips, and a jaw-line shadow. Every mark
     is a few flat-shaded faces proud of the skin, so it holds at the gameplay
@@ -1073,7 +1073,7 @@ def build_hair(mb):
     # r4: the face-framing locks stay tubes; the big volume is a curtain of
     # flat overlapping ribbons (clumps) round the back and over the shoulders
     for ctrl, r0, r1, amp, ph, s in locks[:: 4][:2]:
-        # H104: the face-framing locks as flat waved clumps too
+        # H234: the face-framing locks as flat waved clumps too
         n = 13
         pts = catmull_path(ctrl, n)
         widths = [lerp(0.040, 0.008, (i / (n - 1)) ** 1.1) * (1.0 + 0.25 * math.sin(i * 1.3 + ph)) for i in range(n)]
@@ -1081,7 +1081,7 @@ def build_hair(mb):
         wave = [0.022 * math.sin(i / (n - 1) * 2 * math.pi * 1.4 + ph) * (i / (n - 1)) for i in range(n)]
         ribbon(mb, pts, widths, thick, wave)
     prof = [(2.15, 0.112), (2.05, 0.15), (1.93, 0.205), (1.80, 0.27), (1.66, 0.325), (1.52, 0.31), (1.40, 0.265), (1.28, 0.20)]
-    # H104: two layers of clumps (a long inner curtain, a shorter outer layer
+    # H234: two layers of clumps (a long inner curtain, a shorter outer layer
     # between them), each waved with its own phase and length, the lower half
     # swept by a wind toward her left and back, tips pointed.
     n_rib = 14
@@ -1128,7 +1128,7 @@ def patch(mb, F, us, vs_of, off_of, role, inside_of, w_of, closed=False, rim=Fal
     """A surface patch: columns at parameters `us`, rows at vs_of(u) (a list
     per column, same length), offset off_of(u, v). Rim: quads from the
     patch edge down to the surface (off 0) so the shell reads thick. `flat`:
-    every face takes its own normal (hard-edged armour facets, H102)."""
+    every face takes its own normal (hard-edged armour facets, H232)."""
     v0 = len(mb.verts)
     cols = _patch(mb, F, us, vs_of, off_of, role, inside_of, w_of, closed, rim, col_of)
     if flat:
@@ -1193,7 +1193,7 @@ def build_outfit(mb, limbs, kd, groups_ids):
     band_torso(mb, lambda th: 1.776, 0.006, 0.024, 0.0, 360.0, "plate", tw, closed=True)
     # a centre ridge between the cups and the crest (original: a hex with an inset hex)
     cz = 1.548
-    cp = torso_pt(90.0, cz, 0.032)            # on the plate's centre ridge (H102 raised it)
+    cp = torso_pt(90.0, cz, 0.032)            # on the plate's centre ridge (H232 raised it)
     cn = (cp - torso_centre(cz)).normalized()
     mb.hexplate(cp - cn * 0.004, cn, V(0, 0, 1), 0.032, 0.008, tw(cp), "armor")
     mb.hexplate(cp + cn * 0.003, cn, V(0, 0, 1), 0.017, 0.006, tw(cp), "suit", (1.0, 1.0, 1.0))
@@ -1390,7 +1390,7 @@ def build_boot(mb, side, s):
     mb.fan(rows[0], e0, "armor", cs[1])
     e1 = mb.add(cs[-1] + V(0, -0.008, 0), {ft: 1}, "armor")
     mb.fan(rows[-1], e1, "armor", cs[-2])
-    mb.flat.update(range(v0, len(mb.verts)))           # H102: faceted boot
+    mb.flat.update(range(v0, len(mb.verts)))           # H232: faceted boot
 
 
 def build_pauldron(mb, arm, side, s):
@@ -1430,7 +1430,7 @@ def build_pauldron(mb, arm, side, s):
 
 
 def build_cap(mb, arm, side, s):
-    """H100: a small faceted cap on the weapon shoulder (the pauldron's lesser
+    """H230: a small faceted cap on the weapon shoulder (the pauldron's lesser
     twin), one lame, two short spikes."""
     ua, so = "upper_arm_" + side, "shoulder_" + side
     sh = arm.pts[0]
