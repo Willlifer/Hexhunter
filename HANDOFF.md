@@ -1,7 +1,7 @@
 # HANDOFF
 
 ## Where
-`<repo>`, branch `dev`. No remote (H6). Godot 4.7 console binary in Downloads (CLAUDE.md). Playable: `dist\Hexhunt.exe` opens the lobby; beside it `Lobby.bat`, `Hunt.bat` and twelve fight bats. Re-export: `godot --headless --path . --export-release "Windows Desktop" dist/Hexhunt.exe`, then copy `launchers/*.bat` into `dist/`.
+`<repo>`, branch `dev`. Public remote `origin` = github.com/Willlifer/Hexhunter (H78): push `dev` and `dev:main` on request. Godot 4.7 console binary in Downloads (CLAUDE.md). Playable: `dist\Hexhunt.exe` opens the lobby; beside it `Lobby.bat`, `Hunt.bat` and twelve fight bats. Re-export: `godot --headless --path . --export-release "Windows Desktop" dist/Hexhunt.exe`, then copy `launchers/*.bat` into `dist/`.
 
 ## Where it stands (2026-10-20, co-op)
 Phases 0-3 and the visual pass passed. Phase 4 co-op merged: host-authoritative state streaming over ENet (src/net: HHNet, HHSession, HHSnapshot, HHReplicator; 11.7 KB/s per client with four hunters), sim co-op rules (four spawns, monster HP x1.6 per extra hunter, downed + revive, aggro with a 2 s commit; H53, H54), the game side (party fight with nameplates, rings and party frames, lobby "Play together" panel, co-op hunt loop, --host / --join / --name / --port / --peers, Host.bat / Join.bat), the host leaving ends the fight for all (H55). Self-test 288/288 in 39 suites. Two real processes and the exported exe agree as host and client.
