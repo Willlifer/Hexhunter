@@ -26,13 +26,13 @@ const STATE := 11      # host -> all: { members, joined, fields }
 const START := 12      # host -> one peer: its launch cfg
 
 const ROW_KEYS := ["name", "weapon", "element", "backup", "upgrades", "ready"]
-const HOST_KEYS := ["arena", "monster", "seed", "locked", "cam"]
+const HOST_KEYS := ["arena", "monster", "seed", "locked", "cam", "difficulty"]   # H241: the host's tier rules
 const WEAPONS := ["lance", "daggers", "bow"]
 
 var net: HHNet
 var members := {}
 var joined: Array = []
-var fields := { "arena": "pond", "monster": "swampfang", "seed": 1, "locked": [], "cam": "30,44" }
+var fields := { "arena": "pond", "monster": "swampfang", "seed": 1, "locked": [], "cam": "30,44", "difficulty": "easy" }
 var in_fight := false
 var _connected := false
 
@@ -154,6 +154,7 @@ func build_cfg(peer: int) -> Dictionary:
 	return {
 		"arena": str(fields.arena), "monster": str(fields.monster), "seed": int(fields.seed),
 		"locked": (fields.locked as Array).duplicate(), "cam": str(fields.cam),
+		"difficulty": HHSim.clean_tier(fields.get("difficulty", "easy")),
 		"weapon": str(me.weapon), "element": str(me.element), "backup": str(me.backup),
 		"upgrades": (me.upgrades as Dictionary).duplicate(true),
 		"players": players, "local_id": unit_id(peer), "net": "host" if peer == 1 else "client",

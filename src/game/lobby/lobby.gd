@@ -29,7 +29,11 @@ const ROW_Y := [96.0, 262.0, 428.0]    # arena, monster, weapon rows
 const ELEM_LABEL_Y := 590.0
 const ELEM_Y := 606.0                 # the element sockets' top (their hover tag sits above the disc)
 const ELEM_SIZE := Vector2(80, 140)
-const ELEM_STEP := 120.0
+const ELEM_STEP := 110.0              # the axis group's spacing (H244)
+const OP_X := 600.0                   # the OPERATORS group: discs from here (H244)
+const OP_STEP := 95.0
+const OP_COPY_X := 884.0              # ... and one line of copy per operator right of them
+const OP_COPY_W := 308.0
 const CARD := Rect2(1212, 96, 364, 784)   # the right card: seed, buttons, upgrades, runs
 const TICKER := Rect2(24, 760, 1168, 54)
 const HINT_Y := 838.0
@@ -62,6 +66,9 @@ var _tune: HHTunePanel
 var _recorded := false
 var _fight_btn: Button
 var _dice: Button
+var _tier_btns := {}             ## H243: tier id -> its toggle in the card's head
+var _op_label: Label             ## H244: "OPERATORS" over Wind, Ice and Thunder
+var _op_copy := {}               ## operator id -> its one line of copy
 
 ## Co-op (Lane C, H908-H912): the "Play together" section on the card.
 var coop := HHLobbyCoop.new()    ## the party logic; the shell's net + session are attached in _ready
@@ -269,24 +276,54 @@ func _build_row(i: int, kind: String, y: float) -> void:
 	_tiles[kind] = tiles
 
 
+## The element strip (H244, spec section 4): the four axis elements, a rule,
+## then Wind, Ice and Thunder under OPERATORS with one line of copy each
+## naming the operator's cash-in. Same discs, same picking; only the
+## grouping and the labels are new.
 func _build_elements() -> void:
 	_row_label(3, ELEM_LABEL_Y - 8)
 	_next_label = _label("", Vector2(TILE_X + 10, ELEM_LABEL_Y - 6), 15, HHLobbyDisc.ACTIVE)
 	_next_label.position.x = 190
-	var rows := HHRegistry.rows("element")
-	for j in rows.size():
-		var d := HHLobbyDisc.new()
-		d.id = str(rows[j].id)
-		d.title = str(rows[j].name)
-		d.blurb = str(rows[j].blurb)
-		d.color = HHLook.element_color(d.id)
-		d.position = Vector2(TILE_X + j * ELEM_STEP, ELEM_Y)
-		d.size = ELEM_SIZE
-		d.pressed.connect(func(disc: HHLobbyDisc): _pick_element(disc.id))
-		d.hovered.connect(func(disc: HHLobbyDisc): _ticker.text = "%s: %s   (this click sets the %s element)" % [disc.title, disc.blurb, disc.next_sets])
-		d.mouse_exited.connect(_ticker_rest)
-		add_child(d)
-		_discs[d.id] = d
+	var axis := HHLobbyState.AXIS
+	var ops := HHLobbyState.OPERATORS
+	for j in axis.size():
+		_add_disc(str(axis[j]), Vector2(TILE_X + j * ELEM_STEP, ELEM_Y))
+	var rule := ColorRect.new()
+	rule.color = Color(HHHud.GOLD_DIM.r, HHHud.GOLD_DIM.g, HHHud.GOLD_DIM.b, 0.55)
+	rule.position = Vector2(OP_X - 22.0, ELEM_LABEL_Y - 4.0)
+	rule.size = Vector2(1, ELEM_Y + ELEM_SIZE.y - ELEM_LABEL_Y)
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(rule)
+	_op_label = _label("OPERATORS", Vector2(OP_X, ELEM_LABEL_Y - 8), LABEL_SIZE - 2, HHHud.GOLD_DIM)
+	_op_label.add_theme_font_override("font", HHHud.serif())
+	_op_label.tooltip_text = "Operators work on charge already on the ground; each has a cash-in"
+	for j in ops.size():
+		var id := str(ops[j])
+		_add_disc(id, Vector2(OP_X + j * OP_STEP, ELEM_Y))
+		var line := _label(str(HHLobbyState.OPERATOR_COPY[id]), Vector2(OP_COPY_X, ELEM_Y + 22.0 + j * 30.0), 13,
+			HHLook.element_color(id).lerp(Color(1, 0.96, 0.88), 0.55))
+		line.size = Vector2(OP_COPY_W, 22)
+		line.clip_text = true
+		_op_copy[id] = line
+
+
+func _add_disc(id: String, at: Vector2) -> void:
+	var row := HHRegistry.entry("element", id)
+	var d := HHLobbyDisc.new()
+	d.id = id
+	d.title = str(row.name)
+	d.blurb = str(row.blurb)
+	d.color = HHLook.element_color(d.id)
+	d.position = at
+	d.size = ELEM_SIZE
+	d.pressed.connect(func(disc: HHLobbyDisc): _pick_element(disc.id))
+	d.hovered.connect(func(disc: HHLobbyDisc):
+		var copy := str(HHLobbyState.OPERATOR_COPY.get(disc.id, ""))
+		var head := copy if copy != "" else disc.title
+		_ticker.text = "%s. %s   (this click sets the %s element)" % [head, disc.blurb, disc.next_sets])
+	d.mouse_exited.connect(_ticker_rest)
+	add_child(d)
+	_discs[d.id] = d
 
 
 func _build_card() -> void:
@@ -316,6 +353,20 @@ func _build_card() -> void:
 	hl.add_theme_color_override("font_color", HHHud.GOLD)
 	hl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(hl)
+	var tiers := ButtonGroup.new()                         # H243: the tier switch, the LAN / Online toggle's style
+	for t in HHLobbyState.LOBBY_TIERS:
+		var tb := Button.new()
+		tb.text = str(t).capitalize()
+		tb.toggle_mode = true
+		tb.button_group = tiers
+		tb.custom_minimum_size = Vector2(62, 0)
+		tb.add_theme_font_size_override("font_size", 13)
+		tb.tooltip_text = str(HHLobbyState.TIER_BLURB[t])
+		tb.pressed.connect(func(): _pick_tier(str(t)))
+		tb.mouse_entered.connect(func(): _ticker.text = str(HHLobbyState.TIER_BLURB[t]))
+		tb.mouse_exited.connect(_ticker_rest)
+		head.add_child(tb)
+		_tier_btns[str(t)] = tb
 	var gear := Button.new()
 	gear.text = "Tune (F1)"
 	gear.tooltip_text = "Open the live tuning panel; values save to user://hexhunt_tune.cfg"
@@ -771,6 +822,15 @@ func _pick(kind: String, id: String) -> void:
 		_ticker.text = "%s is locked for this hunt" % kind.capitalize()
 
 
+func _pick_tier(t: String) -> void:
+	if state.set_difficulty(t):
+		_refresh()
+		_ticker.text = str(HHLobbyState.TIER_BLURB.get(t, t))
+	else:
+		_refresh()
+		_ticker.text = "The host picks the difficulty"
+
+
 func _pick_element(id: String) -> void:
 	if state.pick_element(id):
 		state.row = 3
@@ -871,6 +931,11 @@ func _refresh() -> void:
 	_seed.editable = not state.is_locked("seed")
 	if _dice != null:
 		_dice.disabled = state.is_locked("seed")
+	var tier := str(state.cfg.get("difficulty", "easy"))
+	for t in _tier_btns:
+		var tb: Button = _tier_btns[t]
+		tb.set_pressed_no_signal(t == tier)
+		tb.disabled = state.is_locked("difficulty")
 	_pair.text = "%s in %s with the %s\n%s, backup %s" % [
 		HHRegistry.name_of("monster", str(state.cfg.monster)), HHRegistry.name_of("arena", str(state.cfg.arena)),
 		HHRegistry.name_of("weapon", str(state.cfg.weapon)).to_lower(),

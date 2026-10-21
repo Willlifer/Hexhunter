@@ -68,14 +68,54 @@ var over := ""
 var sandbox := false
 var _next_tg := 1
 
+## Difficulty tiers (Lane D, H240-H242). Every fight behaviour that existed on
+## 2026-10-21 IS the EASY tier and runs on every tier; new behaviour (enrage,
+## element pulse, purge, avoidance, set-pieces) is added behind
+## `tier_at_least("normal")`, never by changing what EASY does. Today nothing
+## is gated yet, so NORMAL and HARD play exactly like EASY (test_difficulty
+## proves the hashes match). HARD is defined so later lanes can gate on it; it
+## is not offered in the lobby until something differs. Set it once, before
+## the first step(), from the launch cfg's "difficulty"; it is in state_hash
+## and in every co-op snapshot.
+const TIERS := ["easy", "normal", "hard"]
+var difficulty := "easy"
 
-func _init(p_arena: HHArena, p_seed: int = 1) -> void:
+
+func _init(p_arena: HHArena, p_seed: int = 1, p_difficulty: String = "easy") -> void:
 	arena = p_arena
 	seed = p_seed
+	difficulty = clean_tier(p_difficulty)
 	rng.seed = p_seed
 	charge = HHCharge.new(arena)
 	charge.author_rows(arena.authored_rows())            # H43: the biome's permanent charge
 	env = HHEnv.new(self)                                # H51: the arena's own recurring events
+
+
+# ------------------------------------------------------------------ difficulty (H240)
+
+## A known tier id, else "easy" (unknown / empty / old cfgs play as today).
+static func clean_tier(t: Variant) -> String:
+	var s := str(t).strip_edges().to_lower()
+	return s if s in TIERS else "easy"
+
+
+## 0 easy, 1 normal, 2 hard.
+static func tier_rank(t: String) -> int:
+	return maxi(0, TIERS.find(clean_tier(t)))
+
+
+## The gate for every behaviour above EASY: `if sim.tier_at_least("normal"):`.
+## A misspelt tier is an error and gates nothing on (false), never everything.
+func tier_at_least(t: String) -> bool:
+	var want := TIERS.find(t)
+	if want < 0:
+		push_error("HHSim.tier_at_least: unknown tier '%s' (one of %s)" % [t, TIERS])
+		return false
+	return tier_rank(difficulty) >= want
+
+
+func set_difficulty(t: Variant) -> void:
+	difficulty = clean_tier(t)
 
 
 # ------------------------------------------------------------------ setup
@@ -1675,6 +1715,7 @@ func _check_over() -> void:
 func state_hash() -> int:
 	var parts := PackedStringArray()
 	parts.append(str(tick))
+	parts.append("dif:" + difficulty)                    # H240: the tier is part of the fight
 	for id in order:
 		var u: Dictionary = units[id]
 		var p: Vector3 = u.pos

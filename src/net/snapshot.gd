@@ -41,12 +41,15 @@ static func capture(sim: HHSim) -> Dictionary:
 		"tg": clean(sim.telegraphs), "pr": clean(sim.projectiles),
 		"env": [sim.env.next_tick, sim.env.count] if sim.env != null else [],
 		"cells": cells,
+		"dif": sim.difficulty,                     # H241: clients agree on the tier (constant per fight)
 	}
 
 
 static func apply(sim: HHSim, snap: Dictionary) -> void:
 	sim.tick = int(snap.t)
 	sim.over = str(snap.o)
+	if snap.has("dif"):
+		sim.set_difficulty(snap.dif)
 	var ord: Array = snap.ord
 	for id in ord:
 		_set_unit(sim, str(id), snap.u[id])
