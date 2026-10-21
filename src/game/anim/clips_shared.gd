@@ -567,3 +567,83 @@ static func ready_loop(t: float, b: HHPlayerBody, pose: Dictionary) -> void:
 	apply(b, rooted(pose))
 	breath(b, t, 1.1, 1.0)
 	b.move("root", Vector3(0.0, -0.008 * (0.5 - 0.5 * cos(TAU * t / 1.1)), 0.0))
+
+
+# ------------------------------------------------------------------ spins (H70, Lane X2)
+# The strings turn (H70: "add a spin to make it clear you are in a combo").
+# Black | White's _strike_spin rules, ported: the turn is a root yaw applied
+# only while both feet are off the floor (so a planted foot never twists),
+# the pivot is the travelling root (not the model origin, so a lunging spin
+# does not orbit), and the head spots: it holds the target as long as it
+# can, then whips round ahead of the body.
+
+## The accumulated turn at `t` (degrees, + = to her left): `segs` is
+## [[t0, t1, degrees], ...]; each segment adds its turn between t0 and t1,
+## nearly linear (a whip), the ends softened a little.
+static func turn(t: float, segs: Array) -> float:
+	var y := 0.0
+	for s in segs:
+		var u := clampf((t - float(s[0])) / maxf(float(s[1]) - float(s[0]), 1e-4), 0.0, 1.0)
+		y += float(s[2]) * lerpf(u, smoothstep(0.0, 1.0, u), 0.35)
+	return y
+
+
+## `pose` turned `yaw_deg` about the root's ground point: IK targets (feet,
+## unanchored hands, their aims and poles) swing round the pivot and the
+## root bone takes the yaw. move:root itself stays (the body does not orbit).
+static func spin_pose(pose: Dictionary, yaw_deg: float) -> Dictionary:
+	if absf(yaw_deg) < 1e-3:
+		return pose
+	var r := Basis(Vector3.UP, deg_to_rad(yaw_deg))
+	var piv: Vector3 = pose.get("move:root", Vector3.ZERO)
+	piv.y = 0.0
+	var out := pose.duplicate()
+	for k in pose:
+		var ks := str(k)
+		if ks.begins_with("foot_"):
+			var arr: Array = (pose[k] as Array).duplicate()
+			arr[0] = piv + r * ((arr[0] as Vector3) - piv)
+			out[k] = arr
+		elif ks.begins_with("hand_"):
+			var h: Dictionary = (pose[k] as Dictionary).duplicate()
+			if str(h.anchor) == "":
+				var p: Vector3 = h.pos
+				h.pos = Vector3(piv.x, 0.0, piv.z) + r * (p - Vector3(piv.x, 0.0, piv.z))
+			if h.get("aim") is Basis:
+				h.aim = r * (h.aim as Basis)
+			if h.get("pole") is Vector3:
+				h.pole = r * (h.pole as Vector3)
+			out[k] = h
+	out["root"] = (pose.get("root", Vector3.ZERO) as Vector3) + Vector3(0.0, yaw_deg, 0.0)
+	return out
+
+
+## The head spots a turn (B|W _strike_spin): on the target until the body
+## has turned 80 degrees, then it swings through to lead, and it is on the
+## target again 80 degrees before the turn ends.
+static func spot(b: HHPlayerBody, yaw_deg: float) -> void:
+	var f := fposmod(absf(yaw_deg), 360.0)
+	var rel := 0.0
+	if f < 80.0:
+		rel = -f
+	elif f > 280.0:
+		rel = 360.0 - f
+	else:
+		rel = lerpf(-80.0, 80.0, (f - 80.0) / 200.0)
+	rel *= signf(yaw_deg)
+	b.rot("neck", Vector3(0.0, 0.4 * rel, 0.0))
+	b.rot("head", Vector3(0.0, 0.6 * rel, 0.0))
+
+
+## One spinning string hit: the keys (root frame), the feet from their
+## plants, the turn from `segs` (to be applied only between a lift and a
+## land), the head spotting, and the contact shudder.
+static func spin_hit(t: float, b: HHPlayerBody, keys: Array, track_l: Array, track_r: Array, segs: Array,
+		t_hit: float, life: float, amp: float, hz: float = 15.0) -> void:
+	var p := sample(t, keys)
+	p["foot_l"] = plant(t, track_l)
+	p["foot_r"] = plant(t, track_r)
+	var yaw := turn(t, segs)
+	apply(b, spin_pose(p, yaw))
+	spot(b, yaw)
+	impact(b, t, t_hit, life, amp, hz)
