@@ -21,8 +21,11 @@ extends Node
 ## objects; zstd when large). Channels: CH_CONTROL reliable (session, orders),
 ## CH_STREAM unreliable-ordered (deltas), CH_FULL reliable (full snapshots).
 ##
-## The transport is make_peer(): ENet on desktop; Phase 5 swaps in a
-## WebSocketMultiplayerPeer there and nothing else changes.
+## The transport is make_peer(): ENet on a LAN; HHRelayPeer (a WebSocket to
+## the public relay, H110-H113) when playing online and always in a browser.
+## host_online() / join_online(code) pick the relay; room_ready(code) gives the
+## host the room code to share; relay_status(text) narrates a slow connect
+## ("relay asleep, retrying…"). Over the relay every channel is reliable (TCP).
 
 signal peer_joined(peer: int)
 signal peer_left(peer: int)
@@ -30,6 +33,8 @@ signal connected()
 signal failed()
 signal disconnected()
 signal message(peer: int, kind: int, data: Variant)
+signal room_ready(code: String)          ## relay host: the room code friends type
+signal relay_status(text: String)        ## relay: a line while connecting
 
 const PORT := 24631
 const PROTOCOL := 1
@@ -57,12 +62,16 @@ var last_error := ""
 var names := {}                  ## peer -> name, for accepted peers (host: everyone; client: host + self)
 var stats := { "sent": {}, "recv": {}, "sent_total": 0, "recv_total": 0, "since_ms": 0 }
 var session: HHSession
+var relay_url := HHRelayConfig.url()      ## where online play connects (--relay overrides)
+var relay_socket: Callable                ## tests: a fake WebSocketPeer factory for HHRelayPeer
+var room := ""                            ## relay: the room code (host: once room_ready)
 
 var _mode := ""                  # "" | "host" | "client"
 var _welcomed := false
 var _join_started := -1
 var _accepted := {}              # host: peer -> true once HELLO checked out
 var _linger := {}                # host: refused peer -> ms to drop it at
+var _online := false             # this host / join goes through the relay
 
 
 func _init() -> void:
@@ -121,12 +130,21 @@ static func clean_name(s: String) -> String:
 
 # ------------------------------------------------------------------ transport
 
-## The one transport function (Phase 5: WebSocketMultiplayerPeer here).
-## Returns null and sets last_error on failure.
+## The one transport function. Online (and always in a browser, which has no
+## UDP: H79, H111) it is an HHRelayPeer to relay_url and `address` is the room
+## code; otherwise ENet. Returns null and sets last_error on failure.
 func make_peer(server: bool, address: String, port: int, peers: int) -> MultiplayerPeer:
-	if OS.has_feature("web"):
-		last_error = "co-op is not in the browser build yet: play together from the desktop build"   # H79: no UDP in a browser
-		return null
+	if _online or OS.has_feature("web"):
+		var rp := HHRelayPeer.new()
+		if relay_socket.is_valid():
+			rp.make_socket = relay_socket
+		rp.room_ready.connect(_on_room_ready)
+		rp.status_text.connect(func(t: String): relay_status.emit(t))
+		var rerr := rp.start_host(relay_url) if server else rp.start_join(relay_url, address)
+		if rerr != OK:
+			last_error = rp.error_text()
+			return null
+		return rp
 	var p := ENetMultiplayerPeer.new()
 	var err: Error
 	if server:
@@ -156,6 +174,7 @@ func _tune_peer(peer: int) -> void:
 
 func host(port: int = PORT, p_max_peers: int = 3) -> Error:
 	leave()
+	_online = OS.has_feature("web")
 	max_peers = clampi(p_max_peers, 1, 3)
 	var p := make_peer(true, "", port, max_peers)
 	if p == null:
@@ -171,15 +190,50 @@ func host(port: int = PORT, p_max_peers: int = 3) -> Error:
 	return OK
 
 
+## Host a room on the relay (H111). OK means the connection started; the
+## code arrives with room_ready, a failure with failed() + last_error.
+func host_online(p_max_peers: int = 3) -> Error:
+	leave()
+	_online = true
+	max_peers = clampi(p_max_peers, 1, 3)
+	var p := make_peer(true, "", 0, max_peers)
+	if p == null:
+		return ERR_CANT_CREATE
+	api.multiplayer_peer = p
+	_mode = "host"
+	_welcomed = true
+	accepting = true
+	last_error = ""
+	names = { 1: player_name }
+	_reset_stats()
+	session.begin()
+	return OK
+
+
+## Join a room on the relay by its code (H111).
+func join_online(code: String) -> Error:
+	leave()
+	_online = true
+	return _join(code, 0)
+
+
 func join(address: String, port: int = PORT) -> Error:
 	leave()
+	_online = OS.has_feature("web")
+	return _join(address, port)
+
+
+func _join(address: String, port: int) -> Error:
 	var p := make_peer(false, address, port, 0)
 	if p == null:
 		return ERR_CANT_CONNECT
 	api.multiplayer_peer = p
 	_mode = "client"
 	_welcomed = false
-	_join_started = Time.get_ticks_msec()
+	room = address if _online else ""
+	# Over the relay the clock starts at connected_to_server: a sleeping relay
+	# may take a minute to answer, and HHRelayPeer has its own 90 s budget.
+	_join_started = -1 if _online else Time.get_ticks_msec()
 	last_error = ""
 	names = {}
 	_reset_stats()
@@ -198,6 +252,7 @@ func leave() -> void:
 	_accepted.clear()
 	_linger.clear()
 	names.clear()
+	room = ""
 	if was != "":
 		session.clear()
 
@@ -208,6 +263,11 @@ func is_host() -> bool:
 
 func is_client() -> bool:
 	return _mode == "client"
+
+
+## This party goes through the relay.
+func is_relay() -> bool:
+	return _mode != "" and _online
 
 
 func is_online() -> bool:
@@ -335,23 +395,45 @@ func _on_peer_disconnected(peer: int) -> void:
 
 
 func _on_connected_to_server() -> void:
+	if _online and _join_started < 0:
+		_join_started = Time.get_ticks_msec()
 	send(1, HELLO, { "protocol": PROTOCOL, "name": player_name })
 
 
 func _on_connection_failed() -> void:
-	_fail("could not connect")
+	_fail(_relay_error("could not connect"))
 
 
 func _on_server_disconnected() -> void:
+	if _mode == "host" and _online:                  # the relay dropped the host
+		var why := _relay_error("lost the connection to the relay")
+		leave()
+		last_error = why
+		disconnected.emit()
+		return
 	if _mode != "client":
 		return
 	if not _welcomed:
 		if last_error == "":
-			_fail("the host closed the connection")
+			_fail(_relay_error("the host closed the connection"))
 		return
+	var why := _relay_error("the host left")
 	leave()
-	last_error = "the host left"
+	last_error = why
 	disconnected.emit()
+
+
+func _on_room_ready(code: String) -> void:
+	room = code
+	room_ready.emit(code)
+
+
+## The relay peer's sentence for why it closed, else `fallback`.
+func _relay_error(fallback: String) -> String:
+	var mp := api.multiplayer_peer
+	if mp is HHRelayPeer and (mp as HHRelayPeer).error_text() != "":
+		return (mp as HHRelayPeer).error_text()
+	return fallback
 
 
 func _fail(why: String) -> void:

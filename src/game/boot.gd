@@ -24,6 +24,9 @@ extends Node
 ##       hunters are in and ready (guests ready at once); each process's bot drives
 ##       its own hunter, prints its summary and quits (the two-process smoke test).
 ##       --arena / --fight / --weapon / --element / --backup / --seed prefill the lobby.
+##   --host --online [--name X]    co-op online: host a room on the relay (H114); the code shows in the lobby
+##   --join-code <code> [--name X] co-op online: join that room through the relay
+##   --relay <url>              the relay for this run (default HHRelayConfig.URL; ws://127.0.0.1:8765 locally)
 ## With no args (a double-clicked exe) it opens the lobby (H47). Any fight flag
 ## starts that fight directly; when it ends (or on Esc) the lobby opens with
 ## the same cfg (H48). Both run under HHShell.
@@ -65,7 +68,7 @@ func _ready() -> void:
 		shell.go_lobby(HHShell.default_cfg())
 		_capture(args, "--shot-lobby")
 		return
-	if "--host" in args or "--join" in args:                        # H914: the lobby, already hosting / joined
+	if "--host" in args or "--join" in args or "--join-code" in args:   # H914, H114: the lobby, already hosting / joined
 		var lc := HHShell.default_cfg()
 		for kv in [["--arena", "arena"], ["--fight", "monster"], ["--weapon", "weapon"], ["--element", "element"], ["--backup", "backup"]]:
 			if kv[0] in args:
@@ -76,6 +79,7 @@ func _ready() -> void:
 			lc.cam = _arg(args, "--cam", "30,44")
 		var host := "--host" in args
 		shell.coop_boot = { "mode": "host" if host else "join", "address": _arg(args, "--join", ""),
+			"online": "--online" in args or "--join-code" in args, "code": _arg(args, "--join-code", ""),
 			"name": _arg(args, "--name", "Host" if host else "Guest"), "autoplay": "--autoplay" in args,
 			"peers": int(_arg(args, "--peers", "2")), "port": int(_arg(args, "--port", str(HHParty.PORT))), "seconds": float(_arg(args, "--seconds", "30")) }
 		shell.go_lobby(lc)
@@ -118,10 +122,16 @@ func _ready() -> void:
 
 
 func _capture(args: PackedStringArray, flag: String) -> void:
-	var cap := HHCapture.new()
-	cap.out_dir = _arg(args, flag, "design/art/shots")
-	cap.every = float(_arg(args, "--every", "1.5"))
-	cap.count = int(_arg(args, "--count", "6"))
+	# Loaded by path, not by class name: the Web preset leaves tools/ out, and a
+	# class-name reference made boot.gd fail to parse in the browser (Lane R, H118).
+	var script: GDScript = load("res://tools/capture.gd") if ResourceLoader.exists("res://tools/capture.gd") else null
+	if script == null:
+		push_warning("%s: tools/capture.gd is not in this build" % flag)
+		return
+	var cap: Node = script.new()
+	cap.set("out_dir", _arg(args, flag, "design/art/shots"))
+	cap.set("every", float(_arg(args, "--every", "1.5")))
+	cap.set("count", int(_arg(args, "--count", "6")))
 	add_child(cap)
 
 

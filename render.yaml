@@ -1,0 +1,16 @@
+# Render Blueprint for the Hexhunt co-op relay (relay/README.md).
+# A free web service: it sleeps after ~15 minutes without traffic and the
+# first connection after that takes about a minute to wake it.
+services:
+  - type: web
+    name: hexhunt-relay
+    runtime: python
+    plan: free
+    rootDir: relay
+    buildCommand: pip install -r requirements.txt
+    startCommand: python relay.py
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"

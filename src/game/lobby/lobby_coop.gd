@@ -15,6 +15,9 @@ extends RefCounted
 ## them, locked); every peer owns its own weapon, elements, upgrades and
 ## Ready. The host's FIGHT starts when every other member is ready.
 ## Errors (cannot connect, host left) go to `note` and drop back to solo.
+## Online (Lane R, H114): host_online / join_online go through the relay
+## (net.host_online(), net.join_online(code); signals room_ready, relay_status);
+## `online` is set and `room` holds the code to share.
 
 signal note(text: String)            ## a line for the lobby's ticker
 signal refreshed                     ## the party or the host's picks changed: redraw
@@ -30,6 +33,8 @@ var role := "solo"
 var my_name := "Hunter"
 var address := ""                    ## host: "lan-ip:port" to tell friends; client: where we joined
 var ready := false
+var online := false                  ## this party goes through the relay (H114)
+var room := ""                       ## online: the room code (host: once the relay gave it)
 var port := HHParty.PORT             ## boot's --port (tests and smoke runs stay off the author's game)
 var _pushed_mine := {}
 var _pushed_host := {}
@@ -49,6 +54,8 @@ func attach(p_net: Object, p_session: Object) -> void:
 	_wire(net, "connected", _on_connected)
 	_wire(net, "failed", _on_failed)
 	_wire(net, "disconnected", _on_disconnected)
+	_wire(net, "room_ready", _on_room_ready)
+	_wire(net, "relay_status", _on_relay_status)
 	_wire(session, "changed", _on_changed)
 	_wire(session, "start_fight", _on_start_fight)
 	wire = HHCoopWire.open(net, session)
@@ -63,7 +70,11 @@ func attach(p_net: Object, p_session: Object) -> void:
 		var mine: Dictionary = members().get(my_peer(), {})
 		my_name = str(mine.get("name", my_name))
 		ready = false                     # back from a fight: everyone re-readies
-		if role == "host":
+		online = bool(_call(net, "is_relay", false))
+		room = str(net.get("room")) if online and net.get("room") != null else ""
+		if online:
+			address = "room %s" % room
+		elif role == "host":
 			address = "%s:%d" % [_lan(), HHParty.PORT]
 
 
@@ -116,10 +127,64 @@ func host_game(p_name: String) -> bool:
 		return false
 	role = "host"
 	ready = false
+	online = false
 	address = "%s:%d" % [_lan(), port]
 	note.emit("Hosting on %s: friends on your network join with that address" % address)
 	refreshed.emit()
 	return true
+
+
+## Host a room on the relay; the code arrives through room_ready (H114).
+func host_online(p_name: String) -> bool:
+	if not available() or not net.has_method("host_online"):
+		note.emit("Online play needs the relay transport (src/net/relay_peer.gd), which is not in this build")
+		return false
+	my_name = _clean_name(p_name)
+	online = true
+	room = ""
+	address = "the relay"
+	role = "host"
+	ready = false
+	note.emit("Opening a room on the relay ...")
+	var err: int = net.host_online(HHParty.MAX - 1)
+	if err != OK:
+		_to_solo("Could not host online: %s" % _why("the relay address is wrong"))
+		return false
+	refreshed.emit()
+	return role == "host"
+
+
+## Join a friend's room by its code (H114).
+func join_online(code: String, p_name: String) -> bool:
+	if not available() or not net.has_method("join_online"):
+		note.emit("Online play needs the relay transport (src/net/relay_peer.gd), which is not in this build")
+		return false
+	var clean := HHRelayPeer.clean_code(code)
+	if clean == "":
+		note.emit("Type the host's room code: five letters, e.g. KMRTX")
+		return false
+	my_name = _clean_name(p_name)
+	online = true
+	room = clean
+	address = "room %s" % clean
+	role = "joining"
+	note.emit("Joining room %s ..." % clean)
+	var err: int = net.join_online(clean)
+	if err != OK:
+		_to_solo("Could not join room %s: %s" % [clean, _why("the relay address is wrong")])
+		return false
+	refreshed.emit()
+	return role != "solo"
+
+
+func _why(fallback: String) -> String:
+	var why: Variant = net.get("last_error") if net != null else null
+	return str(why) if why is String and why != "" else fallback
+
+
+## The text the lobby shows big and copies: the room code, or "" off the relay.
+func share_code() -> String:
+	return room if online and role == "host" else ""
 
 
 func join_game(p_address: String, p_name: String) -> bool:
@@ -153,6 +218,8 @@ func leave() -> void:
 func _to_solo(msg: String) -> void:
 	role = "solo"
 	ready = false
+	online = false
+	room = ""
 	_pushed_mine = {}
 	_pushed_host = {}
 	if msg != "":
@@ -169,13 +236,34 @@ func _on_connected() -> void:
 
 func _on_failed() -> void:
 	var why: Variant = net.get("last_error") if net != null else null
-	_to_solo("Could not connect to %s%s" % [address, (": %s" % why) if why is String and why != "" else ""])
+	var tail: String = (": %s" % why) if why is String and why != "" else ""
+	if online and role == "host":
+		_to_solo("Could not host online" + tail)
+	elif online:
+		_to_solo("Could not join room %s%s" % [room, tail])
+	else:
+		_to_solo("Could not connect to %s%s" % [address, tail])
 
 
 func _on_disconnected() -> void:
 	if role == "solo":
 		return
+	if online:
+		var why: Variant = net.get("last_error") if net != null else null
+		_to_solo(str(why).substr(0, 1).to_upper() + str(why).substr(1) if why is String and why != "" else "Lost the relay")
+		return
 	_to_solo("The host left" if role in ["client", "joining"] else "Disconnected")
+
+
+func _on_room_ready(code: String) -> void:
+	room = code
+	address = "room %s" % code
+	note.emit("Room %s is open: tell your friends the code" % code)
+	refreshed.emit()
+
+
+func _on_relay_status(text: String) -> void:
+	note.emit(text.substr(0, 1).to_upper() + text.substr(1))
 
 
 func _on_changed() -> void:

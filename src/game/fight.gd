@@ -1025,6 +1025,13 @@ func _finish_autoplay() -> void:
 		print("  party: %s as %s, %d hunter(s), %d steps taken here" % [net_mode, player_id, party.size(), steps_taken])
 		for h in hunters():
 			print("  %s %s (%s): hp %d / %d%s, downed %d time(s)" % [h.id, h.name, h.weapon, int(h.hp), int(h.max_hp), "  DOWN" if bool(h.downed) else "", int(h.downs)])
+		var net := HHNet.find(self)
+		if net != null and net.api.multiplayer_peer != null:          # Lane R: bandwidth in the smoke summary
+			var secs := maxf(0.001, (Time.get_ticks_msec() - int(net.stats.since_ms)) / 1000.0)
+			var rp := net.api.multiplayer_peer as HHRelayPeer
+			print("  net: %s; sent %d B = %.1f KB/s, received %d B = %.1f KB/s over %.0f s%s" % ["relay room %s" % net.room if rp != null else "ENet",
+				int(net.stats.sent_total), net.stats.sent_total / secs / 1024.0, int(net.stats.recv_total), net.stats.recv_total / secs / 1024.0, secs,
+				"; relay frames out %d (%d B), in %d (%d B)" % [int(rp.stats.frames_out), int(rp.stats.bytes_out), int(rp.stats.frames_in), int(rp.stats.bytes_in)] if rp != null else ""])
 	if monster_id != "":
 		var m := sim.unit(monster_id)
 		print("  %s hp %d / %d" % [monster_id, int(m.hp), int(m.max_hp)])
