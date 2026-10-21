@@ -68,8 +68,8 @@ const LIMBS := {
 	"foot_l": ["thigh_l", "shin_l", "foot_l"], "foot_r": ["thigh_r", "shin_r", "foot_r"],
 	"hand_l": ["upper_arm_l", "forearm_l", "hand_l"], "hand_r": ["upper_arm_r", "forearm_r", "hand_r"],
 }
-const ROUGHNESS := { "skin": 0.55, "suit": 0.24, "plate": 0.28, "armor": 0.38, "leather": 0.62, "cape": 0.8, "hair": 0.42, "wrap": 0.9 }
-const METALLIC := { "plate": 0.55, "armor": 0.45 }
+const ROUGHNESS := { "skin": 0.55, "suit": 0.24, "plate": 0.44, "armor": 0.38, "leather": 0.62, "cape": 0.8, "hair": 0.66, "wrap": 0.9 }
+const METALLIC := { "plate": 0.4, "armor": 0.45 }   ## H102: faceted plate, toned so a flat facet does not blow out
 const DOUBLE_SIDED := ["cape", "hair", "armor"]       ## open shells (the cape, the hair cap, greaves and pauldron)
 ## H83: the suit (role `suit`: the bodysuit, the tattoo bands, the crest gems)
 ## takes the hunter's party colour. p1 / solo keeps the reference crimson; the
