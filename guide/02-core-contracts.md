@@ -31,6 +31,15 @@ Lane P adds casts (Q/E/R as orders with an aim hex) and the basic attack. Lane E
 - **Events**: `charge_start`, `charge_level`, `charge_release`, `charge_cancel`, `dash`, `dash_end`, `dash_ready`, `dodge`, `potion { hex, radius }`, `heal_zone_end`, `recovery`, `combo { step }`, `combo_reset`, `interrupted { what, skill }`, `exposed`, `exposed_end`; `strike` may carry `combo`, `heavy`, `level`; `windup` carries `step` and `level`.
 - **View**: `HHAimFx` (`src/game/fx/aim_fx.gd`, under the arena view) draws the range ring, the charge preview and pips, charge glows, heal zones, dash streaks and the exposed ring; the fight's hit-stop freezes bodies on heavy events. Review renders: `tools/feel_preview.gd` -> `design/feel/`.
 
+### Difficulty tiers (Lane D, H240-H245)
+- **The rule (spec 0.4, 6).** Every fight behaviour that existed on 2026-10-21 is the **EASY** tier and stays on every tier; nothing is deleted. New behaviour (monster enrage, element pulse, purge, avoidance, set-pieces: spec sections 7 and 8) is **NORMAL and up**, added behind the gate. Never change what EASY does to make a higher tier.
+- **The value.** `HHSim.TIERS = ["easy", "normal", "hard"]` (lowest first). `sim.difficulty` is set once, before the first `step()`: `HHSim.new(arena, seed, tier)` (the third argument defaults to "easy"), or `set_difficulty(t)`. `HHSim.clean_tier(v)` maps anything unknown or missing to "easy". `HARD` is defined so a lane can gate on it; it is identical to NORMAL until something differs, and the lobby does not offer it yet (CLI `--difficulty hard` works).
+- **The gate.** `if sim.tier_at_least("normal"):` (or `"hard"`). A misspelt tier is a `push_error` and returns false: it never turns a behaviour on. Brains, the env and weapon hooks read `sim.difficulty` / `tier_at_least` only; the tier never changes mid-fight. Tune keys for a tier's numbers go in `HHTune` like any feel number (e.g. `swampfang_enrage_hp_pct`), read inside the gate.
+- **Determinism and co-op.** The tier is in `state_hash()` (`dif:<tier>`) and in every full snapshot (`HHSnapshot.capture` key `dif`; `apply` sets it), so a mirror always agrees. It rides the launch cfg as `cfg.difficulty` (`HHShell.default_cfg` = "easy"; `HHFight.setup_cfg` builds the sim with it). In a party the **host's tier rules**: `HHSession.HOST_KEYS` / `fields.difficulty` and `build_cfg`, and `HHLobbyCoop.HOST_KEYS` lock the client's switch (`coop_locks`).
+- **Today NORMAL == EASY.** Nothing is gated yet. `tests/test_difficulty.gd` `test_normal_plays_like_easy_today` runs every monster on its biome on both tiers and compares the whole snapshot every 30 ticks. **The first lane that gates a behaviour rewrites that test** to prove EASY unchanged instead (and keeps the hash test).
+- **UI.** Lobby card head: an Easy / Normal toggle (`HHLobbyState.set_difficulty`, `LOBBY_TIERS`, persisted in `hexhunt_last.json` with the other picks via `SAVED_KEYS`; the run history row carries `difficulty`). CLI `--difficulty easy|normal|hard` for a direct fight, `--hunt`, `--host` / `--join` and the plain lobby. The fight HUD prints the tier small at the right end of the monster plate (`HHHud.tier_tag`).
+- **Measurement.** `tools/difficulty_baseline.gd` runs N seeded solo bot fights per monster x weapon x tier and writes win rate and median fight length (`design/difficulty/baseline.md`: the numbers before any tier differs).
+
 ## HHPhases (`phases.gd`)
 `start(script) -> state`, `check(state, hp_frac, tick) -> fired ids`, `rule(state, key, def)`, `countdown`. Triggers: `hp_below`, `after`, `delay_ticks`. A monster's calm / aggravated / threatened / enraged states are a phase script plus its own brain.
 
@@ -47,7 +56,8 @@ cfg = { arena: "pond", monster: "swampfang", weapon: "lance",
         element: "fire", backup: "water", seed: 1,
         upgrades: { q: [], w: [], e: [], r: [] },     # upgrade ids slotted per skill, max 3 each
         locked: [],                                    # keys the prep screen may not change (hunt loop: arena, monster)
-        cam: "30,44" }
+        cam: "30,44",
+        difficulty: "easy" }                           # H240: easy | normal | hard (see Difficulty tiers)
 ```
 `HHFight.setup_cfg(cfg)` builds the fight from it (the old `setup(arena, seed, monster, asset)` stays for tests). The fight emits `finished({ result: "win"|"fallen"|"abort", cfg, ticks, hp, monster_hp })`.
 

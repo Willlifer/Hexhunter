@@ -9,6 +9,8 @@ extends Node
 ##                              when src/monster/<monster>.gd exists, else the stub)
 ##   --weapon <id>              lance (default) | daggers | bow
 ##   --element <el> --backup <el>   the hunter's element pair (default fire / water)
+##   --difficulty easy|normal   the fight's tier (H243; default easy; "hard" is accepted, identical
+##                              to normal for now); also prefills the lobby, --hunt and --host
 ##   --hunt [--seed N] [--weapon id]  the hunt loop: world map -> ambush -> prep -> fight -> results
 ##   --sandbox                  H20: left-click paints, keys 1-7 pick the element
 ##   --autoplay [--seconds s]   scripted run, then quit (the smoke test)
@@ -77,6 +79,8 @@ func _ready() -> void:
 			lc.seed = int(_arg(args, "--seed", "1"))
 		if "--cam" in args:
 			lc.cam = _arg(args, "--cam", "30,44")
+		if "--difficulty" in args:
+			lc.difficulty = _tier(args)
 		var host := "--host" in args
 		shell.coop_boot = { "mode": "host" if host else "join", "address": _arg(args, "--join", ""),
 			"online": "--online" in args or "--join-code" in args, "code": _arg(args, "--join-code", ""),
@@ -90,6 +94,8 @@ func _ready() -> void:
 		hc.weapon = _arg(args, "--weapon", "lance")
 		hc.element = _arg(args, "--element", "fire")
 		hc.backup = _arg(args, "--backup", "water")
+		if "--difficulty" in args:
+			hc.difficulty = _tier(args)
 		shell.last_cfg = hc
 		shell.hunt(hc)
 		return
@@ -98,7 +104,7 @@ func _ready() -> void:
 		if f in args:
 			direct = true
 	if not direct:                                                  # double-clicked: the lobby (H47)
-		shell.go_lobby({})
+		shell.go_lobby({ "difficulty": _tier(args) } if "--difficulty" in args else {})
 		return
 	var cfg := HHShell.default_cfg()
 	cfg.arena = _arg(args, "--arena", "round")
@@ -107,6 +113,7 @@ func _ready() -> void:
 	cfg.element = _arg(args, "--element", "fire")
 	cfg.backup = _arg(args, "--backup", "water")
 	cfg.seed = int(_arg(args, "--seed", "1"))
+	cfg.difficulty = _tier(args)
 	cfg.cam = _arg(args, "--cam", "18,48") if "--cam" in args else ""
 	cfg.sandbox = "--sandbox" in args
 	cfg.autoplay = "--autoplay" in args or "--shot" in args
@@ -133,6 +140,14 @@ func _capture(args: PackedStringArray, flag: String) -> void:
 	cap.set("every", float(_arg(args, "--every", "1.5")))
 	cap.set("count", int(_arg(args, "--count", "6")))
 	add_child(cap)
+
+
+## --difficulty <tier>, checked: an unknown tier says so and plays easy.
+func _tier(args: PackedStringArray) -> String:
+	var want := _arg(args, "--difficulty", "easy").to_lower()
+	if not want in HHSim.TIERS:
+		push_warning("boot: unknown --difficulty '%s' (one of %s); playing easy" % [want, HHSim.TIERS])
+	return HHSim.clean_tier(want)
 
 
 func _arg(args: PackedStringArray, key: String, fallback: String) -> String:

@@ -141,7 +141,7 @@ func setup(p_arena: HHArena, seed: int, monster: String = "", p_asset: GKAsset =
 	HHTune.register("fight", TUNE)
 	arena = p_arena
 	asset = p_asset
-	sim = HHSim.new(arena, seed)
+	sim = HHSim.new(arena, seed, str(cfg.get("difficulty", "easy")))   # H240: the tier is fixed for the fight
 	sim.sandbox = sandbox or autoplay
 	if party.is_empty():                   # the old setup(arena, seed, ...) path: one hunter from the vars
 		party = HHParty.players_of({ "weapon": weapon, "element": element, "backup": backup, "upgrades": upgrades })
