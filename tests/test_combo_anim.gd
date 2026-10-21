@@ -138,10 +138,10 @@ func test_contact_reaches_and_feet_hold(c: HHSelfTest.HHCheck) -> void:
 							worst = maxf(worst, Vector2(p.x - q.x, p.z - q.z).length())
 					prev[side] = p
 			c.ok(worst < 0.012, "%s hit %d: planted feet do not skate (%.3f m a frame)" % [w, step, worst])
-			# the IK reaches its plants: the lunge never stretches a leg off the floor at rest frames
-			b.pose_at(name, b.contact_time(name) + 0.05)
-			floated = minf(b.bone_pos("foot_l").y, b.bone_pos("foot_r").y)
-			c.ok(floated < HHClipsShared.ANKLE_Y + 0.03, "%s hit %d: a foot on the floor after contact (%.2f)" % [w, step, floated])
+			# H70: the spinning hits may still be in the air at contact; every hit is down on both feet at its end
+			b.pose_at(name, d)
+			floated = maxf(b.bone_pos("foot_l").y, b.bone_pos("foot_r").y)
+			c.ok(floated < HHClipsShared.ANKLE_Y + 0.03, "%s hit %d: lands on both feet (%.2f)" % [w, step, floated])
 		b.free()
 
 
@@ -250,3 +250,45 @@ func test_lance_brace(c: HHSelfTest.HHCheck) -> void:
 	c.ok(pierced, "the full charge fires")
 	c.ok(plant_at_pierce, "the release reaches the plant's contact on the pierce")
 	b.free()
+
+
+## The root's turn about the vertical, degrees (the clip's yaw on the root bone).
+func _yaw(b: HHPlayerBody) -> float:
+	var i := b.bone("root")
+	var rest := b.skeleton.get_bone_rest(i).basis.get_rotation_quaternion()
+	var q: Quaternion = rest.inverse() * b.skeleton.get_bone_pose_rotation(i)
+	var f := Basis(q) * Vector3.BACK
+	return rad_to_deg(atan2(f.x, f.z))
+
+
+## H70 (Lane X2): the strings spin, each hit at least as much as the last
+## (the daggers strictly more), the turn measured off the root bone matches
+## the row's `spin`, and every hit faces the target again at its contact.
+func test_hits_spin_and_escalate(c: HHSelfTest.HHCheck) -> void:
+	for w in STRINGS:
+		var b := _body(w)
+		if b == null:
+			c.ok(false, "body %s" % w)
+			continue
+		var combo: Dictionary = _clip_set(w).get("COMBO_CLIPS")
+		var clips := HHPlayerBody.clips(w)
+		var prev := -1.0
+		for step in [1, 2, 3]:
+			var name := str(combo[step])
+			var want := float(clips[name].get("spin", 0))
+			var d := b.duration(name)
+			var total := 0.0
+			b.pose_at(name, 0.0)
+			var last := _yaw(b)
+			var n := int(d * 120.0)
+			for k in range(1, n + 1):
+				b.pose_at(name, d * float(k) / float(n))
+				var y := _yaw(b)
+				total += wrapf(y - last, -180.0, 180.0)
+				last = y
+			c.near(absf(total), want, 10.0, "%s hit %d turns %.0f degrees (row %d)" % [w, step, total, int(want)])
+			c.ok(want > prev if w == "daggers" else want >= prev, "%s hit %d spins more than the hit before" % [w, step])
+			prev = want
+			b.pose_at(name, b.contact_time(name))
+			c.ok(absf(_yaw(b)) < 5.0, "%s hit %d faces the target at contact (%.1f)" % [w, step, _yaw(b)])
+		b.free()

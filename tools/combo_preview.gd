@@ -7,8 +7,9 @@
 ## (three hits on a still target) and drives an HHPlayerBody through the
 ## sim's events exactly as HHFight does (60 fps, the 75 ms hit-stop on the
 ## finisher), then writes:
-##   <w>_<tag>_side.png, <w>_<tag>_front.png  a 4 x 3 sheet: a row per hit
-##       at anticipation (the coil) / contact (the strike tick) /
+##   <w>_<tag>_side.png, <w>_<tag>_front.png, <w>_<tag>_top.png (H70: from
+##       above, where turns read)  a 5 x 3 sheet: a row per hit at
+##       anticipation (the coil) / mid-windup (the spin) / contact (the strike tick) /
 ##       follow-through (mid recovery) / settle (the frame before the next
 ##       hit's wind-up: the ready loop, or the guard after the finisher)
 ##   <w>_<tag>_strip.png  the whole string from the side, every 2nd tick
@@ -183,6 +184,7 @@ func _moments(hits: Dictionary) -> Array:
 		var nxt := int(hits[step + 1].w) if hits.has(step + 1) else int(h.s) + int(h.r)
 		# the coil beat (B|W f8 of 14); the body runs a tick ahead of the event that started it
 		out.append([step, "anticipation", int(h.w) + maxi(1, int(roundf(float(wu) * 8.0 / 14.0)) - 1)])
+		out.append([step, "mid-windup", int(h.w) + maxi(2, int(roundf(float(wu) * 0.8)) - 1)])
 		out.append([step, "contact", int(h.s)])
 		out.append([step, "follow-through", int(h.s) + maxi(2, int(h.r) / 2)])
 		out.append([step, "settle", nxt - 1])
@@ -214,6 +216,7 @@ func _weapon(w: String) -> void:
 	body.update(1.0 / 60.0)
 	var side_tiles := {}
 	var front_tiles := {}
+	var top_tiles := {}
 	var strip: Array[Image] = []
 	var hitstop := 0.0
 	for k in last + 1:
@@ -239,6 +242,8 @@ func _weapon(w: String) -> void:
 			side_tiles[tick] = await _grab()
 			_front(reach)
 			front_tiles[tick] = await _grab()
+			_top(reach)
+			top_tiles[tick] = await _grab()
 		if k % every == 0:
 			label.text = "%d" % tick
 			_side(reach, 1.1)                       # centred on the figure and the first metres of its reach
@@ -246,6 +251,7 @@ func _weapon(w: String) -> void:
 	label.text = ""
 	_sheet(moments, side_tiles, _abs(out_dir).path_join("%s_%s_side.png" % [w, tag]))
 	_sheet(moments, front_tiles, _abs(out_dir).path_join("%s_%s_front.png" % [w, tag]))
+	_sheet(moments, top_tiles, _abs(out_dir).path_join("%s_%s_top.png" % [w, tag]))
 	_strip(strip, _abs(out_dir).path_join("%s_%s_strip.png" % [w, tag]))
 	body.queue_free()
 	await process_frame
@@ -259,9 +265,16 @@ func _side(reach: float, mid_z: float = -1.0) -> void:
 
 
 ## From in front, a little off the line and above (the target is a disc).
+## H70: from straight above, the target at the top of the frame (turns read best from here).
+func _top(reach: float) -> void:
+	var mid := Vector3(0.0, 0.0, 1.0)
+	cam.position = mid + Vector3(0.0, 8.5, -0.01)
+	cam.look_at(mid, Vector3(0, 0, 1))
+
+
 func _front(reach: float) -> void:
-	var mid := Vector3(0.0, 1.1, 0.2)
-	cam.position = mid + Vector3(0.8, 0.8, 4.6)
+	var mid := Vector3(0.0, 1.45, 0.2)
+	cam.position = mid + Vector3(0.8, 0.7, 5.6)
 	cam.look_at(mid, Vector3.UP)
 
 
@@ -277,11 +290,12 @@ func _sheet(moments: Array, tiles: Dictionary, path: String) -> void:
 	var first: Image = tiles.values()[0]
 	var tw := first.get_width()
 	var th := first.get_height()
-	var img := Image.create(tw * 4, th * 3, false, first.get_format())
+	var cols := moments.size() / 3
+	var img := Image.create(tw * cols, th * 3, false, first.get_format())
 	for i in moments.size():
 		var t := int(moments[i][2])
 		if tiles.has(t):
-			img.blit_rect(tiles[t], Rect2i(0, 0, tw, th), Vector2i(tw * (i % 4), th * (i / 4)))
+			img.blit_rect(tiles[t], Rect2i(0, 0, tw, th), Vector2i(tw * (i % cols), th * (i / cols)))
 	var err := img.save_png(path)
 	print("combo_preview: %s (%s)" % [path, "ok" if err == OK else error_string(err)])
 

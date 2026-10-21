@@ -379,7 +379,8 @@ func _draw_ward(delta: float) -> void:
 ## World space (top_level), one ImmediateMesh per body, rebuilt only while
 ## it has points; it freezes with the body in a hit-stop (delta 0).
 const TRAIL_LIFE := 0.1
-const TRAIL_MAX := 24
+const TRAIL_MAX := 64
+const TRAIL_ARC_DEG := 12.0           ## H70: a spin's samples are filled in round the body at most this far apart
 var trail_points := 0               ## live ribbon samples (tests, fx-perf)
 var _trail: MeshInstance3D = null
 var _trail_pts: Array = []          # [age, base, tip, strength] per blade, oldest first
@@ -403,7 +404,7 @@ func _draw_trail(delta: float) -> void:
 		if which != "main":
 			nodes.append(weapon_off)
 		var strength := float(tr[2])
-		_trail_life = TRAIL_LIFE * (0.6 + 0.6 * strength)
+		_trail_life = float(tr[4]) if (tr as Array).size() > 4 else TRAIL_LIFE * (0.6 + 0.6 * strength)
 		while _trail_pts.size() < nodes.size():
 			_trail_pts.append([])
 		for i in nodes.size():
@@ -416,7 +417,11 @@ func _draw_trail(delta: float) -> void:
 			base = tip.lerp(base, clampf(0.35 + 0.2 * strength, 0.0, 0.7))
 			var world := global_transform if is_inside_tree() else transform
 			var blade: Array = _trail_pts[i]
-			blade.append([0.0, world * (xf * base), world * (xf * tip), strength])
+			var wb: Vector3 = world * (xf * base)
+			var wt: Vector3 = world * (xf * tip)
+			if not blade.is_empty():
+				_fill_arc(blade, wb, wt, strength, world * bone_pos("hips"))
+			blade.append([0.0, wb, wt, strength])
 			while blade.size() > TRAIL_MAX:
 				blade.pop_front()
 	trail_points = 0
@@ -454,13 +459,40 @@ func _draw_trail(delta: float) -> void:
 		im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
 		for p in pts:
 			var k := clampf(1.0 - float(p[0]) / _trail_life, 0.0, 1.0)
-			var a := k * clampf(0.35 + 0.2 * float(p[3]), 0.0, 0.75)
-			var c := col.lerp(Color.WHITE, 0.35 * k * k)
+			var a := k * clampf(0.35 + 0.15 * float(p[3]), 0.0, 0.58)
+			var c := col.lerp(Color.WHITE, 0.15 * k * k)
 			im.surface_set_color(Color(c.r, c.g, c.b, a))
 			im.surface_add_vertex(p[1])
 			im.surface_set_color(Color(c.r, c.g, c.b, minf(1.0, a * 1.3)))
 			im.surface_add_vertex(p[2])
 		im.surface_end()
+
+
+## H70: a spin moves the blade 40-60 degrees a frame, so straight ribbon
+## segments drew polygons; between the last sample and this one the edge
+## is swept round the body's vertical axis (angle, radius and height
+## interpolated) in steps of at most TRAIL_ARC_DEG.
+func _fill_arc(blade: Array, wb: Vector3, wt: Vector3, strength: float, pivot: Vector3) -> void:
+	var last: Array = blade[-1]
+	var pb: Vector3 = last[1]
+	var pt: Vector3 = last[2]
+	var a0 := atan2(pt.x - pivot.x, pt.z - pivot.z)
+	var a1 := atan2(wt.x - pivot.x, wt.z - pivot.z)
+	var da := wrapf(a1 - a0, -PI, PI)
+	var n := int(ceil(absf(rad_to_deg(da)) / TRAIL_ARC_DEG))
+	if n < 2:
+		return
+	for i in range(1, n):
+		var u := float(i) / float(n)
+		blade.append([0.0, _swept(pb, wb, pivot, u, da), _swept(pt, wt, pivot, u, da), strength])
+
+
+static func _swept(p0: Vector3, p1: Vector3, pivot: Vector3, u: float, da: float) -> Vector3:
+	var r0 := Vector2(p0.x - pivot.x, p0.z - pivot.z)
+	var r1 := Vector2(p1.x - pivot.x, p1.z - pivot.z)
+	var a := atan2(r0.x, r0.y) + da * u
+	var r := lerpf(r0.length(), r1.length(), u)
+	return Vector3(pivot.x + r * sin(a), lerpf(p0.y, p1.y, u), pivot.z + r * cos(a))
 
 
 ## A point from the weapon's manifest row (weapon local), or `fallback`.
