@@ -35,6 +35,7 @@ static func default_cfg() -> Dictionary:
 		"element": "fire", "backup": "water", "seed": 1,
 		"upgrades": { "q": [], "w": [], "e": [], "r": [], "t": [] },   # t = the potion (Lane U)
 		"locked": [], "cam": "30,44",
+		"difficulty": "easy",                                         # H240: easy | normal (| hard, CLI only)
 	}
 
 
@@ -111,7 +112,8 @@ func play(cfg: Dictionary, on_finished: Callable = Callable()) -> Node:
 ## monster locked) -> fight -> results -> map. Quitting the map returns here.
 func hunt(cfg: Dictionary = last_cfg) -> void:
 	var h: Node = HHHunt.start(self, { "seed": int(cfg.get("seed", 1)), "weapon": str(cfg.get("weapon", "lance")),
-		"element": str(cfg.get("element", "fire")), "backup": str(cfg.get("backup", "water")) })
+		"element": str(cfg.get("element", "fire")), "backup": str(cfg.get("backup", "water")),
+		"difficulty": HHSim.clean_tier(cfg.get("difficulty", "easy")) })   # H243: the tier rides the hunt into prep
 	h.connect("ended", func():
 		go_lobby(last_cfg)
 		var why := str(h.get("end_note")) if is_instance_valid(h) and h.get("end_note") != null else ""

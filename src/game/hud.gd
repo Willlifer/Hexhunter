@@ -887,6 +887,7 @@ func _monster_plate(pt: Paint, bar: Rect2) -> void:
 		pt.line(Vector2(x, bar.position.y), Vector2(x, bar.end.y), Color(0, 0, 0, 0.55), 1.0)
 	pt.frame(bar, GOLD_DIM, 1.0)
 	pt.text(Vector2(bar.get_center().x, bar.end.y - 3.0), "%d / %d" % [int(m.hp), int(m.max_hp)], 12, Color(1, 1, 1, 0.92), 1, 3)
+	pt.text(Vector2(bar.end.x, bar.position.y - 8.0), tier_tag(sim), 12, Color(GOLD.r, GOLD.g, GOLD.b, 0.7), 2, 3, serif())   # H243: the tier, small, right of the name
 	if int(m.get("exposed", 0)) > 0:                # H57: the punish window
 		var pulse := 0.7 + 0.3 * sin(_t * 12.0)
 		var tag := Rect2(bar.end.x - 92.0, bar.end.y + 5.0, 92.0, 20.0)
@@ -919,6 +920,11 @@ func _monster_plate(pt: Paint, bar: Rect2) -> void:
 	else:                                           # no state: the socket holds a dim ornament
 		socket(pt, sc, 20.0, GOLD_DIM)
 		pt.poly(_scaled(_star(Vector2(0.5, 0.5), 0.5, 0.18, 4), sc - Vector2(10, 10), 20.0), Color(GOLD_DIM.r, GOLD_DIM.g, GOLD_DIM.b, 0.8))
+
+
+## The fight's tier under the monster bar, small and dim (H243): "EASY" / "NORMAL".
+static func tier_tag(s: HHSim) -> String:
+	return str(s.difficulty).to_upper() if s != null else ""
 
 
 ## The end banner: a band across the screen, gold rules fading to the edges.

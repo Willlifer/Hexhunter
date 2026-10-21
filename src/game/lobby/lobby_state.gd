@@ -16,8 +16,39 @@ const RUNS_PATH := "user://hexhunt_runs.json"
 static var runs_path := RUNS_PATH   ## the self-test points this at a scratch file too (H810)
 const RUNS_KEEP := 20
 const RUNS_SHOWN := 5
-const SAVED_KEYS := ["arena", "monster", "weapon", "element", "backup", "seed", "cam"]
+const SAVED_KEYS := ["arena", "monster", "weapon", "element", "backup", "seed", "cam", "difficulty"]
 const ROWS := ["arena", "monster", "weapon"]     # keys 1-3 jump these rows, 4 the elements
+
+## Difficulty (Lane D, H240-H243): the tiers the lobby switch offers. HHSim.TIERS
+## also defines "hard" (identical to normal today); the lobby adds it once
+## something differs. A saved or passed "hard" is kept, never offered.
+const LOBBY_TIERS := ["easy", "normal"]
+const TIER_BLURB := {
+	"easy": "Easy: every fight exactly as it plays today",
+	"normal": "Normal: Easy plus the new monster behaviour as it lands (identical to Easy for now)",
+	"hard": "Hard: defined for later; identical to Normal for now",
+}
+
+## The element picker's grouping (Lane D, H244, spec section 4): the axis
+## elements, then Wind, Ice and Thunder under a labelled OPERATORS group,
+## each with one line naming its cash-in. Swirl and Shatter are the names of
+## mechanics still to come (spec sections 2 and 3); the copy is their label.
+const AXIS := ["fire", "water", "dark", "light"]
+const OPERATORS := ["wind", "ice", "thunder"]
+const OPERATOR_COPY := {
+	"wind": "Wind — Swirl: pulls charge inward and condenses it",
+	"ice": "Ice — Shatter: crystals burst on contact",
+	"thunder": "Thunder — Detonate: sets off charged ground",
+}
+
+
+## The element strip in picker order: the axis group, then the operators.
+static func element_order() -> Array:
+	return AXIS + OPERATORS
+
+
+static func is_operator(id: String) -> bool:
+	return id in OPERATORS
 
 var cfg: Dictionary = HHShell.default_cfg()
 var locked: Array = []
@@ -137,6 +168,14 @@ func pick_element(id: String) -> bool:
 	return true
 
 
+## The tier switch (H243). False when locked (a party client follows the host).
+func set_difficulty(t: String) -> bool:
+	if is_locked("difficulty") or not t in HHSim.TIERS:
+		return false
+	cfg.difficulty = t
+	return true
+
+
 func set_seed(v: int) -> bool:
 	if is_locked("seed"):
 		return false
@@ -157,7 +196,7 @@ func step_row(dir: int) -> void:
 		var i := ids.find(str(cfg[kind]))
 		pick(kind, str(ids[posmod(i + dir, ids.size())]))
 	else:
-		var ids := HHRegistry.ids("element")
+		var ids := element_order()                     # the strip's own order (H244)
 		var i := ids.find(str(cfg.element))
 		var next := str(ids[posmod(i + dir, ids.size())])
 		if next == str(cfg.backup):
@@ -203,6 +242,7 @@ func _sane() -> void:
 				cfg.backup = el
 				break
 	cfg.seed = int(cfg.get("seed", 1))
+	cfg.difficulty = HHSim.clean_tier(cfg.get("difficulty", "easy"))
 
 
 # ------------------------------------------------------------------ run history
@@ -221,6 +261,7 @@ static func run_entry(result: Dictionary, cfg: Dictionary = {}) -> Dictionary:
 		"element": str(c.get("element", "")), "backup": str(c.get("backup", "")), "seed": int(c.get("seed", 1)),
 		"result": verdict, "seconds": snappedf(float(result.get("ticks", 0)) * HHSim.TICK, 0.1),
 		"hunt": not (c.get("locked", []) as Array).is_empty(),
+		"difficulty": HHSim.clean_tier(c.get("difficulty", "easy")),
 	}
 
 

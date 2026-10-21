@@ -24,7 +24,7 @@ signal refreshed                     ## the party or the host's picks changed: r
 signal started(cfg: Dictionary)      ## the session started the fight (this peer's own cfg, see launch_cfg)
 signal hunt_started(data: Dictionary)   ## the host began a co-op hunt (clients follow)
 
-const HOST_KEYS := ["arena", "monster", "seed"]
+const HOST_KEYS := ["arena", "monster", "seed", "difficulty"]   # H241: a client follows the host's tier
 const MINE_KEYS := ["weapon", "element", "backup", "upgrades"]
 
 var net: Object = null
@@ -387,7 +387,7 @@ func pull(state: HHLobbyState) -> void:
 	var hc := host_cfg()
 	for k in HOST_KEYS:
 		if hc.has(k):
-			state.cfg[k] = int(hc[k]) if k == "seed" else str(hc[k])
+			state.cfg[k] = int(hc[k]) if k == "seed" else (HHSim.clean_tier(hc[k]) if k == "difficulty" else str(hc[k]))
 
 
 func toggle_ready(state: HHLobbyState) -> void:
