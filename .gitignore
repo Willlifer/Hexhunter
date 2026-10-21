@@ -7,3 +7,7 @@ dist/
 .claude/
 tools/blender/monster_rig/__pycache__/
 art/monsters/blend/*.blend
+art/characters/blend/*.blend
+art/weapons/blend/*.blend
+Hexhunt.docx
+*.blend1
