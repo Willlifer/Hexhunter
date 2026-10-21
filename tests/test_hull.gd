@@ -683,9 +683,10 @@ static func _under_case() -> Array:
 	return [s, p, m]
 
 
-## H268, H271: who caused it. Covered while standing, or while moving away: the
-## monster arrived on you (20%, staggers). Covered while moving into the hull:
-## you caused it (5%, no stagger). The slide happens either way.
+## H268, H281: a monster that arrives on a hunter is always "land" (20%,
+## staggers), whether the hunter stood, walked away or walked into it. The
+## author's "you caused it" (5%) is a hunter's own leap or dash aimed into a
+## body (test_own_leap_and_dash_bump). The slide happens either way.
 func test_push_damage_cause(c: HHSelfTest.HHCheck) -> void:
 	for case in ["standing", "away", "into"]:
 		var r := _under_case()
@@ -704,7 +705,7 @@ func test_push_damage_cause(c: HHSelfTest.HHCheck) -> void:
 		s.events = []
 		var hp := float(p.hp)
 		s._push_out()
-		var want := "self" if case == "into" else "land"
+		var want := "land"                               # H281 (push_walk_into_is_self 0)
 		var push: Array = s.events.filter(func(e): return e.type == "push_out")
 		c.ok(push.size() == 1 and str(push[0].cause) == want, "%s: cause %s" % [case, want])
 		c.near(hp - float(p.hp), float(p.max_hp) * HHTune.value("push_%s_pct" % want) / 100.0, 0.01, "%s: push_%s_pct of max HP" % [case, want])
@@ -872,3 +873,36 @@ func test_push_damage_deterministic(c: HHSelfTest.HHCheck) -> void:
 	c.eq(runs[0][0], runs[1][0], "same seed, same orders: same hash with push damage and splashes")
 	c.eq(runs[0][1], runs[1][1], "the same push hurts and splashes on the same ticks (%d)" % (runs[0][1] as Array).size())
 	c.ok(not (runs[0][1] as Array).is_empty(), "the run had a push hurt or a splash")
+
+
+## H281: a hunter's own leap or dash aimed into a monster's body lands on the
+## free hex nearest the aim (past the move's range if need be), outside the
+## body, and the bump costs push_self_pct (5%, no stagger), by the monster.
+func test_own_leap_and_dash_bump(c: HHSelfTest.HHCheck) -> void:
+	for how in ["leap", "dash"]:
+		var s := HHSim.new(HHArena.round_flat(1, 25.0, 0.0), 1)
+		var p := s.add_player("p1", Vector2i(0, 8), "fire", "water", "daggers")
+		var m := s.add_monster("m", Vector2i(0, -8), 50000.0, 2)
+		place(s, m, Vector2i(0, 0))
+		place(s, p, Vector2i(0, 4))
+		var hp := float(p.hp)
+		s.events = []
+		var ev: Array = []
+		if how == "leap":
+			s.begin_leap(p, Vector2i(0, 0), 15, Callable())     # aimed at the monster's centre
+			c.ok(not s.in_hull(m, (p.leap as Dictionary).to), "leap: redirected at launch, outside the body")
+			c.ok(s.events.any(func(e): return e.type == "leap_redirect"), "leap: a leap_redirect event")
+			for i in 16:
+				ev.append_array(s.step())
+		else:
+			p.dash_charges = 2
+			s._dash_order(p, s.arena.stand(Vector2i(0, 1)))   # into the body, short of its far side
+			c.ok(not (p.dash as Dictionary).is_empty(), "dash: starts (a body does not block it)")
+			for i in int(HHTune.value("dash_ticks")) + 2:
+				ev.append_array(s.step())
+		c.ok(not s.in_hull(m, p.hex), "%s: ends outside the body (%s)" % [how, p.hex])
+		c.ok(HHHex.distance(p.hex, m.hex) == int(m.size) + 1, "%s: beside it, on the Attack Ring" % how)
+		c.ok(ev.any(func(e): return e.type == "bump" and str(e.by) == "m"), "%s: a bump event" % how)
+		c.near(hp - float(p.hp), float(p.max_hp) * HHTune.value("push_self_pct") / 100.0, 0.01, "%s: push_self_pct of max HP" % how)
+		c.ok(not ev.any(func(e): return e.type == "push_out" and str(e.id) == "p1"), "%s: not also pushed out" % how)
+		c.eq(int(p.stagger), 0, "%s: no stagger" % how)

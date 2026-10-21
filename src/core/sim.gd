@@ -574,6 +574,8 @@ func _push_out() -> void:
 				continue
 			if not (p.leap as Dictionary).is_empty() or not in_hull(m, p.hex):
 				continue
+			if not (p.get("dash", {}) as Dictionary).is_empty() and not _landed.has(str(m.id)):
+				continue                                     # H281: a dash passes over a still body; a landing still shoves
 			var to := push_spot(m, p, taken)
 			if to == NO_HEX:
 				continue
@@ -597,8 +599,8 @@ func push_cause(m: Dictionary, p: Dictionary) -> String:
 	if _landed.has(str(m.id)):
 		return "land"
 	var u: Dictionary = p.get("under", {})
-	if str(u.get("by", "")) == str(m.id) and bool(u.get("into", false)):
-		return "self"
+	if str(u.get("by", "")) == str(m.id) and bool(u.get("into", false)) and HHTune.value("push_walk_into_is_self") > 0.0:
+		return "self"                                    # H281: off by default (the author meant leaps and dashes: bump_spot)
 	return "land"
 
 
@@ -619,6 +621,51 @@ func _moving_toward(p: Dictionary, m: Dictionary) -> bool:
 	var mp: Vector3 = m.pos
 	var v := Vector2(to.x - at.x, to.z - at.z)
 	return v.length_squared() > 1e-6 and v.dot(Vector2(mp.x - at.x, mp.z - at.z)) > 0.0
+
+
+## H281: a surfaced, living monster's body under `hex` (the one a hunter's own
+## leap or dash would land in), or {}. Mid-leap or submerged bodies are not.
+func body_at(hex: Vector2i) -> Dictionary:
+	for id in order:
+		var o: Dictionary = units[id]
+		if o.kind == "monster" and alive(o) and not bool(o.untargetable) and in_hull(o, hex):
+			return o
+	return {}
+
+
+## H281: where a hunter's own leap or dash aimed into a monster's body lands:
+## the free hex nearest the aimed hex (even past the move's normal range):
+## walkable, outside every surfaced body, a hex another hunter holds only if
+## nothing else is free. Ties: nearest to the aim, then hex order.
+func bump_spot(u: Dictionary, aim: Vector2i) -> Vector2i:
+	var held := {}
+	for q in players():
+		if q.id != u.id and (alive(q) or bool(q.get("downed", false))):
+			held[q.hex] = true
+	var at := arena.stand(aim)
+	for r in range(0, 12):
+		var best := NO_HEX
+		var best_key := []
+		for h in ([aim] if r == 0 else arena.ring(aim, r)):
+			if not arena.walkable(h) or not body_at(h).is_empty():
+				continue
+			var st := arena.stand(h)
+			var key := [1 if held.has(h) else 0, Vector2(st.x - at.x, st.z - at.z).length_squared(), h.y, h.x]
+			if best_key.is_empty() or _key_less(key, best_key):
+				best_key = key
+				best = h
+		if best != NO_HEX:
+			return best
+	return aim
+
+
+## H281: the bump a hunter caused (its own leap or dash aimed into a body):
+## push_self_pct through hurt(), by the monster, on landing.
+func _bump(u: Dictionary, mid: String, aimed: Vector2i) -> void:
+	var m := unit(mid)
+	_emit({ "type": "bump", "id": u.id, "by": mid, "aimed": aimed, "hex": u.hex })
+	if not m.is_empty() and alive(u):
+		_push_hurt(u, m, "self")
 
 
 ## H268: a hunter that monster's own telegraph already hit (this tick, or
@@ -1246,7 +1293,13 @@ func _face_pos(u: Dictionary, p: Vector3) -> void:
 func begin_leap(u: Dictionary, to: Vector2i, total: int, on_land: Callable, air_control: bool = false, steer_range: int = 4) -> void:
 	_stop(u)
 	u.progress = 0.0
-	u.leap = { "from": u.pos, "to": to, "ticks": 0, "total": maxi(1, total), "on_land": on_land, "air_control": air_control, "range": steer_range }
+	var bump := ""
+	if u.kind == "player" and not body_at(to).is_empty():   # H281: aimed into a body: land beside it
+		bump = str(body_at(to).id)
+		var aimed := to
+		to = bump_spot(u, to)
+		_emit({ "type": "leap_redirect", "id": u.id, "aimed": aimed, "to": to, "by": bump })
+	u.leap = { "from": u.pos, "to": to, "ticks": 0, "total": maxi(1, total), "on_land": on_land, "air_control": air_control, "range": steer_range, "bump": bump }
 	u.untargetable = true
 	_face(u, to)
 	_emit({ "type": "leap", "id": u.id, "to": to, "ticks": total })
@@ -1255,6 +1308,9 @@ func begin_leap(u: Dictionary, to: Vector2i, total: int, on_land: Callable, air_
 func _leap(u: Dictionary) -> void:
 	var L: Dictionary = u.leap
 	L.ticks = int(L.ticks) + 1
+	if u.kind == "player" and not body_at(L.to).is_empty():   # H281: a body moved under the landing: land beside it
+		L.bump = str(body_at(L.to).id)
+		L.to = bump_spot(u, L.to)
 	var t := float(L.ticks) / float(L.total)
 	var a: Vector3 = L.from
 	var b := arena.stand(L.to)
@@ -1272,6 +1328,8 @@ func _leap(u: Dictionary) -> void:
 			_leap_splash(u, str(L.get("splash", "")))    # H269: the contained splash on the Attack Ring
 		if (L.on_land as Callable).is_valid():
 			(L.on_land as Callable).call(self, u)
+		if u.kind == "player" and str(L.get("bump", "")) != "":
+			_bump(u, str(L.bump), L.to)                    # H281: you caused the collision
 		if u.kind == "player" and alive(u) and (u.leap as Dictionary).is_empty():
 			begin_recovery(u, int(HHTune.value("recovery_ticks")))   # H57: a landing is an action too
 
@@ -1605,6 +1663,11 @@ func _dash_order(u: Dictionary, to: Variant) -> void:
 			d = Vector3(sin(float(u.facing)), 0.0, cos(float(u.facing)))
 	d = d.normalized()
 	var end := dash_end(u, d)
+	var bump := ""
+	var eh := arena.from_world(end)
+	if not body_at(eh).is_empty():                      # H281: aimed into a body: end beside it
+		bump = str(body_at(eh).id)
+		end = arena.stand(bump_spot(u, eh))
 	if Vector2(end.x - from.x, end.z - from.z).length() < 0.3:
 		_emit({ "type": "cast_refused", "id": u.id, "skill": "dash", "why": "blocked" })
 		return
@@ -1614,7 +1677,7 @@ func _dash_order(u: Dictionary, to: Variant) -> void:
 	if int(u.get("dash_recharge", 0)) <= 0:
 		u.dash_recharge = int(roundf(HHTune.value("dash_recharge_s") * 30.0))
 	var total := maxi(1, int(HHTune.value("dash_ticks")))
-	u.dash = { "from": from, "to": end, "ticks": 0, "total": total }
+	u.dash = { "from": from, "to": end, "ticks": 0, "total": total, "bump": bump }
 	u.dash_iframes = int(HHTune.value("dash_iframe_ticks"))
 	u.facing = atan2(d.x, d.z)
 	_emit({ "type": "dash", "id": u.id, "from": from, "to": end, "ticks": total, "left": int(u.dash_charges) })
@@ -1634,7 +1697,8 @@ func dash_end(u: Dictionary, dir: Vector3) -> Vector3:
 		var p := from + dir * minf(float(i) * 0.1, dist)
 		var h := arena.from_world(p)
 		if h != last_hex:
-			if not arena.walkable(h) or blocked.has(h) or absf(arena.hex_height(h) - arena.hex_height(last_hex)) > max_step:
+			var body := not body_at(h).is_empty()             # H281: a dash passes over a body (it ends beside it: _dash_order)
+			if not arena.walkable(h) or (blocked.has(h) and not body) or absf(arena.hex_height(h) - arena.hex_height(last_hex)) > max_step:
 				break
 			last_hex = h
 		best = p
@@ -1661,6 +1725,8 @@ func _dash_step(u: Dictionary) -> void:
 		u.dash = {}
 		u.dash_recover = int(HHTune.value("dash_recover_ticks"))
 		_emit({ "type": "dash_end", "id": u.id, "hex": u.hex })
+		if str(D.get("bump", "")) != "":
+			_bump(u, str(D.bump), u.hex)                   # H281: you caused the collision
 
 
 ## Per tick: recovery and dodge windows run down; spent charges come back one
