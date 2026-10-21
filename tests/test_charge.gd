@@ -26,17 +26,18 @@ func test_axis_and_decay(c: HHSelfTest.HHCheck) -> void:
 
 
 func test_douse(c: HHSelfTest.HHCheck) -> void:
+	# H260 / H362 (supersedes H2's Douse): a tier-1 tile only nets; tier 2+ erupts as Steam (test_el_steam)
 	var g := _grid()
 	var h := Vector2i(1, 0)
-	g.apply([h], "fire", "p", 3)
+	g.apply([h], "fire", "p", 1)
 	var r := g.apply([h], "water", "p", 1)
-	c.ok(h in r.doused, "fire met water: doused")
+	c.ok(h in r.doused, "fire 1 met water: doused")
 	c.ok(g.at(h).is_empty(), "nothing lingers")
 	g.apply([h], "water", "p", 2)
 	g.apply([h], "dark", "p", 1)
 	r = g.apply([h], "fire", "p", 1)
-	c.ok(h in r.doused, "water met fire: doused")
-	c.eq(g.intensity(h, "dark"), 1, "dark stays after a douse")
+	c.eq(r.eruptions.size(), 1, "water 2 met fire: Steam now, not a douse")
+	c.eq(g.intensity(h, "dark"), 1, "dark stays after it")
 	c.eq(g.intensity(h, "water"), 0, "water gone")
 
 
@@ -48,42 +49,48 @@ func test_fuse(c: HHSelfTest.HHCheck) -> void:
 	c.ok(r.detonations.is_empty(), "no blast on empty ground")
 	r = g.apply([h], "fire", "p", 2)
 	c.eq(r.detonations.size(), 1, "fire on a fuse detonates")
-	c.near(float(r.detonations[0].mult), 3.0 * 2, 1e-6, "H50: x3 per point (fire 2 = x6 the auto attack)")
+	c.near(float(r.detonations[0].mult), HHTune.value("det_mult_per_point") * 2, 1e-6, "H50 / H370: x per point (fire 2)")
 	c.ok(g.at(h).is_empty(), "blown hex is bare")
 	g.apply([h], "water", "p", 2)
 	g.apply([h], "light", "p", 1)
 	r = g.apply([h], "thunder", "p")
 	c.eq(r.detonations.size(), 1, "thunder on charge detonates")
-	c.near(float(r.detonations[0].mult), 3.0 * 3 + 3.0 * 1 + 1.0 * 2, 1e-6, "H50: x3/point, +3 for the second axis, +1 per water conducted")
+	c.near(float(r.detonations[0].mult), HHTune.value("det_mult_per_point") * 3 + 3.0 * 1 + 1.0 * 2, 1e-6, "H50: x per point, +3 for the second axis, +1 per water conducted")
 	var mix: Dictionary = r.detonations[0].mix
 	c.eq(int(mix.get("water", 0)), 2, "mix carries water")
 	c.eq(int(mix.get("light", 0)), 1, "mix carries light")
 
 
 func test_glaze_and_shatter(c: HHSelfTest.HHCheck) -> void:
+	# H365 (supersedes glaze-as-stasis): ice freezes charge into a crystal; the old
+	# glaze survives only as the cave's authored frost (H43)
 	var g := _grid()
 	var h := Vector2i(2, 2)
 	g.apply([h], "ice", "p")
 	c.eq(g.marker(h), "stasis", "ice on empty ground arms stasis")
 	g.apply([h], "water", "p", 2)
-	c.ok(g.is_glazed(h), "water on a stasis marker arrives glazed")
-	c.eq(g.intensity(h, "water"), 2, "the water is under the glaze")
-	c.near(g.move_mult(h), 1.0, 1e-6, "glazed water walks at full speed")
+	c.ok(g.is_crystal(h), "water on a stasis marker arrives frozen: a crystal")
+	c.eq(g.intensity(h, "water"), 2, "the water is inside it")
+	c.near(g.move_mult(h), 1.0, 1e-6, "frozen water walks at full speed (a monster crossing it)")
 	var before: int = g.at(h).timer
 	for i in 10:
 		g.tick()
-	c.eq(int(g.at(h).timer), int(before), "decay paused under glaze")
-	var r := g.apply([h], "light", "p")
-	c.eq(g.intensity(h, "light"), 0, "light washes off a glaze")
-	r = g.apply([h], "thunder", "p")
-	c.eq(r.detonations.size(), 1, "thunder shatters a glazed hex")
-	c.near(float(r.detonations[0].mult), (3.0 * 2 + 1.0 * 2) * 1.5, 1e-6, "x1.5 shatter")
-	g.apply([h], "water", "p", 1)
-	g.apply([h], "ice", "p")
-	c.ok(g.is_glazed(h), "ice on charge glazes")
-	g.apply([h], "fire", "p", 1)
-	c.ok(not g.is_glazed(h), "fire melts the glaze")
-	c.eq(g.intensity(h, "water"), 1, "and is spent (water stays)")
+	c.eq(int(g.at(h).timer), int(before), "decay paused inside the crystal")
+	var r := g.apply([h], "thunder", "p")
+	c.eq(r.shatters.size(), 1, "thunder shatters a crystal")
+	c.ok(r.detonations.is_empty(), "one reaction, not a detonation as well")
+	var k := Vector2i(-2, 2)
+	g.author(k, -1, 0, "", true)
+	c.ok(g.is_glazed(k), "authored frost")
+	g.apply([k], "light", "p")
+	c.eq(g.intensity(k, "light"), 0, "light washes off the frost")
+	r = g.apply([k], "thunder", "p")
+	c.eq(r.detonations.size(), 1, "thunder detonates authored frost")
+	c.near(float(r.detonations[0].mult), (HHTune.value("det_mult_per_point") * 1 + 1.0 * 1) * 1.5, 1e-6, "x1.5 on frost (H2's shatter, kept for the shade)")
+	g.author(k, -1, 0, "", true)
+	g.apply([k], "fire", "p", 1)
+	c.ok(not g.is_glazed(k), "fire melts the frost")
+	c.eq(g.intensity(k, "water"), 1, "and is spent (water stays)")
 
 
 func test_gale(c: HHSelfTest.HHCheck) -> void:
@@ -101,11 +108,11 @@ func test_gale(c: HHSelfTest.HHCheck) -> void:
 	for i in gale_ticks:
 		g.tick()
 	c.eq(g.intensity(HHHex.neighbors(h)[0], "dark"), 1, "copies fade a step after gale_ticks")
-	# wind on existing charge copies it too
+	# H360: wind on existing charge Swirls now (test_el_swirl), it no longer copies it
 	var k := Vector2i(3, 0)
 	g.apply([k], "fire", "p", 1)
 	r = g.apply([k], "wind", "p")
-	c.eq(r.gales.size(), 1, "wind on charge gales")
+	c.ok(not r.swirl.is_empty(), "wind on charge Swirls")
 
 
 func test_overheat(c: HHSelfTest.HHCheck) -> void:
@@ -128,20 +135,18 @@ func test_overheat(c: HHSelfTest.HHCheck) -> void:
 
 
 func test_overfreeze(c: HHSelfTest.HHCheck) -> void:
+	# H365 supersedes Overfreeze: fresh ice on frozen water feeds the crystal, and past ice 3 it shatters
 	var g := _grid()
 	var h := Vector2i(1, 1)
 	g.apply([h], "water", "p", 2)
 	g.apply([h], "ice", "p")
-	c.ok(g.is_glazed(h), "glazed water")
+	c.ok(g.is_crystal(h), "frozen water")
 	var r := g.apply([h], "ice", "p")
-	c.eq(r.overfreeze.size(), 1, "fresh ice on glazed water overfreezes")
-	c.near(float(r.overfreeze[0].mult), 9.0, 1e-6, "H50: the burst is x9 the auto attack")
-	c.eq((r.overfreeze[0].ring as Array).size(), 6, "ring glazes")
-	for n in HHHex.neighbors(h):
-		c.ok(g.is_glazed(n), "sheet at %s" % n)
-		c.eq(g.intensity(n, "water"), 1, "thin water sheet at %s" % n)
-	r = g.apply([HHHex.neighbors(h)[0]], "ice", "p")
-	c.eq(r.overfreeze.size(), 1, "a sheet is glazed water: it can overfreeze too (fresh ice)")
+	c.ok(r.shatters.is_empty() and r.bursts.is_empty(), "no Overfreeze burst any more")
+	c.eq(g.crystal(h), 2, "ice feeds it")
+	r = g.apply([h], "ice", "p", 2)
+	c.eq(r.shatters.size(), 1, "past ice 3 it shatters")
+	c.near(float(r.shatters[0].mult), 2.0 * 2 + 1.0 * 3, 1e-6, "Shatter: x2 per point + x1 per ice")
 
 
 func test_authored_permanent(c: HHSelfTest.HHCheck) -> void:
@@ -152,7 +157,7 @@ func test_authored_permanent(c: HHSelfTest.HHCheck) -> void:
 		g.tick()
 	c.eq(g.intensity(h, "water"), 3, "authored water never decays")
 	g.apply([h], "ice", "p")
-	c.ok(g.is_glazed(h), "it can still be glazed")
+	c.ok(g.is_crystal(h), "ice crystallises it (H365)")
 	c.ok(not bool(g.at(h).permanent), "and is ordinary charge from then on")
 
 
@@ -167,4 +172,4 @@ func test_propagated_rules(c: HHSelfTest.HHCheck) -> void:
 	g.apply([k], "water", "p", 1)
 	g.apply([k], "ice", "p")
 	r = g.apply([k], "fire", "p", 1, false)
-	c.ok(g.is_glazed(k), "spread skips glazed hexes")
+	c.ok(g.is_crystal(k) and r.shatters.is_empty(), "spread skips crystals")

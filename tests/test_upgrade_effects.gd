@@ -118,15 +118,17 @@ func test_arcing_twice(c: HHSelfTest.HHCheck) -> void:
 func test_arrowstorm_glaze(c: HHSelfTest.HHCheck) -> void:
 	var s := _sim("bow", { "r": ["arrowstorm_glaze"] })
 	var p := s.unit("p1")
+	var at: Vector2i = p.hex
 	var evs := _run(s, int(HHBow.TUNE.r_air_ticks) + 1, { "p1": { "cast": { "skill": "r", "aim": p.hex } } })
 	c.eq(_events(evs, "arrowstorm").size(), 1, "the storm fell")
 	c.eq(_events(evs, "upgrade", "upgrade", "arrowstorm_glaze").size(), 1, "then froze over")
-	c.ok(s.charge.intensity(p.hex, "fire") >= 2, "fire 2 under the archer")
-	c.ok(s.charge.is_glazed(p.hex), "...glazed in place")
-	c.ok(s.charge.is_glazed(Vector2i(0, 9)), "...out to the ring at 3")
+	c.ok(s.charge.intensity(at, "fire") >= 2, "fire 2 under the archer")
+	c.ok(s.charge.is_crystal(at), "...crystallised in place (H365: ice on charge is a crystal now)")
+	c.ok(s.charge.is_crystal(Vector2i(0, 9)), "...out to the ring at 3")
+	c.ok(p.hex != at and not s.charge.is_crystal(p.hex), "the archer is pushed off the crystal under it (H366)")
 	var t := _sim("bow", {})
 	_run(t, int(HHBow.TUNE.r_air_ticks) + 1, { "p1": { "cast": { "skill": "r", "aim": Vector2i(0, 6) } } })
-	c.ok(not t.charge.is_glazed(Vector2i(0, 6)), "a plain storm is not glazed")
+	c.ok(not t.charge.is_crystal(Vector2i(0, 6)), "a plain storm does not freeze")
 
 
 # ------------------------------------------------------------------ daggers

@@ -34,7 +34,7 @@ static var _card_mesh: ArrayMesh
 ## The layers one entry draws. Pure.
 ##   h / v: { el, tier } or {} ; mark: "" | "fuse" | "gale" | "stasis" | "glaze"; crack: glaze almost gone
 static func layers(e: Dictionary) -> Dictionary:
-	var out := { "h": {}, "v": {}, "mark": "", "crack": false }
+	var out := { "h": {}, "v": {}, "mark": "", "crack": false, "frozen": false }
 	if e.is_empty():
 		return out
 	if str(e.get("marker", "")) != "":
@@ -50,6 +50,10 @@ static func layers(e: Dictionary) -> Dictionary:
 	if g > 0:
 		out.mark = "glaze"
 		out.crack = g <= 60
+	if int(e.get("crystal", 0)) > 0:                 # H365: the ground under a crystal frosts (the prism is HHReactionFx's)
+		out.frozen = true                            # ... and its charge is inert: no standing flames, beams or tendrils
+		out.mark = "glaze"
+		out.crack = int(e.get("crystal_t", 999)) <= 60
 	return out
 
 

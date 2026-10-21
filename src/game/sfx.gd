@@ -89,7 +89,11 @@ func on_event(e: Dictionary, sim: HHSim) -> void:
 				play_use("paint:%s" % str(e.element), sim.arena.world((e.changed as Array)[0]))
 		"detonate": play_use("detonate", sim.arena.world(e.hex))
 		"overheat": play_use("overheat", sim.arena.world(e.hex))
-		"overfreeze": play_use("overfreeze", sim.arena.world(e.hex))
+		"overfreeze", "shatter": play_use("overfreeze", sim.arena.world(e.hex))     # H360s: the ice crack
+		"crystal": play_use("paint:ice", sim.arena.world(e.hex))
+		"geyser", "steam": play_use("douse", sim.arena.world(e.hex))
+		"glint", "flux", "eclipse": play_use("detonate", sim.arena.world(e.hex))
+		"swirl": play_use("gale", sim.arena.world(e.hex))
 		"douse": play_use("douse", sim.arena.world(e.hex))
 		"gale": play_use("gale", sim.arena.world(e.hex))
 		"strike": play_use("hurt", sim.unit(str(e.target)).pos)

@@ -54,13 +54,13 @@ const WEAPONS: Array = [
 ]
 
 const ELEMENTS: Array = [
-	{ "id": "fire", "name": "Fire", "blurb": "Burns whoever stands or crosses; water douses it, wind fuses it.", "look": ["#E8432E", "FIRE"] },
-	{ "id": "water", "name": "Water", "blurb": "Slows at depth, douses fire; ice glazes it, thunder fuses it.", "look": ["#2E6FE8", "WATER"] },
-	{ "id": "ice", "name": "Ice", "blurb": "Glazes water into slow ground; overfreeze holds the monster.", "look": ["#5FD8F0", "ICE"] },
-	{ "id": "thunder", "name": "Thunder", "blurb": "Fuse markers that detonate; paralyses on a status.", "look": ["#8B3DF0", "THUNDER"] },
-	{ "id": "wind", "name": "Wind", "blurb": "Gales copy what is under them across the ground.", "look": ["#3CCB5A", "WIND"] },
-	{ "id": "dark", "name": "Dark", "blurb": "Poisons and starves healing; the monsters' favourite.", "look": ["#3A2A5C", "DARK"] },
-	{ "id": "light", "name": "Light", "blurb": "Heals whoever stands in it and feeds your potions.", "look": ["#F5D23A", "LIGHT"] },
+	{ "id": "fire", "name": "Fire", "blurb": "Burns whoever stands or crosses; fire on fire 3 Overheats; meets water 2+ as Steam.", "look": ["#E8432E", "FIRE"] },
+	{ "id": "water", "name": "Water", "blurb": "Slows at depth; water on water 3 erupts a Geyser; meets fire 2+ as Steam.", "look": ["#2E6FE8", "WATER"] },
+	{ "id": "ice", "name": "Ice", "blurb": "Shatter: freezes charge into a crystal; a hit, a crush or overcharge breaks it.", "look": ["#5FD8F0", "ICE"] },
+	{ "id": "thunder", "name": "Thunder", "blurb": "Detonate: cashes out the charge it lands on at once; paralyses on a status.", "look": ["#8B3DF0", "THUNDER"] },
+	{ "id": "wind", "name": "Wind", "blurb": "Swirl: pulls the charge round where it lands inward and compresses it.", "look": ["#3CCB5A", "WIND"] },
+	{ "id": "dark", "name": "Dark", "blurb": "Poisons and starves healing; dark on dark 3 Fluxes; meets light 2+ as Eclipse.", "look": ["#3A2A5C", "DARK"] },
+	{ "id": "light", "name": "Light", "blurb": "Heals whoever stands in it; light on light 3 Glints; meets dark 2+ as Eclipse.", "look": ["#F5D23A", "LIGHT"] },
 ]
 
 const KINDS := { "arena": ARENAS, "monster": MONSTERS, "weapon": WEAPONS, "element": ELEMENTS }

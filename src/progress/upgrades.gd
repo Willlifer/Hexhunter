@@ -36,7 +36,7 @@ const TABLE := {
 	"knifedance_long": { "skill": "r", "weapon": "daggers", "name": "Long Dance",
 		"blurb": "Knifedance lasts 9 s.", "drops_from": ["rimeslithe", "colambros"] },
 	"arrowstorm_glaze": { "skill": "r", "weapon": "bow", "name": "Frozen Storm",
-		"blurb": "Arrowstorm's downfall freezes over: its element is glazed in place.", "drops_from": ["rimeslithe"] },
+		"blurb": "Arrowstorm's downfall freezes over: its element is crystallised in place.", "drops_from": ["rimeslithe"] },
 	"potion_cleanse": { "skill": "t", "weapon": "any", "name": "Clean Draught",
 		"blurb": "A potion also clears burn, poison, slow and paralysis.", "drops_from": ["swampfang", "spirewalker"] },
 }
