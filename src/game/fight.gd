@@ -165,6 +165,7 @@ func setup(p_arena: HHArena, seed: int, monster: String = "", p_asset: GKAsset =
 	view.build(arena, asset)
 	camera = HHCameraRig.new()
 	camera.name = "CameraRig"
+	camera.follow_tuned = true      # H280: camera lag from HHTune
 	add_child(camera)
 	camera.clicked.connect(_on_click)
 	camera.follow(sim.unit(player_id).pos, true)

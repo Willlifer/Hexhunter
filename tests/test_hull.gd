@@ -4,7 +4,10 @@ extends RefCounted
 ## arena resolves to a legal spot: outside the hull, within the weapon's reach
 ## of its edge, the fewest steps away, never the centre), the move click
 ## (round the hull, never into it), and push-out (every displacing move ends
-## with every hunter on a legal hex, two hunters on two hexes, no damage).
+## with every hunter on a legal hex, two hunters on two hexes). Lane P
+## (H268-H279): the push hurts (20% landed on, 5% self-caused, never on top of
+## the same attack's own hit), and a monster leap splashes its element on the
+## Attack Ring, contained.
 
 const BIOMES := { "pond": "swampfang", "caldera": "colambros", "cave": "rimeslithe", "glade": "spirewalker" }
 const BRAINS := { "swampfang": "res://src/monster/swampfang.gd", "colambros": "res://src/monster/colambros.gd",
@@ -311,14 +314,18 @@ func test_push_out_from_every_landing(c: HHSelfTest.HHCheck) -> void:
 				if not a.walkable(h) or (h != centre and HHHex.distance(h, centre) != 2):
 					continue                                # the centre and the hull's edge
 				place(s, p, h)
+				p.hp = p.max_hp
+				p.stagger = 0
+				p.under = {}
+				p.struck = {}
 				var hp := float(p.hp)
 				s._push_out()
 				n += 1
 				var why := ""
 				if not a.walkable(p.hex) or s.in_hull(m, p.hex):
 					why = "left at %s" % p.hex
-				elif float(p.hp) != hp:
-					why = "the push hurt"
+				elif not is_equal_approx(hp - float(p.hp), float(p.max_hp) * HHTune.value("push_land_pct") / 100.0):
+					why = "the push did %.1f, not push_land_pct (nobody had been under it: it came down on them)" % (hp - float(p.hp))
 				elif (p.pos as Vector3) != a.stand(p.hex):
 					why = "pos off its hex"
 				if HHHex.distance(p.hex, centre) != 3:
@@ -332,9 +339,10 @@ func test_push_out_from_every_landing(c: HHSelfTest.HHCheck) -> void:
 		c.ok(off_ring * 50 < n, "%s: almost always onto the Attack Ring (%d of %d further out: edge and cliff landings)" % [name, off_ring, n])
 
 
-## The leap itself, stepped: its damage is the leap rule's (a telegraph on the
-## landing), the push is not a hit; two hunters under it get two hexes; a
-## downed hunter is pushed too; a dash under way ends.
+## The leap itself, stepped, with a damaging telegraph on the landing (H268's
+## no-double-hit rule): the hunters that telegraph hit take no push-out damage
+## on top (the push is `spared`); two hunters under it get two hexes; a downed
+## hunter is pushed too; a dash under way ends.
 func test_leap_onto_hunters(c: HHSelfTest.HHCheck) -> void:
 	var s := HHSim.new(HHArena.round_flat(1, 25.0, 0.0), 1)
 	var p1 := s.add_player("p1", Vector2i(0, 8))
@@ -355,7 +363,8 @@ func test_leap_onto_hunters(c: HHSelfTest.HHCheck) -> void:
 	var pushes := ev.filter(func(e): return e.type == "push_out")
 	var hurts := ev.filter(func(e): return e.type == "hurt")
 	c.eq(pushes.size(), 3, "three hunters slid out (downed too)")
-	c.ok(hurts.size() == 2 and hurts.all(func(e): return str(e.get("cause", "")) != "push_out"), "only the landing telegraph hurt (%d hurts)" % hurts.size())
+	c.ok(hurts.size() == 2 and hurts.all(func(e): return not str(e.get("cause", "")).begins_with("push")), "only the landing telegraph hurt (%d hurts)" % hurts.size())
+	c.ok(pushes.filter(func(e): return str(e.id) != "p3").all(func(e): return bool(e.get("spared", false))), "the pushes of the two it hit are spared")
 	c.ok(hurts.all(func(e): return int(e.tick) <= int(pushes[0].tick)), "damage resolves on the landing tick, before the slide")
 	for p in [p1, p2, p3]:
 		c.eq(HHHex.distance(p.hex, m.hex), 3, "%s on the Attack Ring (%s)" % [p.id, p.hex])
@@ -387,8 +396,10 @@ func test_walk_over_pushes_on_arrival(c: HHSelfTest.HHCheck) -> void:
 	var inside_moving := false
 	var pushed_tick := -1
 	var arrived_tick := -1
+	var ev: Array = []
 	for i in 400:
 		for e in s.step():
+			ev.append(e)
 			if e.type == "push_out":
 				pushed_tick = s.tick
 			if e.type == "arrive" and str(e.id) == "m":
@@ -400,6 +411,15 @@ func test_walk_over_pushes_on_arrival(c: HHSelfTest.HHCheck) -> void:
 	c.ok(inside_moving, "the moving body passed over the hunter")
 	c.eq(pushed_tick, arrived_tick, "pushed on the arrival tick")
 	c.eq(HHHex.distance(p.hex, m.hex), 3, "onto the Attack Ring")
+	# H268: it walked onto a hunter standing still: the monster arrived on it, 20%
+	var push: Array = ev.filter(func(e): return e.type == "push_out")
+	var hurts: Array = ev.filter(func(e): return e.type == "hurt" and str(e.id) == "p1")
+	c.ok(push.size() == 1 and str(push[0].get("cause", "")) == "land", "a walk ending on a standing hunter is 'land' (%s)" % [push])
+	c.ok(hurts.size() == 1 and str(hurts[0].cause) == "push_land", "one hurt, push_land")
+	if hurts.size() == 1:
+		c.near(float(hurts[0].amount), float(p.max_hp) * HHTune.value("push_land_pct") / 100.0, 0.01, "20% of max HP")
+	c.ok(int(p.stagger) > 0, "a landed-on push staggers (push_land_stagger)")
+	c.ok(ev.any(func(e): return e.type == "interrupted" and str(e.id) == "p1" and str(e.cause) == "push_land"), "a monster blow: it interrupts (H58)")
 
 
 ## Every monster brain, its own biome, two hunters (one standing still as a
@@ -528,7 +548,7 @@ func test_colambros_leap_pushes_out(c: HHSelfTest.HHCheck) -> void:
 	var pushed := ev.filter(func(e): return e.type == "push_out")
 	c.ok(not landed.is_empty(), "it landed")
 	c.ok(pushed.size() >= 1 and int(pushed[0].tick) == int(landed[0].tick), "pushed on the landing tick (%d pushes)" % pushed.size())
-	c.ok(ev.any(func(e): return e.type == "hurt" and str(e.get("cause", "")) == "leap_stomp"), "the stomp's own damage still lands")
+	_check_leap_landing(c, s, m, ev, landed, "leap_stomp", "fire", [p1, p2])
 	for p in [p1, p2]:
 		c.ok(s.arena.walkable(p.hex) and not s.in_hull(m, p.hex), "%s on a legal hex (%s)" % [p.id, p.hex])
 	if pushed.size() >= 2:
@@ -550,9 +570,10 @@ func test_spirewalker_squash_pushes_out(c: HHSelfTest.HHCheck) -> void:
 	var ev: Array = out[0]
 	c.ok(str(out[1]) == "", "spirewalker squash: %s" % (out[1] if str(out[1]) != "" else "nobody left inside"))
 	var pushed := ev.filter(func(e): return e.type == "push_out")
-	c.ok(ev.any(func(e): return e.type == "land" and str(e.id) == str(m.id)), "it landed")
+	var landed := ev.filter(func(e): return e.type == "land" and str(e.id) == str(m.id))
+	c.ok(not landed.is_empty(), "it landed")
 	c.ok(pushed.size() >= 2, "both hunters under the squash slid out (%d)" % pushed.size())
-	c.ok(ev.any(func(e): return e.type == "hurt" and str(e.get("cause", "")) == "leaping_squash"), "the squash's own damage still lands")
+	_check_leap_landing(c, s, m, ev, landed, "leaping_squash", "thunder", [p1, p2])
 	c.ok(p1.hex != p2.hex, "two hunters, two hexes (%s, %s)" % [p1.hex, p2.hex])
 
 
@@ -623,3 +644,231 @@ func test_swampfang_surface_pushes_out(c: HHSelfTest.HHCheck) -> void:
 	c.ok(bad == "", "swampfang surfacing: %s" % (bad if bad != "" else "nobody left inside"))
 	c.ok(ev.any(func(e): return e.type == "push_out" and str(e.id) == "p2"), "the hunter on the pad it surfaced under slid out")
 	c.ok(not s.in_hull(m, p2.hex), "p2 outside the hull (%s)" % p2.hex)
+
+
+# ------------------------------------------------------------------ push-out hurts, leaps splash (Lane P, H268-H279)
+
+## H268/H269 on a real brain's leap: the landing telegraph deals nothing itself;
+## every hunter it landed on takes push_land_pct as `push_land` on the landing
+## tick; the Attack Ring round the landing gets the monster's element on its
+## open hexes, contained (no detonation sourced by the monster that tick).
+static func _check_leap_landing(c: HHSelfTest.HHCheck, s: HHSim, m: Dictionary, ev: Array, landed: Array, clip: String, element: String, ps: Array) -> void:
+	if landed.is_empty():
+		return
+	var lt := int(landed[0].tick)
+	c.ok(not ev.any(func(e): return e.type == "hurt" and str(e.get("cause", "")) == clip), "%s: the landing telegraph itself deals nothing" % clip)
+	var pushed: Array = ev.filter(func(e): return e.type == "push_out" and int(e.tick) == lt)
+	var hits: Array = ev.filter(func(e): return e.type == "hurt" and str(e.get("cause", "")) == "push_land" and int(e.tick) == lt)
+	c.ok(pushed.size() >= 1 and hits.size() == pushed.size(), "%s: each hunter it landed on took push_land (%d pushed, %d hurt)" % [clip, pushed.size(), hits.size()])
+	var want := HHTune.value("player_hp") * HHTune.value("push_land_pct") / 100.0
+	c.ok(hits.all(func(e): return is_equal_approx(float(e.amount), want)), "%s: 20%% of max HP each (%s)" % [clip, hits.map(func(e): return int(e.amount))])
+	var splash: Array = ev.filter(func(e): return e.type == "paint" and bool(e.get("splash", false)) and int(e.tick) == lt)
+	c.eq(splash.size(), 1, "%s: one splash on landing" % clip)
+	if splash.size() == 1:
+		var sp: Dictionary = splash[0]
+		c.eq(str(sp.element), element, "%s: the splash is %s" % [clip, element])
+		c.eq(str(sp.id), str(m.id), "%s: laid by the monster" % clip)
+		c.ok(bool(sp.get("contained", false)), "%s: marked contained" % clip)
+		c.ok(not (sp.hexes as Array).is_empty() and (sp.hexes as Array).all(func(h): return HHHex.distance(h, m.hex) == int(m.size) + 1), "%s: on the Attack Ring only (%d hexes)" % [clip, (sp.hexes as Array).size()])
+	c.ok(not ev.any(func(e): return e.type == "detonate" and str(e.get("source", "")) == str(m.id) and int(e.tick) == lt), "%s: the splash set nothing off" % clip)
+
+
+static func _under_case() -> Array:
+	var s := HHSim.new(HHArena.round_flat(1, 25.0, 0.0), 1)
+	var p := s.add_player("p1", Vector2i(0, 8))
+	var m := s.add_monster("m", Vector2i(0, -8), 50000.0, 2)
+	place(s, m, Vector2i(0, 0))
+	m.path = [Vector2i(0, 1)] as Array[Vector2i]        # gliding: not occupying
+	place(s, p, Vector2i(1, 1))
+	return [s, p, m]
+
+
+## H268, H271: who caused it. Covered while standing, or while moving away: the
+## monster arrived on you (20%, staggers). Covered while moving into the hull:
+## you caused it (5%, no stagger). The slide happens either way.
+func test_push_damage_cause(c: HHSelfTest.HHCheck) -> void:
+	for case in ["standing", "away", "into"]:
+		var r := _under_case()
+		var s: HHSim = r[0]
+		var p: Dictionary = r[1]
+		var m: Dictionary = r[2]
+		c.ok(s.in_hull(m, p.hex) and not s.occupying(m), "%s: under a moving hull" % case)
+		if case == "into":
+			p.path = [Vector2i(0, 0)] as Array[Vector2i]
+		elif case == "away":
+			p.path = [Vector2i(3, 4)] as Array[Vector2i]
+		c.eq(s._moving_toward(p, m), case == "into", "%s: moving toward it" % case)
+		s._track_under()
+		c.eq(str((p.under as Dictionary).get("by", "")), "m", "%s: noted under m" % case)
+		m.path = [] as Array[Vector2i]                   # it stops on the hunter
+		s.events = []
+		var hp := float(p.hp)
+		s._push_out()
+		var want := "self" if case == "into" else "land"
+		var push: Array = s.events.filter(func(e): return e.type == "push_out")
+		c.ok(push.size() == 1 and str(push[0].cause) == want, "%s: cause %s" % [case, want])
+		c.near(hp - float(p.hp), float(p.max_hp) * HHTune.value("push_%s_pct" % want) / 100.0, 0.01, "%s: push_%s_pct of max HP" % [case, want])
+		c.ok(s.events.any(func(e): return e.type == "hurt" and str(e.cause) == "push_" + want), "%s: hurt cause push_%s" % [case, want])
+		c.eq(int(p.stagger) > 0, want == "land", "%s: staggers only when landed on" % case)
+		c.ok(not s.in_hull(m, p.hex), "%s: slid out" % case)
+		c.ok((p.under as Dictionary).is_empty(), "%s: under cleared" % case)
+
+
+## H272: the push is a monster blow through hurt(): dash i-frames dodge it,
+## immunity skips it, a charging lance's super armour cuts it (no stagger, no
+## interrupt). The slide happens in every case.
+func test_push_damage_through_hurt(c: HHSelfTest.HHCheck) -> void:
+	for case in ["iframes", "immune", "braced"]:
+		var r := _under_case()
+		var s: HHSim = r[0]
+		var p: Dictionary = r[1]
+		var m: Dictionary = r[2]
+		m.path = [] as Array[Vector2i]
+		match case:
+			"iframes": p.dash_iframes = 3
+			"immune": p.immune = 3
+			"braced":
+				p.weapon = "lance"
+				p.charging = { "skill": "q", "ticks": 5, "level": 1, "aim": p.hex }
+		s.events = []
+		var hp := float(p.hp)
+		s._push_out()
+		c.ok(not s.in_hull(m, p.hex), "%s: slid out" % case)
+		match case:
+			"iframes":
+				c.eq(float(p.hp), hp, "i-frames: no damage")
+				c.ok(s.events.any(func(e): return e.type == "dodge" and str(e.cause) == "push_land"), "i-frames: a dodge")
+			"immune":
+				c.eq(float(p.hp), hp, "immune: no damage")
+				c.ok(s.events.any(func(e): return e.type == "immune"), "immune: skipped")
+			"braced":
+				c.near(hp - float(p.hp), float(p.max_hp) * HHTune.value("push_land_pct") / 100.0 * (1.0 - HHTune.value("lance_charge_guard")), 0.01, "braced: cut by lance_charge_guard")
+				c.eq(int(p.stagger), 0, "braced: no stagger")
+				c.ok(not s.events.any(func(e): return e.type == "interrupted"), "braced: no interrupt")
+
+
+## H268, H277: one attack, one blow. A landing telegraph that hurt a hunter
+## spares its push (test_leap_onto_hunters); the other way round, a drive that
+## ends on a hunter hurts it by the push and the same attack's line, resolving
+## later, spares it. A telegraph issued after the push still lands.
+func test_push_no_double_hit(c: HHSelfTest.HHCheck) -> void:
+	var s := HHSim.new(HHArena.round_flat(1, 25.0, 0.0), 1)
+	var p := s.add_player("p1", Vector2i(0, 8))
+	var m := s.add_monster("m", Vector2i(0, -8), 50000.0, 2)
+	place(s, p, Vector2i(0, 0))
+	s.telegraph("m", HHHex.area(Vector2i(0, 0), 5), 200, { "dmg_pct": 20.0, "name": "shoulder_charge" })
+	s.monster_move(m, Vector2i(0, 1))
+	var ev: Array = []
+	for i in 210:
+		ev.append_array(s.step())
+		if s.tick == 160:
+			s.telegraph("m", HHHex.area(p.hex, 1), 30, { "dmg_pct": 10.0, "name": "bite" })
+	var hurts: Array = ev.filter(func(e): return e.type == "hurt" and str(e.id) == "p1")
+	var causes: Array = hurts.map(func(e): return str(e.cause))
+	c.ok(causes.has("push_land"), "the drive's push hurt (%s)" % [causes])
+	c.ok(not causes.has("shoulder_charge"), "the same attack's line, resolving after the push, spared it")
+	c.ok(causes.has("bite"), "a later attack still lands")
+	c.ok(ev.any(func(e): return e.type == "telegraph_end" and str(e.name) == "shoulder_charge"), "the line did resolve")
+
+
+## H269, H274: the splash paints the monster's element on the open Attack Ring
+## hexes, contained: a charged hex, a fuse and a fire-3 hex on the ring are
+## left exactly as they were (no douse, no fuse set off, no eruption), no
+## detonation, overheat or reaction anywhere, the hull itself unpainted.
+## Thunder (Spirewalker) arms fuses on open ground and sets nothing off.
+func test_leap_splash_contained(c: HHSelfTest.HHCheck) -> void:
+	for el in ["fire", "thunder"]:
+		var s := HHSim.new(HHArena.round_flat(1, 25.0, 0.0), 1)
+		var p := s.add_player("p1", Vector2i(0, 8), "water", "fire", "lance")
+		var m := s.add_monster("m", Vector2i(0, -8), 50000.0, 2)
+		var land := Vector2i(0, 2)
+		var ring: Array = s.arena.ring(land, 3)
+		ring.sort()
+		var wet: Vector2i = ring[0]
+		var fuse: Vector2i = ring[4]
+		var hot: Vector2i = ring[8]
+		s.charge.apply([wet], "water", "p1", 2)
+		s.charge.apply([fuse], "thunder", "p1", 1)
+		s.charge.apply([hot], "fire", "p1", 3)
+		var before := { wet: s.charge.at(wet).duplicate(), fuse: s.charge.at(fuse).duplicate(), hot: s.charge.at(hot).duplicate() }
+		s.begin_leap(m, land, 6, Callable())
+		m.leap["splash"] = el
+		var ev: Array = []
+		for i in 8:
+			ev.append_array(s.step())
+		c.ok(ev.any(func(e): return e.type == "land" and str(e.id) == "m"), "%s: landed" % el)
+		var splash: Array = ev.filter(func(e): return e.type == "paint" and bool(e.get("splash", false)))
+		c.eq(splash.size(), 1, "%s: one splash" % el)
+		for h in [wet, fuse, hot]:
+			var now: Dictionary = s.charge.at(h)
+			c.ok(int(now.h) == int(before[h].h) and int(now.v) == int(before[h].v) and str(now.marker) == str(before[h].marker), "%s: %s left as it was" % [el, h])
+			if not splash.is_empty():
+				c.ok(not (splash[0].hexes as Array).has(h), "%s: %s not in the splash" % [el, h])
+		var open := 0
+		for h in ring:
+			if h in [wet, fuse, hot] or not s.charge.can_hold(h):
+				continue
+			open += 1
+			c.ok(s.charge.carries(h, el) and (el != "fire" or s.charge.intensity(h, "fire") == 1), "%s: ring hex %s carries tier 1" % [el, h])
+		c.ok(open >= 15, "%s: the open ring was painted (%d)" % [el, open])
+		for h in HHHex.area(land, 2):
+			c.ok(s.charge.at(h).is_empty(), "%s: hull hex %s unpainted" % [el, h])
+		for t in ["detonate", "overheat", "overfreeze", "douse", "reaction", "gale"]:
+			c.ok(not ev.any(func(e): return e.type == t), "%s: no %s" % [el, t])
+		c.eq(float(p.hp), float(p.max_hp), "%s: nobody hurt" % el)
+
+
+## Every monster leap splashes: the two brains that leap (Colambros leap_stomp,
+## Spirewalker leaping_squash) set u.leap.splash, a plain string (no Callable
+## added to the unit; a co-op snapshot carries it).
+func test_every_leap_splashes(c: HHSelfTest.HHCheck) -> void:
+	for biome in ["caldera", "glade"]:
+		var r := brain_fight(biome, 5)
+		var s: HHSim = r[0]
+		var brain: Object = r[1]
+		var m: Dictionary = r[2]
+		var p1: Dictionary = r[3]
+		place(s, p1, spot_at(s, m, 6))
+		if biome == "caldera":
+			brain.call("_leap", s, m, p1)
+		else:
+			brain.call("_squash", s, m, p1)
+		var seen := ""
+		for i in 150:
+			s.step()
+			for p in s.players():
+				p.hp = p.max_hp
+			if not (m.leap as Dictionary).is_empty():
+				seen = str((m.leap as Dictionary).get("splash", ""))
+				var snap := HHSnapshot.capture(s)
+				var leap_copy: Dictionary = (snap.u[str(m.id)] as Dictionary).leap
+				c.eq(str(leap_copy.get("splash", "")), seen, "%s: the snapshot carries the splash" % biome)
+				break
+		c.eq(seen, "fire" if biome == "caldera" else "thunder", "%s: the leap carries its splash element" % biome)
+
+
+func test_push_damage_deterministic(c: HHSelfTest.HHCheck) -> void:
+	var runs: Array = []
+	for run in 2:
+		var r := brain_fight("caldera", 5)
+		var s: HHSim = r[0]
+		var brain: Object = r[1]
+		var m: Dictionary = r[2]
+		var p1: Dictionary = r[3]
+		var p2: Dictionary = r[4]
+		var at := spot_at(s, m, 6)
+		place(s, p1, at)
+		place(s, p2, at + Vector2i(1, 0) if s.arena.walkable(at + Vector2i(1, 0)) else at)
+		brain.call("_leap", s, m, p1)
+		var log: Array = []
+		for i in 600:
+			for e in s.step({ "p2": { "target": str(m.id), "attack": true } } if i % 45 == 0 else {}):
+				if (e.type == "hurt" and str(e.cause).begins_with("push")) or (e.type == "paint" and bool(e.get("splash", false))):
+					log.append("%d:%s:%s" % [int(e.tick), e.type, str(e.get("id", ""))])
+			for p in s.players():
+				if float(p.hp) < 600.0:
+					p.hp = p.max_hp
+		runs.append([s.state_hash(), log])
+	c.eq(runs[0][0], runs[1][0], "same seed, same orders: same hash with push damage and splashes")
+	c.eq(runs[0][1], runs[1][1], "the same push hurts and splashes on the same ticks (%d)" % (runs[0][1] as Array).size())
+	c.ok(not (runs[0][1] as Array).is_empty(), "the run had a push hurt or a splash")
