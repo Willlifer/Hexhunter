@@ -16,3 +16,6 @@ design/web/raw/
 __pycache__/
 audio/source/
 *.asd
+
+# third-party pose references (author, 2026-10-22): local only
+reference/
