@@ -214,7 +214,10 @@ const DEFAULTS := {
 	"master_fade_in_s": 3.0,     # ... and it rises from silence over this many seconds after the game opens
 	# loading (author, 2026-10-21: a long load screen is fine, freezes in the fight are not)
 	"load_warm_frames": 8.0,     # frames every shader draws behind the loading screen (HHWarmup)
-	"load_wait_s": 60.0,         # co-op host: start anyway after this long when a hunter never reports loaded
+	"preload_on_web": 1.0,       # H460 (author, 2026-10-22: "bake in the load times before you enter lobby"): 1 = the browser pays every first-load cost at game open, behind a progress screen
+	"preload_on_desktop": 0.0,   # H464: ... and the desktop (0: Forward+ keeps its own shader cache; a fight's own warm-up covers it)
+	"preload_frames": 6.0,       # frames each preload step (map, each fight, the ambush) holds in front of the camera, and the mesh-proxy pass after it
+	"load_wait_s": 60.0,        # co-op host: start anyway after this long when a hunter never reports loaded
 	"monster_own_resist": 75.0,  # H429: % a monster resists its own elements (blows, reactions, ground); capped by HHFormulas.RESIST_CAP
 	"push_walk_into_is_self": 0.0, # H281: 1 = a hunter walking into a moving hull counts as self-caused (5%); the author meant leaps/dashes
 	"cam_follow_max_m": 4.0,     # ... and how far the hunter may get from the screen centre before the view is dragged along

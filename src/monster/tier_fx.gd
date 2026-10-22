@@ -188,6 +188,24 @@ var _roots: Array = []
 var _shaft: MeshInstance3D
 var _t := 0.0
 
+## H461 (lane LD): one Shader per code, shared by every HHTierFx. A Shader
+## built per instance compiled again on each NORMAL fight's first tell (a
+## browser stall); shared, the boot preload and HHWarmup compile it once.
+static var _shared := {}
+
+
+static func shared_shader(key: String) -> Shader:
+	if not _shared.has(key):
+		var sh := Shader.new()
+		sh.code = { "tile": TILE_SHADER, "ring": RING_SHADER, "beam": BEAM_SHADER }[key]
+		_shared[key] = sh
+	return _shared[key]
+
+
+## The runtime-built shaders, for HHWarmup.
+static func warm_shaders() -> Array[Shader]:
+	return [shared_shader("tile"), shared_shader("ring"), shared_shader("beam")]
+
 
 func setup(p_sim: HHSim, p_id: String, p_body: Node3D = null) -> void:
 	sim = p_sim
@@ -195,10 +213,8 @@ func setup(p_sim: HHSim, p_id: String, p_body: Node3D = null) -> void:
 	body = p_body
 	top_level = true
 	name = "TierFx"
-	_tile_shader = Shader.new()
-	_tile_shader.code = TILE_SHADER
-	_ring_shader = Shader.new()
-	_ring_shader.code = RING_SHADER
+	_tile_shader = shared_shader("tile")
+	_ring_shader = shared_shader("ring")
 	for i in 3:
 		_lane_mats.append(_tile_mat(0, YELLOW))
 	_safe_mat = _tile_mat(1, SAFE)
@@ -210,9 +226,7 @@ func setup(p_sim: HHSim, p_id: String, p_body: Node3D = null) -> void:
 	_sweep_ring = _disc(RED, 1)
 	_root_ring = _disc(ROOT, 0)
 	var bm := ShaderMaterial.new()
-	var bs := Shader.new()
-	bs.code = BEAM_SHADER
-	bm.shader = bs
+	bm.shader = shared_shader("beam")
 	_beam = MeshInstance3D.new()
 	var pm := PlaneMesh.new()
 	pm.size = Vector2(1.0, 1.0)
