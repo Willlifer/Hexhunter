@@ -77,6 +77,7 @@ static func next(state: Dictionary, result: Dictionary) -> Dictionary:
 		"results":
 			cfg.locked = []
 			hunt = {}
+			cfg.seed = int(cfg.get("seed", 1)) + 1                  # H436: a new region, so a different monster can stir
 			to = "map"
 		_:
 			to = "map"

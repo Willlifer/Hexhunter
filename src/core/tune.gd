@@ -203,6 +203,7 @@ const DEFAULTS := {
 	"push_self_stagger": 0.0,    # ... and of a self-caused one
 	"push_hit_grace_ticks": 10.0, # that monster's telegraph hit you within this many ticks: no push-out damage on top (a charge's last segment can land a tick before the body stops)
 	"leap_splash_steps": 1.0,    # a monster leap paints its element at this tier on the open Attack Ring hexes round the landing (contained: no reaction)
+	"attack_ring_alpha": 0.6,    # the monster's Attack Ring glow (tiles, reach line, attack spot) x this (H438: 1.0 read "a little too bright")
 	"range_ring_alpha": 0.12,    # the hunter's reach ring (H56): opacity of the thin outline (was 0.62, daggers 0.45; H270 "much more transparent"); daggers x0.75
 	# look (H84-H85, Lane Y): the comic ink outline on the hunters and the monsters (HHInk)
 	# camera (H280): camera lag, a lazy follow. The rate is how fast the view eases onto the hunter (1/s): 6 was near-pinned

@@ -407,6 +407,8 @@ func _build_card() -> void:
 		if state.roll_seed(rng):
 			_refresh())
 	sh.add_child(dice)
+	v.add_child(_volume_row("Volume", "master_db", "The whole mix"))       # H439: the author, "needs an audio slider in the lobby"
+	v.add_child(_volume_row("Music", "music_db", "The music against the effects"))
 	var fight := Button.new()
 	fight.text = "FIGHT   (Enter)"
 	fight.custom_minimum_size = Vector2(0, 56)
@@ -464,6 +466,37 @@ func _build_card() -> void:
 	_runs_box = VBoxContainer.new()
 	_runs_box.add_theme_constant_override("separation", 2)
 	v.add_child(_runs_box)
+
+
+## H439: a volume slider over an HHTune dB key, shown as 0-100 % (100 = 0 dB,
+## 0 = silent). Applies live; saved with the F1 values on release.
+func _volume_row(title: String, key: String, tip: String) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.tooltip_text = tip
+	var l := Label.new()
+	l.text = title
+	l.custom_minimum_size = Vector2(56, 0)
+	l.add_theme_color_override("font_color", DIM)
+	row.add_child(l)
+	var sl := HSlider.new()
+	sl.min_value = 0.0
+	sl.max_value = 100.0
+	sl.step = 1.0
+	sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	sl.value = roundf(db_to_linear(HHTune.value(key)) * 100.0)
+	var pct := Label.new()
+	pct.custom_minimum_size = Vector2(40, 0)
+	pct.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	pct.text = "%d%%" % int(sl.value)
+	sl.value_changed.connect(func(val: float):
+		HHTune.set_value(key, linear_to_db(val / 100.0) if val > 0.0 else -80.0)
+		pct.text = "%d%%" % int(val))
+	sl.drag_ended.connect(func(_changed: bool): HHTunePanel.save())
+	row.add_child(sl)
+	row.add_child(pct)
+	return row
 
 
 ## "PLAY TOGETHER" (H908): solo shows a name field with Host and an address

@@ -87,3 +87,25 @@ func test_react_at_hooks(c: HHSelfTest.HHCheck) -> void:
 	var q := s.react_at(area, "m", "quench")
 	c.ok(s.charge.at(Vector2i(0, 0)).is_empty(), "quench clears")
 	c.ok(q.detonations.is_empty(), "with no blast")
+
+
+## H437: the hunters' light never heals the monster; its own light (and
+## unowned light) still does; a hunter's light still heals the hunters.
+func test_enemy_light_never_heals(c: HHSelfTest.HHCheck) -> void:
+	for src in ["p1", "m"]:
+		var s := _sim()
+		var m := s.unit("m")
+		var p2 := s.unit("p2")
+		m.hp = float(m.max_hp) * 0.5
+		p2.hp = float(p2.max_hp) * 0.5
+		s.paint([m.hex, p2.hex], "light", src, 2)
+		var mhp := float(m.hp)
+		var php := float(p2.hp)
+		for i in 40:
+			s.step()
+		if src == "p1":
+			c.ok(float(m.hp) <= mhp, "a hunter's light does not heal the monster (%.0f -> %.0f)" % [mhp, float(m.hp)])
+			c.ok(float(p2.hp) > php, "a hunter's light heals an ally")
+		else:
+			c.ok(float(m.hp) > mhp, "the monster's own light heals it")
+			c.ok(float(p2.hp) <= php, "the monster's light does not heal the hunters")

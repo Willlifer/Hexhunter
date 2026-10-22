@@ -106,6 +106,7 @@ func test_flow_walks_a_whole_hunt(c: HHSelfTest.HHCheck) -> void:
 	c.eq(s5.screen, "map", "results -> map")
 	c.eq(s5.cfg.locked, [], "back on the map nothing is locked")
 	c.eq(st.hunt, {}, "the hunt record is cleared")
+	c.eq(int(s5.cfg.seed), int(s3.cfg.seed) + 1, "H436: each hunt after the first is a new region (a different site can stir)")
 	var s6 := HHHuntFlow.next(st, { "result": "quit" })
 	c.eq(s6.screen, "", "quit from the map ends the loop")
 

@@ -1409,8 +1409,16 @@ func _ground(u: Dictionary) -> void:
 		hurt(u, HHFormulas.tile_damage(dot_base(u), float(s.fire), resist_of(u, "fire")).value, "fire")
 	if float(s.drain) > 0.0 and not mine:
 		hurt(u, HHFormulas.tile_damage(dot_base(u), float(s.drain), resist_of(u, "dark")).value, "dark")
-	if float(s.heal) > 0.0:
+	if float(s.heal) > 0.0 and not _enemy_light(str(s.source), u):
 		heal(u, HHFormulas.tile_damage(u.max_hp, float(s.heal)).value, "light")
+
+
+## H437: light painted by the other side never heals or feeds you (the
+## author: "their own light can heal them but ours shouldn't"). Unowned
+## light (the glade sunbreak) still heals everyone.
+func _enemy_light(source: String, u: Dictionary) -> bool:
+	var by := unit(source)
+	return not by.is_empty() and (str(by.kind) == "monster") != (str(u.kind) == "monster")
 
 
 ## H56: where a potion thrown at `aim` lands: on the line to it, no farther
@@ -1474,7 +1482,7 @@ func _heal_zones() -> void:
 ## Healing rate under this unit: 1 - dark_heal_cut per dark tier, + light_heal_bonus per light tier.
 func heal_mult(u: Dictionary) -> float:
 	var dark := charge.intensity(u.hex, "dark")
-	var light := charge.intensity(u.hex, "light")
+	var light := 0 if _enemy_light(str(charge.at(u.hex).get("source", "")), u) else charge.intensity(u.hex, "light")
 	return clampf(1.0 - HHTune.value("dark_heal_cut") * dark + HHTune.value("light_heal_bonus") * light, 0.1, 2.0)
 
 

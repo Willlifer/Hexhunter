@@ -216,9 +216,10 @@ func _sync_ring(sim: HHSim, me: Dictionary, delta: float) -> void:
 
 
 func _set_ring_alpha() -> void:
-	_tile_mat.albedo_color.a = 0.2 * _ring_alpha
-	_ring_mat.albedo_color.a = 0.8 * _ring_alpha
-	_spot_mat.albedo_color.a = (0.4 + 0.2 * sin(_t * 7.0)) * _ring_alpha
+	var a := _ring_alpha * HHTune.value("attack_ring_alpha")   # H438: "a little too bright"
+	_tile_mat.albedo_color.a = 0.2 * a
+	_ring_mat.albedo_color.a = 0.8 * a
+	_spot_mat.albedo_color.a = (0.4 + 0.2 * sin(_t * 7.0)) * a
 
 
 func _hide_ring() -> void:
