@@ -2,7 +2,7 @@
 
 Rows in DECISIONS.md format; the integrator folds them into DECISIONS.md at merge.
 
-The ask (author, 2026-10-22): "I want new stances for each weapon, standing straight up with each weapon feels robotic, reference C:\...\Hexhunt\reference for idle poses. Glaive should be upright with the weapon held behind, ready to spin forward. Daggers should be grounded and holding weapons defensively. Bow should be more crouched and ready with finger on the bow." The reference images are third-party art, local only (git-ignored); the side-by-side review sheets go to the ignored `design/art/shots/stances/`, the committed renders in `design/art/stances/` carry no reference.
+The ask (author, 2026-10-22): "I want new stances for each weapon, standing straight up with each weapon feels robotic, reference <repo>\reference for idle poses. Glaive should be upright with the weapon held behind, ready to spin forward. Daggers should be grounded and holding weapons defensively. Bow should be more crouched and ready with finger on the bow." The reference images are third-party art, local only (git-ignored); the side-by-side review sheets go to the ignored `design/art/shots/stances/`, the committed renders in `design/art/stances/` carry no reference.
 
 | # | Date | Decision | By | Why | Status |
 |---|------|----------|----|-----|--------|
