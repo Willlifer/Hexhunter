@@ -81,6 +81,8 @@ var _elapsed := 0.0
 var loading := false             ## the loading screen is up: no sim steps until the shaders are warm and (co-op) the party is in
 var _warm: HHWarmup = null
 var _load_said := ""
+var _t_setup := 0                # ms: setup began / the build finished and the warm-up began (the load-time print, H465)
+var _t_load := 0
 var _log := PackedStringArray()
 var dmg_by_cause := {}       ## damage dealt to the monster, by cause (the autoplay summary; tuning)
 var _over_for := -1.0        # seconds since sim.over was set; -1 while the fight runs
@@ -106,6 +108,7 @@ const INTERP_SNAP_M := 4.0   ## farther than this (a leap, a full snapshot after
 ## beyond the contract that the flags pass through: sandbox, autoplay,
 ## autoplay_seconds, headless.
 func setup_cfg(p_cfg: Dictionary) -> void:
+	_t_setup = Time.get_ticks_msec()
 	cfg = p_cfg.duplicate(true)
 	var seed := int(cfg.get("seed", 1))
 	party = HHParty.players_of(cfg)
@@ -143,6 +146,8 @@ const TUNE := {
 
 
 func setup(p_arena: HHArena, seed: int, monster: String = "", p_asset: GKAsset = null) -> void:
+	if _t_setup == 0:
+		_t_setup = Time.get_ticks_msec()
 	HHTune.register("fight", TUNE)
 	arena = p_arena
 	asset = p_asset
@@ -205,7 +210,9 @@ func _begin_loading() -> void:
 	else:
 		add_child(_warm)
 	_warm.begin(sim.unit(player_id).pos)
+	_warm.add_proxies(self, true)      # H462: pooled effects that start hidden compile now, not on first use
 	_warm.done.connect(func(): _warm = null)
+	_t_load = Time.get_ticks_msec()
 
 
 ## One frame of the loading screen; false once play may start.
@@ -226,6 +233,7 @@ func _loading_step() -> bool:
 	loading = false
 	_acc = 0.0
 	HHLoading.close(self)
+	print("fight: built in %d ms, warm and ready %d ms later" % [_t_load - _t_setup, Time.get_ticks_msec() - _t_load])
 	return false
 
 

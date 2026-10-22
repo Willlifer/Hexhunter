@@ -29,6 +29,8 @@ extends Node
 ##   --host --online [--name X]    co-op online: host a room on the relay (H114); the code shows in the lobby
 ##   --join-code <code> [--name X] co-op online: join that room through the relay
 ##   --relay <url>              the relay for this run (default HHRelayConfig.URL; ws://127.0.0.1:8765 locally)
+##   --preload / --no-preload   force the boot preload (HHPreload, H460) on or off; by default the browser
+##                              runs it (preload_on_web) and the desktop skips it (preload_on_desktop)
 ## With no args (a double-clicked exe) it opens the lobby (H47). Any fight flag
 ## starts that fight directly; when it ends (or on Esc) the lobby opens with
 ## the same cfg (H48). Both run under HHShell.
@@ -67,6 +69,17 @@ func _ready() -> void:
 	var shell := HHShell.new()
 	shell.name = "Shell"
 	add_child(shell)
+	if HHPreload.wanted(args, OS.has_feature("web"), DisplayServer.get_name() == "headless"):   # H460: pay the first-load cost before the first screen
+		var pre := HHPreload.new()
+		add_child(pre)
+		pre.done.connect(_start.bind(shell, args), CONNECT_ONE_SHOT)
+		pre.run()
+		return
+	_start(shell, args)
+
+
+## The first screen, from the flags (after the preload, when there is one).
+func _start(shell: HHShell, args: PackedStringArray) -> void:
 	if "--shot-lobby" in args:
 		shell.go_lobby(HHShell.default_cfg())
 		_capture(args, "--shot-lobby")

@@ -30,6 +30,7 @@ Binary: `<godot>` (`%GODOT%` in the bat files). Run from the repo root.
 | `godot --path . -- [--fight swampfang] [--seed N] [--arena id] [--cam dist,pitch]` | The sandbox, windowed. |
 | `godot --path . -- --fight swampfang --shot <dir> [--count n] [--every s] [--cam 30,42]` | Rendered frames to `<dir>/shot_NN.png`, then quit. Needs a window. |
 | `-- --tune key=value` | Override one HHTune number for the run. |
+| `godot --path . -- [flags] --preload` / `--no-preload` | Force the boot preload (HHPreload, H460) on or off. By default the browser runs it before the first screen (`preload_on_web`) and the desktop skips it (`preload_on_desktop`); headless and `--shot` never do. It prints each step's time, and a windowed fight prints its own build and warm time. |
 
 `test.bat` = import + self-test. `run.bat [args]` = the sandbox.
 
