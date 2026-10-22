@@ -15,7 +15,7 @@ const DRAW_POLE := Vector3(-0.9, 0.5, -0.3)          ## the draw elbow: out to t
 const LOOSE := Vector3(-0.2, 0.06, -0.78)            ## the string hand after release (elbow still bent)
 
 const CLIPS := {
-	"idle":            { "duration": 4.0, "contact_tick": -1, "loop": true,  "key": 1.0, "note": "bow hanging at the left side, breathing" },
+	"idle":            { "duration": 7.2, "contact_tick": -1, "loop": true,  "key": 0.9, "note": "H492: crouched and hunched, the bow held forward-low, an arrow nocked, the string fingers on the nock; breathing, the aim steady" },
 	"wield_idle":      { "duration": 3.0, "contact_tick": -1, "loop": true,  "key": 0.8, "note": "half-raised, bow canted, string hand at the hip, scanning" },
 	"walk":            { "duration": 0.436, "contact_tick": -1, "loop": true, "key": 0.1, "stride": 2.4, "note": "jog, the bow carried low-forward" },
 	"run":             { "duration": 0.4325, "contact_tick": -1, "loop": true, "key": 0.05, "stride": 3.46, "note": "sprint, bow hand steadier, right arm pumps" },
@@ -44,7 +44,7 @@ const LANDING_CLIPS := { "arrowstorm_leap": "volley", "jump": "jump_attack" }
 
 static func pose(clip: String, t: float, b: HHPlayerBody) -> void:
 	match clip:
-		"idle": HHClipsShared.idle(t, b, carry_idle())
+		"idle": HHClipsShared.stance(t, b, stance(), 0.008, 0.5)
 		"wield_idle": _wield_idle(t, b)
 		"walk": HHClipsShared.walk(t, b, carry_run(), 0.3, 1.0)
 		"run": HHClipsShared.run(t, b, carry_run(), 0.3, 1.0)
@@ -77,6 +77,22 @@ static func carry_idle() -> Dictionary:
 	return {
 		"hand_l": HHClipsShared.hand(Vector3(0.3, 0.98, 0.12), "", HHClipsShared.bow_aim(-12.0, 18.0, 30.0)),
 		"upper_arm_r": Vector3(3, 0, 22), "forearm_r": Vector3(-14, 0, 0),
+	}
+
+
+## H492 (Lane ST, the author's reference): the idle stance. Crouched and
+## close: knees bent, the back rounded over the bow, eyes up and forward; the
+## bow forward-low and canted in the left hand, an arrow nocked, the right
+## hand's fingers on the string at the nock, ready to draw.
+static func stance() -> Dictionary:
+	return {
+		"move:root": Vector3(0, -0.26, 0),
+		"hips": Vector3(20, 20, 0), "spine": Vector3(20, 6, 0), "chest": Vector3(18, 8, 0),
+		"neck": Vector3(-20, -10, 0), "head": Vector3(-26, -14, 0),
+		"foot_l": [Vector3(0.26, A, 0.3), 0.0], "foot_r": [Vector3(-0.28, A, -0.26), 0.0],
+		"hand_l": HHClipsShared.hand(Vector3(0.12, 1.0, 0.44), "", HHClipsShared.bow_aim(-20.0, 6.0, 48.0)),
+		"hand_r": HHClipsShared.hand(STRING, "socket_offhand_l", null, Vector3(-0.8, -0.2, -0.4)),
+		"nock": true,
 	}
 
 

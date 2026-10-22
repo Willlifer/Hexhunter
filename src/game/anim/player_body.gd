@@ -747,6 +747,8 @@ func play(clip_name: String, p_loop: bool = true, p_speed: float = 1.0) -> bool:
 		_prev_time = time
 		_prev_loop = loop
 		_fade_len = FADE_READY if _is_ready_clip(clip) else FADE
+		if clip == "idle":
+			_fade_len = HHTune.value("stance_fade_s")      # H493: out of a weapon stance a touch slower (the glaive swings round)
 		_fade = _fade_len
 		if loop:
 			_resume = clip
@@ -1208,6 +1210,11 @@ static func _mix(a: Dictionary, b: Dictionary, w: float) -> Dictionary:
 			m.w = lerpf(float(ai[k].w), float(bi[k].w), w)
 			if m.has("pitch"):
 				m.pitch = lerpf(float(ai[k].pitch), float(bi[k].pitch), w)
+			if bool(ai[k].get("has_aim", false)) and bool(bi[k].get("has_aim", false)):
+				# H493: the held weapon turns through the fade (it snapped to the new clip's aim on the first frame)
+				var qa := (ai[k].aim as Basis).get_rotation_quaternion()
+				var qb := (bi[k].aim as Basis).get_rotation_quaternion()
+				m.aim = Basis(qa.slerp(qb, w))
 			ik[k] = m
 		else:
 			var m2: Dictionary = (ai[k] as Dictionary).duplicate()
