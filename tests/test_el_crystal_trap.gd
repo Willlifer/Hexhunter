@@ -122,6 +122,12 @@ func test_crystal_response_matches_the_sim(c: HHSelfTest.HHCheck) -> void:
 ## it (label "BREAK", cracks and pulse); the backup says "W: BREAK"; a feed
 ## says so; the HUD hint reads the same rule.
 func test_view_read(c: HHSelfTest.HHCheck) -> void:
+	HHTune.set_value("crystal_hint_hexes", 7.0)            # off by default since H473; the read itself still works
+	_view_read(c)
+	HHTune.set_value("crystal_hint_hexes", HHTune.default_of("crystal_hint_hexes"))
+
+
+func _view_read(c: HHSelfTest.HHCheck) -> void:
 	var s := HHSim.new(HHArena.round_flat(1, 17.5, 0.0), 1)
 	var p := s.add_player("p1", Vector2i(0, 4), "ice", "fire", "lance")
 	s.add_monster("m", Vector2i(0, -4), 20000.0, 2)

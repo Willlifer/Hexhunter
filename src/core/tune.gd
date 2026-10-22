@@ -103,8 +103,8 @@ const DEFAULTS := {
 	"shatter_ring_frac": 0.5,    # the ring takes this fraction
 	"shatter_splash_steps": 1.0, # fragments: tier 1 of the stored element onto the ring
 	"crystal_ticks": 1080.0,     # a crystal holds 36 s (decay paused), then thaws into its charge
-	"crystal_hint_hexes": 7.0,   # H471 view: the HUD says "SHATTER xN" for crystals this close to the local hunter
-	"crystal_label": 1.0,        # H471 view: 1 = every crystal shows its Shatter multiple (xN) above it, 0 = off
+	"crystal_hint_hexes": 0.0,   # H471 view: the HUD says "SHATTER xN" for crystals this close to the local hunter; 0 = off (H473: "way too busy")
+	"crystal_label": 0.0,        # H471 view: 1 = every crystal shows its Shatter multiple (xN) above it, 0 = off (H473: off, "way too busy")
 	"crystal_primed_hz": 2.2,    # H471 view: a crystal your active element would break pulses this fast
 	"crystal_glow_per_point": 0.22, # H471 view: shell glow added per stored point (bigger store, brighter crystal)
 	# -- Swirl (wind on charge; H360)

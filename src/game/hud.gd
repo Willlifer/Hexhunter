@@ -740,6 +740,8 @@ static func crystal_hint(s: HHSim, p: Dictionary) -> Dictionary:
 	if s == null or p.is_empty() or s.charge.entries.is_empty():
 		return out
 	var reach := int(HHTune.value("crystal_hint_hexes"))
+	if reach <= 0:
+		return out
 	var best_a := 0.0
 	var best_b := 0.0
 	var feed := false
