@@ -35,7 +35,20 @@ every required event has at least one sound.
 
 ## Music
 
-Not in the repo. The drum loops and chord MIDI live in
-`D:\Music Studio\Claude Playground\hexhunt\` (script, `midi/`, README). The
-author mixes them in Ableton and writes the melody; finished loops come back
-here as `audio/music/*.ogg` in Phase 2.
+The author's tracks (H431): 4-bar loops at 120 BPM (~8 s) and two stings,
+44.1 kHz 16-bit WAV, imported as QOA (looping set in each `.import`). The
+originals, as the author named them, sit in `audio/source/` (git-ignored,
+`.gdignore`d); `audio/music/` holds the clean-named copies the game plays.
+`HHMusic` (src/game/music.gd) picks them:
+
+| track | where |
+|---|---|
+| sting_title | once, on the first screen |
+| lobby_1_drums -> lobby_2_chords_melody -> lobby_3_chords_bass -> lobby_4_full | lobby and world map: one layer more each loop, then the full mix holds |
+| prefight_a, prefight_b (every third loop) | the ambush and the hunt's prep lobby |
+| sting_fight, then fight | a fight starts |
+| fight_enrage | from the next loop once the monster is below half HP or enraged (NORMAL) |
+| victory | once on a win, then the lobby build again |
+
+Not used: "Basic Drums and Chords" (0.63 s; it reads like a cut-off export).
+Level: `music_db` / `music_on` on the F1 panel (the Music bus).

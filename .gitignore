@@ -14,3 +14,5 @@ Hexhunt.docx
 design/art/hunter_ref/
 design/web/raw/
 __pycache__/
+audio/source/
+*.asd

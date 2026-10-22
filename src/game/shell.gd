@@ -26,6 +26,7 @@ var fights_run := 0
 var net: Node = null
 var session: Node = null
 var coop_boot := {}                ## { mode: "host"|"join", address, name, autoplay, peers, seconds }
+var music: HHMusic = null          ## H431: the author's music, made on the first screen
 
 
 ## The cfg a fresh lobby starts from (guide/02 "Launch config").
@@ -54,6 +55,11 @@ func show_screen(s: Node, cfg: Dictionary, on_finished: Callable = Callable()) -
 		var cb := on_finished if on_finished.is_valid() else _route.bind(s)
 		s.connect("finished", cb, CONNECT_ONE_SHOT)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	if music == null:
+		music = HHMusic.new()
+		music.name = "Music"
+		add_child(music)
+	music.on_screen(s)                     # H431
 	screen_changed.emit(s)
 
 
