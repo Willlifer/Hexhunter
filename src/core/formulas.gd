@@ -44,6 +44,26 @@ static func stagger_ticks(strength: float) -> Dictionary:
 	return calc("stagger", v, "stagger_max_ticks * strength", "%.0f * %.2f" % [HHTune.value("stagger_max_ticks"), s])
 
 
+## Stagger bar (H510): what one hit or reaction adds to a monster's bar:
+## stagger x the fill factor of its element / reaction (sb_hit_<element>,
+## sb_<reaction>) x frac (sb_monster_trigger_frac for a reaction a monster or
+## the arena set off, else 1). `key` is the factor's tune key.
+static func stagger_fill(stagger: float, key: String, frac: float = 1.0) -> Dictionary:
+	var f := HHTune.value(key) if HHTune.has(key) else 0.0
+	var v := maxf(0.0, stagger) * f * frac
+	return calc("stagger fill", v, "stagger * %s * frac" % key, "%.2f * %.2f * %.2f" % [stagger, f, frac])
+
+
+## The fill a monster's bar needs to topple: sb_need x the party (1 +
+## sb_party_mult per extra hunter) x the rise (1 + sb_rise per topple so far).
+static func stagger_need(hunters: int, topples: int) -> Dictionary:
+	var party := 1.0 + HHTune.value("sb_party_mult") * float(maxi(0, hunters - 1))
+	var rise := 1.0 + HHTune.value("sb_rise") * float(maxi(0, topples))
+	var v := HHTune.value("sb_need") * party * rise
+	return calc("stagger need", v, "sb_need * (1 + sb_party_mult * (hunters-1)) * (1 + sb_rise * topples)",
+		"%.1f * %.2f * %.2f" % [HHTune.value("sb_need"), party, rise])
+
+
 ## A detonation's split: the centre takes pct, each neighbour a fraction of it.
 static func detonation_ring_pct(pct: float) -> Dictionary:
 	var v := pct * HHTune.value("detonate_ring_frac")

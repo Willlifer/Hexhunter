@@ -361,6 +361,21 @@ func pose_at(clip_name: String, t: float) -> bool:
 	return true
 
 
+## H512 (Lane SB): a toppled monster plays its stagger clip down to the slump
+## (the clip's key moment) and holds it there; it plays the recovery half only
+## in the topple's last (1 - key) x duration seconds, so it stands as the sim
+## lets it act again. Pure: the clip time to show.
+static func topple_hold(clip_name: String, t: float, d: float, toppled_ticks: int, key: float) -> float:
+	if clip_name != "stagger" or toppled_ticks <= 0 or d <= 0.0:
+		return t
+	var slump := d * clampf(key, 0.0, 1.0)
+	var left_s := float(toppled_ticks) / 30.0
+	var recover_s := d - slump
+	if left_s > recover_s:
+		return minf(t, slump)
+	return maxf(t, d - left_s)
+
+
 func duration(clip_name: String) -> float:
 	return float(clips(id).get(clip_name, {}).get("duration", 0.0))
 
@@ -378,6 +393,7 @@ func update(delta: float) -> void:
 		return
 	var d := duration(clip)
 	time += delta * speed * _idle_rush(tier)
+	time = topple_hold(clip, time, d, int(state.get("toppled", 0)), float(clips(id).get(clip, {}).get("key", 0.5)))
 	if loop:
 		if d > 0.0:
 			time = fmod(time, d)

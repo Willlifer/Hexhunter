@@ -101,7 +101,8 @@ func run_one(monster: String, weapon: String, tier: String, seed: int, cap: int)
 	return { "monster": monster, "weapon": weapon, "tier": s.difficulty, "seed": seed, "outcome": outcome,
 		"seconds": snappedf(s.tick * HHSim.TICK, 0.1), "monster_left_pct": snappedf(100.0 * float(m.hp) / float(m.max_hp), 0.1),
 		"cap_s": snappedf(cap * HHSim.TICK, 0.1), "pair": "%s/%s" % [pair[0], pair[1]], "bot": bot_kind,
-		"hunter_left_pct": snappedf(100.0 * float(s.unit("p1").hp) / float(s.unit("p1").max_hp), 0.1) }
+		"hunter_left_pct": snappedf(100.0 * float(s.unit("p1").hp) / float(s.unit("p1").max_hp), 0.1),
+		"topples": int(m.get("topples", 0)) }           # H510 (Lane SB): how often the stagger bar toppled it
 
 
 ## H422: the author's "easy mode" test bot (H267). It only ever gives the

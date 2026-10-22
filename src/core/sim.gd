@@ -172,6 +172,12 @@ func add_monster(id: String, hex: Vector2i, hp: float = 20000.0, size: int = 2, 
 	u.allowed_kinds = allowed_kinds
 	u.party_scale = 1.0
 	u.exposed = 0                                        # H57: ticks left of a punish window (replicates)
+	u.sbar = 0.0                                         # H510 stagger bar: fill points (replicates)
+	u.sbar_need = 0.0                                    # ... the fill that topples it now (party, rises per topple)
+	u.sbar_idle = 0                                      # ... ticks since it was last fed (decay)
+	u.topples = 0                                        # ... how many times it has toppled
+	u.toppled = 0                                        # ... ticks left of a topple (down: no brain, exposed)
+	_sbar_need(u)
 	scale_for_party()
 	return u
 
@@ -191,6 +197,7 @@ func party_factor() -> float:
 func scale_for_party() -> void:
 	var f := party_factor()
 	for m in monsters():
+		_sbar_need(m)                                    # H515: the stagger bar scales with the party too
 		var cur := float(m.get("party_scale", 1.0))
 		if absf(f - cur) < 1e-6:
 			continue
@@ -834,6 +841,8 @@ func step(orders: Dictionary = {}) -> Array:
 	for id in brains.keys():
 		var u: Dictionary = units.get(id, {})
 		if not u.is_empty() and alive(u):
+			if int(u.get("toppled", 0)) > 0:
+				continue                                 # H512: a toppled monster is down: its brain does not run
 			if difficulty == "easy":
 				brains[id].tick(self, u)
 			else:
@@ -888,10 +897,13 @@ func step(orders: Dictionary = {}) -> Array:
 				u.recovery = int(u.recovery) - 1
 			if int(u.get("flinch", 0)) > 0:
 				u.flinch = int(u.flinch) - 1
-		elif int(u.get("exposed", 0)) > 0:
-			u.exposed = int(u.exposed) - 1
-			if int(u.exposed) == 0:
-				_emit({ "type": "exposed_end", "id": u.id })
+		else:
+			if int(u.get("exposed", 0)) > 0:
+				u.exposed = int(u.exposed) - 1
+				if int(u.exposed) == 0:
+					_emit({ "type": "exposed_end", "id": u.id })
+			if alive(u):
+				_sbar_tick(u)
 	charge.tick()
 	if tick % int(HHTune.value("authored_reform_every")) == 0:
 		charge.author_rows(arena.authored_rows(), true)  # H44: vents, lava and shade re-form
@@ -1258,6 +1270,9 @@ func _walk_hex(u: Dictionary) -> void:
 	if int(u.stagger) > 0:
 		u.stagger = int(u.stagger) - 1
 		return
+	if int(u.get("toppled", 0)) > 0:                    # H512: down, it does not move
+		u.pos = arena.stand(u.hex)
+		return
 	if _paralysed(u) or not (u.windup as Dictionary).is_empty():
 		return
 	if (u.path as Array).is_empty():
@@ -1570,6 +1585,8 @@ func strike(u: Dictionary, t: Dictionary, base: float, hex: Vector2i, cause: Str
 		mult = float(brain.rear_mult(t, u.hex))
 	var dmg: float = HHFormulas.hit(base, mult, resist_of(t, u.element)).value
 	hurt(t, dmg, cause, stagger, str(u.id))
+	if str(u.get("kind", "")) == "player":
+		sbar_feed(t, HHFormulas.stagger_fill(stagger, "sb_hit_" + str(u.element)).value, cause)   # H510
 	var ev := { "type": "strike", "id": u.id, "target": t.id, "hex": hex, "amount": dmg, "cause": cause, "rear": mult > 1.0 }
 	ev.merge(extra)
 	_emit(ev)
@@ -1820,6 +1837,8 @@ func _resolve_telegraph(tg: Dictionary) -> void:
 				hurt(u, dmg, cause, 0.0, str(tg.owner), false)          # H58: a guarded hit did not land: no interrupt
 			else:
 				hurt(u, dmg, cause, float(p.get("stagger", 0.0)), str(tg.owner))
+				if str(owner.get("kind", "")) == "player":   # H510: a hunter's telegraph (arcing shot, aftershock)
+					sbar_feed(u, HHFormulas.stagger_fill(float(p.get("stagger", 0.0)), "sb_hit_" + str(owner.get("element", ""))).value, cause)
 		if str(p.get("status", "")) != "" and int(u.guard) <= 0:
 			apply_status(u, str(p.status), int(p.get("status_ticks", 90)))
 		if int(u.guard) <= 0:
@@ -1987,7 +2006,7 @@ func resolve_ground(r: Dictionary, trigger: String) -> void:
 		var swirl := bool(b.get("swirl", false))
 		_emit({ "type": str(b.kind), "hex": b.hex, "ring": b.painted, "mult": float(b.mult), "element": str(b.element), "swirl": swirl, "trigger": trigger })
 		var bk := str(b.kind)                            # H423: each burst its own stagger and ring keys
-		_area_hits(hits, b.hex, float(b.mult), "swirl" if swirl else bk, str(b.element), HHTune.value(bk + "_stagger"), HHTune.value(bk + "_ring_frac"), trigger, str(b.source))
+		_area_hits(hits, b.hex, float(b.mult), "swirl" if swirl else bk, str(b.element), HHTune.value(bk + "_stagger"), HHTune.value(bk + "_ring_frac"), trigger, str(b.source), bk)
 		if str(b.kind) == "flux":
 			riders.append(["vulnerable", [b.hex] + (b.ring as Array)])
 	for s in r.get("shatters", []):
@@ -1998,7 +2017,7 @@ func resolve_ground(r: Dictionary, trigger: String) -> void:
 		var swirl_x := bool(x.get("swirl", false))
 		_emit({ "type": kind, "hex": x.hex, "mult": float(x.mult), "consumed": int(x.consumed), "swirl": swirl_x, "trigger": trigger })
 		_area_hits(hits, x.hex, float(x.mult), "swirl" if swirl_x else kind, "water" if kind == "steam" else "light", HHTune.value(kind + "_stagger"),
-			HHTune.value(kind + "_ring_frac"), trigger, str(x.source))
+			HHTune.value(kind + "_ring_frac"), trigger, str(x.source), kind)
 		if kind == "eclipse":
 			riders.append(["exposed", [x.hex] + arena.ring(x.hex, 1)])
 	_land_reactions(hits)
@@ -2056,7 +2075,7 @@ func player_reaction_unit() -> float:
 ##   at 1 HP at worst, _land_reactions).
 ## Then resistance to the reaction's element, and Flux's vulnerability.
 ## A hunter never takes more than reaction_hunter_stagger_max from a reaction.
-func reaction_hit(hits: Dictionary, victim: Dictionary, mult: float, cause: String, element: String, stagger: float, trigger: String, owner: String = "") -> void:
+func reaction_hit(hits: Dictionary, victim: Dictionary, mult: float, cause: String, element: String, stagger: float, trigger: String, owner: String = "", kind: String = "") -> void:
 	if victim.is_empty() or not targetable(victim) or mult <= 0.0:
 		return
 	var by_player := str(unit(trigger).get("kind", "")) == "player"
@@ -2079,16 +2098,16 @@ func reaction_hit(hits: Dictionary, victim: Dictionary, mult: float, cause: Stri
 		vuln = HHTune.value("flux_vuln_mult")
 	var amount: float = HHFormulas.reaction_damage(unit_dmg, mult, frac, resist_of(victim, element), vuln).value
 	var st := stagger if str(victim.kind) == "monster" else minf(stagger, HHTune.value("reaction_hunter_stagger_max"))
-	_react(hits, victim, amount, cause, st, trigger if by_player else "", floor)
+	_react(hits, victim, amount, cause, st, trigger if by_player else "", floor, cause if kind == "" else kind)
 
 
 ## A reaction's area: units on `hex` take the full multiple, units on its
 ## ring `ring_frac` of it (each unit once, at its best).
-func _area_hits(hits: Dictionary, hex: Vector2i, mult: float, cause: String, element: String, stagger: float, ring_frac: float, trigger: String, owner: String) -> void:
+func _area_hits(hits: Dictionary, hex: Vector2i, mult: float, cause: String, element: String, stagger: float, ring_frac: float, trigger: String, owner: String, kind: String = "") -> void:
 	var seen := {}
 	for u in unit_at(hex):
 		seen[u.id] = true
-		reaction_hit(hits, u, mult, cause, element, stagger, trigger, owner)
+		reaction_hit(hits, u, mult, cause, element, stagger, trigger, owner, kind)
 	if ring_frac <= 0.0:
 		return
 	for n in arena.ring(hex, 1):
@@ -2096,13 +2115,13 @@ func _area_hits(hits: Dictionary, hex: Vector2i, mult: float, cause: String, ele
 			if seen.has(u.id):
 				continue
 			seen[u.id] = true
-			reaction_hit(hits, u, mult * ring_frac, cause, element, stagger if ring_frac >= 1.0 else 0.0, trigger, owner)
+			reaction_hit(hits, u, mult * ring_frac, cause, element, stagger if ring_frac >= 1.0 else 0.0, trigger, owner, kind)
 
 
-func _react(hits: Dictionary, u: Dictionary, amount: float, cause: String, stagger: float, source: String = "", floor: bool = false) -> void:
+func _react(hits: Dictionary, u: Dictionary, amount: float, cause: String, stagger: float, source: String = "", floor: bool = false, kind: String = "") -> void:
 	if not hits.has(u.id):
 		hits[u.id] = []
-	(hits[u.id] as Array).append({ "amount": amount, "cause": cause, "stagger": stagger, "source": source, "floor": floor })
+	(hits[u.id] as Array).append({ "amount": amount, "cause": cause, "stagger": stagger, "source": source, "floor": floor, "kind": kind if kind != "" else cause })
 
 
 ## Every unit an action's reactions caught takes its strongest blast in full
@@ -2124,15 +2143,19 @@ func _land_reactions(hits: Dictionary) -> void:
 		var total := float(top.amount)
 		var st := 0.0
 		var floor := false
+		var fill := 0.0                                  # H510: the bar takes the action's strongest fill (as the stagger)
 		for i in list.size():
 			if i > 0:
 				total += float(list[i].amount) * HHTune.value("reaction_chain_frac")
 			st = maxf(st, float(list[i].stagger))
+			var frac := 1.0 if str(list[i].get("source", "")) != "" else HHTune.value("sb_monster_trigger_frac")
+			fill = maxf(fill, float(HHFormulas.stagger_fill(float(list[i].stagger), "sb_" + str(list[i].get("kind", list[i].cause)), frac).value))
 			floor = floor or bool(list[i].get("floor", false))
 		if floor and str(u.kind) == "player":
 			total = minf(total, maxf(0.0, float(u.hp) - 1.0))
 		_emit({ "type": "reaction", "id": u.id, "amount": total, "blasts": list.size(), "cause": top.cause })
 		hurt(u, total, str(top.cause), st, str(top.get("source", "")), false)   # H58: reactions never interrupt
+		sbar_feed(u, fill, str(top.get("kind", top.cause)))
 
 
 # ------------------------------------------------------------------ crystals (H365-H367) and the section 7-8 hooks
@@ -2260,6 +2283,88 @@ func hurt(u: Dictionary, amount: float, cause: String, stagger: float = 0.0, by:
 			_emit({ "type": "death", "id": u.id, "cause": cause })
 
 
+# ------------------------------------------------------------------ the stagger bar (Lane SB, H510-H519)
+
+## The fill a monster's bar needs now (party size, topples so far).
+func _sbar_need(m: Dictionary) -> void:
+	m.sbar_need = float(HHFormulas.stagger_need(players().size(), int(m.get("topples", 0))).value)
+
+
+## H510: `amount` fill points onto monster `m`'s bar (the caller computed them
+## through HHFormulas.stagger_fill). Ignored when the bar is off, for anything
+## that is not a living monster, while it is toppled or immune. A full bar
+## topples it now if it can (grounded, surfaced); else on the first tick it can.
+func sbar_feed(m: Dictionary, amount: float, _cause: String = "") -> void:
+	if amount <= 0.0 or HHTune.value("sb_on") <= 0.0 or str(m.get("kind", "")) != "monster" or not alive(m):
+		return
+	if int(m.get("toppled", 0)) > 0 or int(m.get("immune", 0)) > 0 or not m.has("sbar"):
+		return
+	m.sbar = minf(float(m.sbar_need), float(m.sbar) + amount)
+	m.sbar_idle = 0
+	if float(m.sbar) >= float(m.sbar_need) - 1e-6 and _can_topple(m):
+		_topple(m, _cause)
+
+
+func _can_topple(m: Dictionary) -> bool:
+	return alive(m) and (m.leap as Dictionary).is_empty() and not bool(m.untargetable)
+
+
+## H512: down for sb_topple_s. Its wind-up and its telegraphs still waiting to
+## land are cancelled (knocked out of the attack), it stops, its brain is
+## skipped until it stands, and it is exposed (H57) the whole time. The view
+## reads `toppled` (the body holds its stagger clip's slump) and the event.
+func _topple(m: Dictionary, cause: String) -> void:
+	var ticks := maxi(1, int(roundf(HHTune.value("sb_topple_s") * 30.0)))
+	m.toppled = ticks
+	m.topples = int(m.get("topples", 0)) + 1
+	m.sbar = float(m.sbar_need)
+	_stop(m)
+	var w: Dictionary = m.windup
+	if not w.is_empty():
+		m.windup = {}
+		_emit({ "type": "windup_broken", "id": m.id, "kind": str(w.kind), "why": "topple" })
+	var keep: Array = []
+	for tg in telegraphs:
+		if str(tg.owner) == str(m.id):
+			_emit({ "type": "telegraph_end", "id": tg.id, "owner": tg.owner, "hexes": tg.hexes, "hit": [],
+				"name": str((tg.payload as Dictionary).get("name", "")), "cancelled": true })
+		else:
+			keep.append(tg)
+	telegraphs = keep
+	var was := int(m.get("exposed", 0))
+	m.exposed = maxi(was, ticks)
+	if was <= 0:
+		_emit({ "type": "exposed", "id": m.id, "ticks": m.exposed, "cause": "topple" })
+	_emit({ "type": "topple", "id": m.id, "ticks": ticks, "count": int(m.topples), "cause": cause })
+	_emit({ "type": "monster_anim", "id": m.id, "clip": "stagger", "speed": 1.0, "topple": true })
+
+
+## Every tick for a living monster: a topple counts down while the bar drains
+## to empty, then it stands (the next threshold rises); a full bar waiting on
+## a leap or a dive topples once it can; an unfed bar decays after a delay.
+func _sbar_tick(m: Dictionary) -> void:
+	if not m.has("sbar"):
+		return
+	if int(m.get("toppled", 0)) > 0:
+		var total := maxf(1.0, roundf(HHTune.value("sb_topple_s") * 30.0))
+		m.toppled = int(m.toppled) - 1
+		m.sbar = maxf(0.0, float(m.sbar) - float(m.sbar_need) / total)
+		if int(m.toppled) == 0:
+			m.sbar = 0.0
+			m.sbar_idle = 0
+			_sbar_need(m)
+			_emit({ "type": "topple_end", "id": m.id, "need": m.sbar_need })
+		return
+	if float(m.sbar) <= 0.0:
+		return
+	if float(m.sbar) >= float(m.sbar_need) - 1e-6 and _can_topple(m):
+		_topple(m, "")
+		return
+	m.sbar_idle = int(m.sbar_idle) + 1
+	if float(m.sbar_idle) > HHTune.value("sb_decay_delay_s") * 30.0:
+		m.sbar = maxf(0.0, float(m.sbar) - float(m.sbar_need) * HHTune.value("sb_decay_pct_s") / 100.0 / 30.0)
+
+
 # ------------------------------------------------------------------ downed and revive (H53)
 
 ## A hunter at 0 HP with an ally standing. HP stays 0, so every alive() check
@@ -2374,6 +2479,8 @@ func state_hash() -> int:
 				str(sk.get("by", "")), int(sk.get("tick", -1)), str(pu.get("by", "")), int(pu.get("tick", -1))])
 		else:
 			parts.append("x%d" % int(u.get("exposed", 0)))   # H57
+			parts.append("sb%d:%d:%d:%d:%d" % [int(roundf(float(u.get("sbar", 0.0)) * 100.0)), int(roundf(float(u.get("sbar_need", 0.0)) * 100.0)),
+				int(u.get("sbar_idle", 0)), int(u.get("topples", 0)), int(u.get("toppled", 0))])   # H510
 	var keys := charge.entries.keys()
 	keys.sort()
 	for h in keys:
