@@ -14,7 +14,7 @@ const A := HHClipsShared.ANKLE_Y
 const GRIP_L := Vector3(0.0, 0.4, 0.0)        ## the left hand on the shaft (socket_weapon_r frame)
 
 const CLIPS := {
-	"idle":        { "duration": 4.0, "contact_tick": -1, "loop": true,  "key": 1.0, "note": "lance shouldered, weight shifting, breathing" },
+	"idle":        { "duration": 7.2, "contact_tick": -1, "loop": true,  "key": 0.9, "note": "H490: upright, weight on the right leg, the glaive low in the right hand trailing behind, blade near the ground, wound to spin forward; breathing, weight shifting" },
 	"wield_idle":  { "duration": 3.0, "contact_tick": -1, "loop": true,  "key": 0.8, "note": "side-on guard, lance level at the chest, point on the target" },
 	"walk":        { "duration": 0.436, "contact_tick": -1, "loop": true, "key": 0.1, "stride": 2.4, "note": "5.5 m/s jog, lance couched low at the hip" },
 	"run":         { "duration": 0.4325, "contact_tick": -1, "loop": true, "key": 0.05, "stride": 3.46, "note": "8 m/s, 1.73 m steps, lance couched, left arm pumps" },
@@ -57,7 +57,7 @@ const LANDING_CLIPS := { "jump": "slam" }
 
 static func pose(clip: String, t: float, b: HHPlayerBody) -> void:
 	match clip:
-		"idle": HHClipsShared.idle(t, b, carry_idle())
+		"idle": HHClipsShared.stance(t, b, stance())
 		"wield_idle": _wield_idle(t, b)
 		"walk": HHClipsShared.walk(t, b, carry_run(), 1.0, 0.0)
 		"run": HHClipsShared.run(t, b, carry_run(), 1.0, 0.0)
@@ -88,6 +88,22 @@ static func carry_idle() -> Dictionary:
 	return {
 		"hand_r": HHClipsShared.hand(Vector3(-0.24, 1.38, 0.22), "", HHClipsShared.aim(62.0, 180.0)),
 		"upper_arm_l": Vector3(2, 0, -22), "forearm_l": Vector3(-12, 0, 0),
+	}
+
+
+## H490 (Lane ST, the author's reference): the idle stance. Tall and easy,
+## weight on the right leg (the left hip drops, the left foot rests ahead),
+## the glaive in the right hand alone, held low and trailing behind her with
+## the blade near the ground, the chest wound a touch to the right: the spin
+## forward (combo_stab's unwind) is loaded. The left arm hangs loose.
+static func stance() -> Dictionary:
+	return {
+		"move:root": Vector3(-0.07, -0.05, 0.0),
+		"hips": Vector3(0, -10, -10), "spine": Vector3(-2, -5, 7), "chest": Vector3(-5, -14, 4),
+		"neck": Vector3(-2, 12, -2), "head": Vector3(-4, 14, -4),
+		"foot_l": [Vector3(0.25, A + 0.03, 0.34), 14.0], "foot_r": [Vector3(-0.12, A, -0.08), 0.0],
+		"hand_r": HHClipsShared.hand(Vector3(-0.30, 0.94, -0.1), "", HHClipsShared.aim(-26.0, -158.0)),
+		"upper_arm_l": Vector3(-4, 0, -16), "forearm_l": Vector3(-24, 0, 0),
 	}
 
 

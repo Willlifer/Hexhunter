@@ -368,6 +368,33 @@ static func idle(t: float, b: HHPlayerBody, carry: Dictionary) -> void:
 	apply(b, carry)
 
 
+## H490 (Lane ST): a weapon's idle stance, alive. `pose` carries the feet
+## (planted, so the hips sway over them), the body and the weapon hold; on
+## top: a breath (HHTune stance_breath_*) and a slow weight shift (stance_shift_*)
+## that rolls the hips toward the standing leg, leans the chest against it and
+## lets the head drift. `sink` (m) dips the hips on each exhale (low stances
+## breathe through the knees); `hold` (0..1) damps the shift for a held aim.
+## The periods snap to whole cycles of the clip (`b.duration("idle")`) so the
+## loop never pops at its seam; the look-around drifts once per loop.
+static func stance(t: float, b: HHPlayerBody, pose: Dictionary, sink: float = 0.0, hold: float = 0.0) -> void:
+	apply(b, pose)
+	var d := maxf(b.duration("idle"), 1.0)
+	var bp := d / maxf(roundf(d / maxf(HHTune.value("stance_breath_s"), 0.5)), 1.0)
+	var ba := HHTune.value("stance_breath_amt")
+	var sp := d / maxf(roundf(d / maxf(HHTune.value("stance_shift_s"), 0.5)), 1.0)
+	var sa := HHTune.value("stance_shift_amt") * (1.0 - 0.6 * clampf(hold, 0.0, 1.0))
+	breath(b, t, bp, ba)
+	var inhale := 0.5 - 0.5 * cos(TAU * t / bp)
+	b.move("root", Vector3(0.0, -sink * ba * (1.0 - inhale), 0.0))
+	var s := sin(TAU * t / sp)
+	var s2 := sin(TAU * t / d + 1.1)
+	b.move("root", Vector3(0.018 * sa * s, -0.006 * sa * absf(s), 0.0))
+	b.rot("hips", Vector3(0.0, 1.5 * sa * s2, 2.0 * sa * s))
+	b.rot("spine", Vector3(0.0, 1.5 * sa * s2, -1.2 * sa * s))
+	b.rot("chest", Vector3(0.0, 0.0, -0.8 * sa * s))
+	b.rot("head", Vector3(1.2 * sa * s2, 5.0 * sa * s2, 0.6 * sa * s))
+
+
 ## Stagger: knocked back a step, the arms flail, slow recover (speed-scaled
 ## by the body to the sim's stagger ticks).
 static func stagger(t: float, b: HHPlayerBody, carry: Dictionary) -> void:

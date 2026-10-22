@@ -9,7 +9,7 @@ extends RefCounted
 const A := HHClipsShared.ANKLE_Y
 
 const CLIPS := {
-	"idle":        { "duration": 4.0, "contact_tick": -1, "loop": true,  "key": 1.0, "note": "blades reversed at the hips, loose shoulders" },
+	"idle":        { "duration": 7.2, "contact_tick": -1, "loop": true,  "key": 0.9, "note": "H491: grounded, wide and low, torso forward, both blades up in front across the body in a guard; breathing through the knees" },
 	"wield_idle":  { "duration": 2.4, "contact_tick": -1, "loop": true,  "key": 0.6, "note": "low crouch, arms out, blades down, weight bouncing" },
 	"walk":        { "duration": 0.436, "contact_tick": -1, "loop": true, "key": 0.1, "stride": 2.4, "note": "jog, blades trailing" },
 	"run":         { "duration": 0.4325, "contact_tick": -1, "loop": true, "key": 0.05, "stride": 3.46, "note": "sprint, both arms pump, blades trail down-back" },
@@ -47,7 +47,7 @@ const LANDING_CLIPS := { "jump": "jump_attack" }
 
 static func pose(clip: String, t: float, b: HHPlayerBody) -> void:
 	match clip:
-		"idle": HHClipsShared.idle(t, b, carry_idle())
+		"idle": HHClipsShared.stance(t, b, stance(), 0.012)
 		"wield_idle": _wield_idle(t, b)
 		"walk": HHClipsShared.walk(t, b, carry_run(), 1.0, 1.0)
 		"run": HHClipsShared.run(t, b, carry_run(), 1.0, 1.0)
@@ -91,6 +91,21 @@ static func carry_idle() -> Dictionary:
 		"upper_arm_l": Vector3(4, 0, -20), "forearm_l": Vector3(-16, 0, 0),
 		"upper_arm_r": Vector3(4, 0, 20), "forearm_r": Vector3(-16, 0, 0),
 		"hand_l": _noreach(down_l()), "hand_r": _noreach(down_r()),
+	}
+
+
+## H491 (Lane ST, the author's reference): the idle stance. Grounded: feet
+## wide, knees well bent, the torso leaning over them, the left side leading;
+## both fists up in front, reverse grip, the blades crossing the body (the
+## lead blade angled across to the right, the rear one across to the left).
+static func stance() -> Dictionary:
+	return {
+		"move:root": Vector3(0, -0.32, 0.02),
+		"hips": Vector3(24, 12, 0), "spine": Vector3(10, 4, 0), "chest": Vector3(10, 6, 0),
+		"neck": Vector3(-16, -6, 0), "head": Vector3(-20, -8, 0),
+		"foot_l": [Vector3(0.40, A, 0.40), 0.0], "foot_r": [Vector3(-0.38, A, -0.34), 0.0],
+		"hand_l": HHClipsShared.hand(Vector3(0.1, 1.28, 0.52), "", HHClipsShared.aim(-8.0, -70.0)),
+		"hand_r": HHClipsShared.hand(Vector3(-0.16, 1.12, 0.4), "", HHClipsShared.aim(0.0, 55.0)),
 	}
 
 

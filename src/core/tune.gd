@@ -228,6 +228,12 @@ const DEFAULTS := {
 	"ink_on": 1.0,               # 1 = outline on (author, 2026-10-20: wanted, default on), 0 = off
 	"ink_px": 2.4,               # line width in pixels on a 1080-line screen (constant on screen: no fat lines up close)
 	"ink_max_m": 0.05,           # ... capped at this many metres (bites only on small or far views)
+	# weapon stances (H490-H499, Lane ST): the idle loops' breathing and weight shift
+	"stance_breath_s": 3.6,      # one breath (s)
+	"stance_breath_amt": 1.0,    # x the chest rise and shoulder lift
+	"stance_shift_s": 7.2,       # one weight shift, onto the standing leg and back (s)
+	"stance_shift_amt": 1.0,     # x the hip sway, the counter-lean and the slow look-around
+	"stance_fade_s": 0.2,        # the cross-fade out of an idle stance into the next clip (s; other clips fade 0.12)
 	# web look (Lane Z, H90-H92): the Compatibility renderer only; desktop ignores these
 	"web_ambient": 1.0,          # the sky ambient the *_web GK shaders add (x the sky's irradiance estimate)
 	"web_reflection": 0.5,       # the sky a glossy GK surface mirrors (water)
