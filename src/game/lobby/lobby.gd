@@ -12,6 +12,10 @@ extends Control
 ## Visual pass (Lane UI, H800+): the HUD's language throughout (dark plates
 ## with a gold trim, the serif face, glyph sockets), thumbnails and the run
 ## history (L-19).
+## Ability tooltips (Lane TT, H480-H486): an ABILITIES card in the weapon
+## row's free slot (HHAbilityStrip) and one shared HHAbilityTip that opens on
+## its icons, on the weapon tiles (the kit card) and on the upgrade rows;
+## the text and live numbers come from HHAbilityInfo.
 ## `setup(cfg)` prefills from cfg (the hunt loop passes `locked` keys, drawn
 ## greyed with a LOCK); `finished` emits { result: "fight", cfg } or
 ## { result: "quit" }. The picks live in HHLobbyState (testable headlessly).
@@ -71,6 +75,9 @@ var _op_label: Label             ## H244: "OPERATORS" over Wind, Ice and Thunder
 var _axis_label: Label           ## H266: "AXIS" over Fire, Water, Dark and Light
 var _axis_copy: Label            ## ... and its one line
 var _op_copy := {}               ## operator id -> its one line of copy
+var _strip: HHAbilityStrip       ## H480: the picked weapon's ABILITIES card
+var _tip: HHAbilityTip           ## H482: the one tooltip every hover shares
+var _tip_anchor := Rect2()
 
 ## Co-op (Lane C, H908-H912): the "Play together" section on the card.
 var coop := HHLobbyCoop.new()    ## the party logic; the shell's net + session are attached in _ready
@@ -134,12 +141,14 @@ func _ready() -> void:
 	_build_elements()
 	_build_card()
 	_build_ticker()
+	_build_abilities()
 	_tune = HHTunePanel.new()
 	add_child(_tune)
 	_attach_coop()
 	_refresh()
 	if not coop_boot.is_empty():
 		_boot_coop.call_deferred()
+	_tip_hook.call_deferred()
 
 
 func _exit_tree() -> void:
@@ -272,8 +281,13 @@ func _build_row(i: int, kind: String, y: float) -> void:
 	for j in rows.size():
 		var t := HHLobbyTile.make(self, Rect2(Vector2(TILE_X + j * (TILE_SIZE.x + TILE_GAP), y), TILE_SIZE), rows[j], kind)
 		t.pressed.connect(func(tile: HHLobbyTile): _pick(kind, tile.id))
-		t.hovered.connect(func(tile: HHLobbyTile): _ticker.text = tile.blurb)
+		t.hovered.connect(func(tile: HHLobbyTile):
+			_ticker.text = tile.blurb
+			if kind == "weapon":                                   # H483: the weapon's kit card
+				show_tip("weapon:" + tile.id, tile.get_rect()))
 		t.mouse_exited.connect(_ticker_rest)
+		if kind == "weapon":
+			t.mouse_exited.connect(_hide_tip)
 		tiles.append(t)
 	_tiles[kind] = tiles
 
@@ -752,8 +766,12 @@ func _refresh_upgrades() -> void:
 		cb.disabled = not state.save.owns(id) or state.is_locked("upgrades")
 		var drops := ", ".join((row.get("drops_from", []) as Array).map(func(m): return HHRegistry.name_of("monster", str(m))))
 		var line := "%s: %s%s" % [HHUpgrades.name_of(id), HHUpgrades.blurb_of(id), "" if state.save.owns(id) else "   (drops from %s)" % drops]
-		cb.mouse_entered.connect(func(): _ticker.text = line)
-		cb.mouse_exited.connect(_ticker_rest)
+		cb.mouse_entered.connect(func():
+			_ticker.text = line
+			show_tip("up:" + id, cb.get_global_rect()))                # H484: the upgrade's numbers, left of the card
+		cb.mouse_exited.connect(func():
+			_ticker_rest()
+			_hide_tip())
 		cb.toggled.connect(func(_on: bool):
 			if not state.toggle_upgrade(id):
 				_ticker.text = "%s: slots full for %s (max %d)" % [HHUpgrades.name_of(id), str(row.skill).to_upper(), HHUpgrades.MAX_PER_SKILL]
@@ -847,6 +865,83 @@ func _build_ticker() -> void:
 	p.add_child(_ticker)
 	_label("1-4 jump rows  ·  Left / Right change the pick  ·  Enter fights  ·  F1 tune  ·  Esc quits", Vector2(TICKER.position.x, HINT_Y - 14), 14, DIM)
 	_label("In the fight: right-click moves / attacks, hold Q to charge, E R cast, W swaps, Shift dashes, T throws a potion, Esc back here", Vector2(TICKER.position.x, HINT_Y + 6), 14, DIM)
+
+
+# ------------------------------------------------------------------ ability tips (Lane TT, H480-H489)
+
+## The ABILITIES card in the weapon row's free slot (right of the last
+## weapon tile) and the one tooltip every hover shares.
+func _build_abilities() -> void:
+	var n := HHRegistry.rows("weapon").size()
+	_strip = HHAbilityStrip.new()
+	_strip.position = Vector2(TILE_X + n * (TILE_SIZE.x + TILE_GAP), ROW_Y[2])
+	_strip.size = TILE_SIZE
+	_strip.hovered.connect(func(key: String, rect: Rect2):
+		if key == "":
+			_hide_tip()
+		else:
+			show_tip(key, rect))
+	add_child(_strip)
+	_tip = HHAbilityTip.new()
+	add_child(_tip)
+
+
+## What a tip key shows: "q" / "basic" / "active" ... for the picked weapon,
+## "weapon:<id>" for a weapon's kit card, "up:<id>" for an upgrade.
+func tip_info(key: String) -> Dictionary:
+	var cfg := state.cfg
+	if key.begins_with("weapon:"):
+		return HHAbilityInfo.summary(key.substr(7))
+	if key.begins_with("up:"):
+		var id := key.substr(3)
+		return HHAbilityInfo.upgrade_info(id, state.save == null or state.save.owns(id))
+	var info := HHAbilityInfo.info(str(cfg.weapon), key, str(cfg.element), str(cfg.backup), cfg.get("upgrades", {}))
+	info["element"] = str(info.get("element", cfg.element))
+	return info
+
+
+func show_tip(key: String, anchor: Rect2) -> void:
+	if _tip == null:
+		return
+	_tip_anchor = anchor
+	_tip.show_for(tip_info(key), anchor, "left" if key.begins_with("up:") else "above")
+
+
+func _hide_tip() -> void:
+	if _tip != null:
+		_tip.hide_tip()
+
+
+## A render hook: `-- --lobby-tip <key>[,<weapon>]` (with --shot-lobby) opens
+## one tip and keeps it, so a capture can show it ("q", "basic", "active",
+## "weapon:bow", "up:pierce_wide"). `--lobby-weapon <id>` picks the weapon first.
+func _tip_hook() -> void:
+	var args := OS.get_cmdline_user_args()
+	var i := args.find("--lobby-weapon")
+	if i >= 0 and i + 1 < args.size():
+		state.pick("weapon", args[i + 1])
+		_refresh()
+	i = args.find("--lobby-tip")
+	if i < 0 or i + 1 >= args.size():
+		return
+	await get_tree().process_frame                   # the card's rows settle first
+	await get_tree().process_frame
+	var key := args[i + 1]
+	var anchor := _strip.canvas_rect(key)
+	if key.begins_with("weapon:"):
+		for t in _tiles.get("weapon", []):
+			if "weapon:" + str(t.id) == key:
+				anchor = t.get_rect()
+	elif key.begins_with("up:"):
+		for cb in _ups_box.get_children():
+			if (cb as CheckBox).text.ends_with(HHUpgrades.name_of(key.substr(3))):
+				anchor = cb.get_global_rect()
+	else:
+		_strip.hot = key
+		_strip.queue_redraw()
+	show_tip(key, anchor)
+	_tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE   # the capture's idle mouse must not close it
 
 
 # ------------------------------------------------------------------ state
@@ -997,6 +1092,14 @@ func _refresh() -> void:
 	_refresh_runs()
 	_refresh_coop()
 	_ticker_rest()
+	if _strip != null and _tip != null:
+		_strip.weapon = str(state.cfg.weapon)
+		_strip.element = str(state.cfg.element)
+		_strip.backup = str(state.cfg.backup)
+		if _tip.showing().begins_with("up:"):
+			_hide_tip()                             # its checkbox was just rebuilt
+		elif _tip.showing() != "":
+			show_tip(_tip.showing(), _tip_anchor)   # the picks changed under an open tip
 
 
 # ------------------------------------------------------------------ input
