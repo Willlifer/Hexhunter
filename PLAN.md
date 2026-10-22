@@ -1,7 +1,7 @@
 # PLAN — Hexhunt
 
 Phases with gates. The author checks each gate before the next phase starts.
-Status: **Phase 4 co-op built; combat-feel pass merged 2026-10-20 (H56-H58: charged Q, dash, thrown potion, range rings, recovery, escapes, combos, facing lock, hit-stop, exposed windows, interrupts), 327/327. Awaiting the author's play (LEDGER L-27, L-31). Then Phase 5 web.**
+Status: **2026-10-21: Phase 4 co-op (LAN + online relay) and Phase 5 web live (hexhunter.vercel.app). Element pass, difficulty tiers, NORMAL-tier monsters, hull, huntress v2, music merged; 57 suites green. Awaiting the author's play on EASY/NORMAL and online co-op.**
 
 ## 0. Interview record
 
