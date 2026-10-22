@@ -16,6 +16,6 @@ A lane is one Claude Code session in its own git worktree off `dev`, with an own
 | P | `src/game/**`, `src/core/**`, `tests/test_play_*`, `tests/test_core_*` | H400-H449 | lance kit (Q Pierce, W Exchange, E Guard, R Eruption), basic attack, target + walk-into-range, stagger/statuses on hit, HUD bar, F1 tune panel, fight.gd integration |
 | C | `src/arena/**`, `arenas/**`, `tests/test_arena_*` | H200-H249 | pond generator (GKDef), water depth + lilypad cover cells, bench tool, JSON export, preview |
 | E | `src/monster/**`, `art/monsters/**`, `tools/blender/build_monster_*.py`, `tests/test_monster_*` | H300-H349 | Monster Rig Builder, Swampfang model + clips, brain (calm/aggravated/threatened), telegraphed attacks as hex sets |
-| F | `D:\Music Studio\Claude Playground\hexhunt\**`, `audio/**` | H350-H399 | 4-5 drum loops at 120 BPM, chord MIDI, sfx copy-in from Gauntlet |
+| F | `<music workspace>\hexhunt\**`, `audio/**` | H350-H399 | 4-5 drum loops at 120 BPM, chord MIDI, sfx copy-in from Gauntlet |
 
 Shared contracts (`guide/02-core-contracts.md`) change only through Lane P. Lane E and Lane C get a stub in `src/core` from Lane P if they need a hook that does not exist yet.

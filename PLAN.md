@@ -46,7 +46,7 @@ Four arenas, four monsters, three weapons with four skills each and three upgrad
 | F1 tune panel | Gauntlet `mmo_tune.gd` / `osrs_tune_panel.gd` | Feel numbers in one cfg plus a live panel. |
 | Tile-effect matrix, tag vocabulary | Temporal Sea `tile_effects.gd`, `tags.json` | Reference for authored scenery pairs and skill tagging. Not copied wholesale. |
 | Elevation hex render | Temporal Sea `hex_terrain.gd` | Reference for `cell_top` and picking against stepped columns. |
-| MIDI | `D:\Music Studio\Claude Playground\skills\groove-midi\groovekit.py` | Lane F. |
+| MIDI | `<music workspace>\skills\groove-midi\groovekit.py` | Lane F. |
 
 ## 3. Phases
 
@@ -107,7 +107,7 @@ Each lane: its own worktree off `dev`, an owned file set, a reserved DECISIONS b
 | C Map tooling | `src/arena/gen/**`, `src/arena/bench/**`, `src/arena/interact/**`, `tests/test_arena_*` | H200-H249 | 1 → |
 | D Maps | `arenas/*.json` presets, `design/art/arenas/**`, `tests/test_map_*` | H250-H299 | 2 |
 | E Units and monsters | `tools/blender/build_monster_*.py`, `src/monster/**`, `art/monsters/**`, `tests/test_monster_*` | H300-H349 | 1 → |
-| F Audio | `D:\Music Studio\Claude Playground\hexhunt\**`, `audio/**` | H350-H399 | 1 |
+| F Audio | `<music workspace>\hexhunt\**`, `audio/**` | H350-H399 | 1 |
 
 Merge rule: lane branch → `dev` by the integrator after that lane's suite and the full self-test pass. `main` moves only at a phase gate.
 
