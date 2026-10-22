@@ -1413,12 +1413,11 @@ func _ground(u: Dictionary) -> void:
 		heal(u, HHFormulas.tile_damage(u.max_hp, float(s.heal)).value, "light")
 
 
-## H437: light painted by the other side never heals or feeds you (the
-## author: "their own light can heal them but ours shouldn't"). Unowned
-## light (the glade sunbreak) still heals everyone.
+## H437: the hunters' light never heals or feeds the monster (the author:
+## "their own light can heal them but ours shouldn't"). Every light heals
+## the hunters, the monster's included; unowned light heals everyone.
 func _enemy_light(source: String, u: Dictionary) -> bool:
-	var by := unit(source)
-	return not by.is_empty() and (str(by.kind) == "monster") != (str(u.kind) == "monster")
+	return str(u.kind) == "monster" and str(unit(source).get("kind", "")) == "player"
 
 
 ## H56: where a potion thrown at `aim` lands: on the line to it, no farther

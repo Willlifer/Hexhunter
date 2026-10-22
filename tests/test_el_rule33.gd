@@ -90,7 +90,7 @@ func test_react_at_hooks(c: HHSelfTest.HHCheck) -> void:
 
 
 ## H437: the hunters' light never heals the monster; its own light (and
-## unowned light) still does; a hunter's light still heals the hunters.
+## unowned light) still does; every light heals the hunters.
 func test_enemy_light_never_heals(c: HHSelfTest.HHCheck) -> void:
 	for src in ["p1", "m"]:
 		var s := _sim()
@@ -108,4 +108,4 @@ func test_enemy_light_never_heals(c: HHSelfTest.HHCheck) -> void:
 			c.ok(float(p2.hp) > php, "a hunter's light heals an ally")
 		else:
 			c.ok(float(m.hp) > mhp, "the monster's own light heals it")
-			c.ok(float(p2.hp) <= php, "the monster's light does not heal the hunters")
+			c.ok(float(p2.hp) > php, "the monster's light heals the hunters too")
