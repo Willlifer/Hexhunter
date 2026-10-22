@@ -69,6 +69,10 @@ func _route(result: Dictionary, from: Node) -> void:
 		fights_run += 1
 		go_lobby(last_cfg, result)
 	elif str(result.get("result", "")) == "fight":
+		if DisplayServer.get_name() != "headless":       # the loading screen paints before the long build frame
+			HHLoading.open(self)
+			await get_tree().process_frame
+			await get_tree().process_frame
 		play(result.get("cfg", last_cfg))
 	elif str(result.get("result", "")) == "hunt":
 		hunt(result.get("cfg", last_cfg))

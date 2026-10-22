@@ -63,6 +63,7 @@ func _ready() -> void:
 			var kv := args[i + 1].split("=")
 			if kv.size() == 2:
 				HHTune.set_value(kv[0], float(kv[1]))
+	HHWebLook.apply_quality(get_viewport())                        # the browser's render scale (no-op on desktop)
 	var shell := HHShell.new()
 	shell.name = "Shell"
 	add_child(shell)

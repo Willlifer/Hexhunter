@@ -97,6 +97,19 @@ func on_screen(s: Node) -> void:
 
 
 ## The hunt's prep lobby (arena and monster locked), not the free lobby.
+## The whole mix: HHTune master_db on the Master bus, rising from silence
+## over master_fade_in_s after the game opens (the first screen made this
+## node), so the browser's first sound is not a blast.
+func _master(delta: float) -> void:
+	_master_t += delta
+	var fade_s := HHTune.value("master_fade_in_s")
+	var k := clampf(_master_t / fade_s, 0.0, 1.0) if fade_s > 0.0 else 1.0
+	AudioServer.set_bus_volume_db(0, HHTune.value("master_db") + linear_to_db(maxf(k * k, 0.0001)))
+
+
+var _master_t := 0.0
+
+
 static func _is_prep(s: Node) -> bool:
 	var st: Variant = s.get("state")
 	if not st is Object:
@@ -117,6 +130,7 @@ func _process(delta: float) -> void:
 	p.volume_db = linear_to_db(maxf(_fade, 0.0001)) + db if on else -80.0
 	q.volume_db = linear_to_db(maxf(1.0 - _fade, 0.0001)) + db if on else -80.0
 	_sting.volume_db = db if on else -80.0
+	_master(delta)
 	if state == "fight":
 		_watch_fight()
 	# a loop end: the position wraps (or a one-shot finished)

@@ -42,6 +42,20 @@ static func ensure_globals() -> void:
 static var _declared := false
 
 
+## The browser's frame budget (author, 2026-10-21: drop the render
+## resolution): the 3D draws at HHTune web_render_scale of the canvas and is
+## scaled up, with web_msaa anti-aliasing. The canvas itself is CSS pixels,
+## not device pixels (allow_hidpi.web = false in project.godot), so a 4K or
+## retina screen no longer draws 4x the pixels. Only the web build; boot and
+## each fight call it, so an F1 change lands on the next fight.
+static func apply_quality(vp: Viewport) -> void:
+	if vp == null or not OS.has_feature("web"):
+		return
+	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+	vp.scaling_3d_scale = clampf(HHTune.value("web_render_scale"), 0.25, 1.0)
+	vp.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][clampi(int(HHTune.value("web_msaa")), 0, 2)]
+
+
 ## Set the web ambient from `env` (the arena's or the map's WorldEnvironment):
 ## a sky ambient becomes three irradiance colours (up, side, down) from the
 ## procedural sky's gradient; a colour ambient is used as it is. No-op on desktop.

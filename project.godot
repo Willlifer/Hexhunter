@@ -24,6 +24,7 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/size/resizable=true
 window/dpi/allow_hidpi=true
+window/dpi/allow_hidpi.web=false
 
 [rendering]
 limits/global_shader_variables/buffer_size=262144

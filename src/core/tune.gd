@@ -209,6 +209,11 @@ const DEFAULTS := {
 	"cam_follow_rate": 2.5,
 	"music_db": -6.0,            # H431: the Music bus level against the effects (dB)
 	"music_on": 1.0,             # ... 0 mutes the music
+	"master_db": -10.0,          # the whole mix (Master bus), dB: quieter on load (author, 2026-10-21)
+	"master_fade_in_s": 3.0,     # ... and it rises from silence over this many seconds after the game opens
+	# loading (author, 2026-10-21: a long load screen is fine, freezes in the fight are not)
+	"load_warm_frames": 8.0,     # frames every shader draws behind the loading screen (HHWarmup)
+	"load_wait_s": 60.0,         # co-op host: start anyway after this long when a hunter never reports loaded
 	"monster_own_resist": 75.0,  # H429: % a monster resists its own elements (blows, reactions, ground); capped by HHFormulas.RESIST_CAP
 	"push_walk_into_is_self": 0.0, # H281: 1 = a hunter walking into a moving hull counts as self-caused (5%); the author meant leaps/dashes
 	"cam_follow_max_m": 4.0,     # ... and how far the hunter may get from the screen centre before the view is dragged along
@@ -221,6 +226,8 @@ const DEFAULTS := {
 	"web_fog": 1.0,              # x the arena's fog density, drawn by the *_web GK shaders
 	"web_glow_whiten": 0.45,     # additive light pools (torches, lava) pulled toward warm white, as Filmic does on desktop
 	"web_glow_gain": 1.1,        # ... and scaled
+	"web_render_scale": 0.75,    # the browser draws the 3D at this fraction of the canvas and scales it up (author, 2026-10-21)
+	"web_msaa": 1.0,             # browser 3D anti-aliasing: 0 off, 1 = 2x, 2 = 4x (desktop keeps the project's 4x)
 }
 
 static var _v := {}

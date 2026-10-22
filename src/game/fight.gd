@@ -78,6 +78,9 @@ var _acc := 0.0
 var _pending := {}
 var _script: Array = []
 var _elapsed := 0.0
+var loading := false             ## the loading screen is up: no sim steps until the shaders are warm and (co-op) the party is in
+var _warm: HHWarmup = null
+var _load_said := ""
 var _log := PackedStringArray()
 var dmg_by_cause := {}       ## damage dealt to the monster, by cause (the autoplay summary; tuning)
 var _over_for := -1.0        # seconds since sim.over was set; -1 while the fight runs
@@ -176,6 +179,65 @@ func setup(p_arena: HHArena, seed: int, monster: String = "", p_asset: GKAsset =
 	add_child(sfx)
 	if autoplay:
 		_script = _autoplay_script()
+	_begin_loading()
+
+
+# ------------------------------------------------------------------ loading
+## Author, 2026-10-21: in the browser a fight took long to start and then one
+## hunter froze or dropped. Behind HHLoading the fight warms every shader
+## (HHWarmup), then a client tells the host it is loaded and the host holds
+## the sim until the whole party has (HHReplicator.ready_to_run). A headless
+## fight (tests) has nothing to warm: a client reports loaded at once. A
+## fight outside the tree at setup (driven by hand) skips the screen too.
+func _begin_loading() -> void:
+	if headless or not is_inside_tree():   # driven by hand (tests; tools add it later): nothing renders to warm
+		if net_mode == "client" and replicator != null and replicator.has_method("announce_loaded"):
+			replicator.announce_loaded()
+		return
+	loading = true
+	HHWebLook.apply_quality(get_viewport())
+	_say_loading("Loading the hunt")
+	_warm = HHWarmup.new()
+	_warm.name = "Warmup"
+	if camera != null and camera.cam != null:
+		camera.cam.add_child(_warm)
+		_warm.position = Vector3(0, 0, -2.0)
+	else:
+		add_child(_warm)
+	_warm.begin(sim.unit(player_id).pos)
+	_warm.done.connect(func(): _warm = null)
+
+
+## One frame of the loading screen; false once play may start.
+func _loading_step() -> bool:
+	if _warm != null:
+		return true
+	if net_mode == "client":
+		if replicator != null and replicator.has_method("announce_loaded") and not replicator.get("_announced"):
+			replicator.announce_loaded()
+		if sim.tick == 0:
+			_say_loading("Waiting for the host")
+			return true
+	elif net_mode == "host" and replicator != null and replicator.has_method("ready_to_run"):
+		if not replicator.ready_to_run():
+			var waiting: int = replicator.waiting_for()
+			_say_loading("Waiting for %d hunter%s to load" % [waiting, "" if waiting == 1 else "s"])
+			return true
+	loading = false
+	_acc = 0.0
+	HHLoading.close(self)
+	return false
+
+
+func _exit_tree() -> void:
+	if loading:                        # left mid-load (the host quit): the shell's next screen must not sit under it
+		HHLoading.close(self)
+
+
+func _say_loading(text: String) -> void:
+	if text != _load_said:
+		_load_said = text
+		HHLoading.say(self, text)
 
 
 ## Stand-in for Lane S's spawn fan-out (H53): a hunter added on a hex another
@@ -366,6 +428,9 @@ func _build_hud() -> void:
 # ------------------------------------------------------------------ loop
 
 func _process(delta: float) -> void:
+	if loading and _loading_step():
+		_draw(delta)
+		return
 	_elapsed += delta
 	if autoplay:
 		_drive_autoplay(delta)

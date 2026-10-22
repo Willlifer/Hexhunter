@@ -27,11 +27,13 @@ const DELTA := 30
 const FULL := 31
 const ORDER := 32
 const NEED_FULL := 33
+const LOADED := 34                 ## client -> host: built and warmed, ready for the stream
 
 const FULL_EVERY := 30
 const HASH_EVERY := 5
 const GAP_MS := 120
 const REQUEST_EVERY_MS := 400
+const LOADED_EVERY_MS := 1000      ## a client repeats LOADED until the first snapshot (the host may still be building)
 const ORDER_KEYS := ["move", "move_pos", "stop", "target", "attack", "run", "swap", "cast", "potion", "paint",
 	"charge", "charge_aim", "release", "dash"]      # H56 (Lane W): charged Q and the dash
 
@@ -48,11 +50,15 @@ var _unit_of := {}                 # peer -> unit id
 var _orders := {}                  # peer -> merged order dict, cleared by collect
 var _prev: Dictionary = {}
 var _need_full := {}               # peer -> true
+var _loaded := {}                  # peer -> true: its LOADED arrived
+var _wait_since := -1              # when the host first asked ready_to_run()
 
 # client
 var _buf := {}                     # tick -> { full: bool, data }
 var _stuck_since := -1
 var _last_request := -100000
+var _announced := false
+var _last_loaded := -100000
 
 
 ## The fight's one call: find Shell/Net above `fight`, add the replicator
@@ -164,6 +170,7 @@ func publish_final(events: Array) -> void:
 
 
 func _on_peer_left(peer: int) -> void:
+	_loaded.erase(peer)
 	_orders.erase(peer)
 	_need_full.erase(peer)
 
@@ -215,6 +222,41 @@ static func clean_order(o: Variant, sandbox: bool) -> Dictionary:
 
 # ------------------------------------------------------------------ client
 
+## Host: true once every hunter still in the party has loaded its fight
+## (or HHTune load_wait_s ran out). Until then the fight holds the sim, so
+## nothing streams to a browser that is still building and compiling: a
+## frozen joiner's queue on the relay overflowed and it was dropped as slow.
+func ready_to_run() -> bool:
+	if role != "host":
+		return true
+	var now := Time.get_ticks_msec()
+	if _wait_since < 0:
+		_wait_since = now
+	if now - _wait_since > int(HHTune.value("load_wait_s") * 1000.0):
+		return true
+	return waiting_for() == 0
+
+
+## Host: how many party peers have not reported loaded yet.
+func waiting_for() -> int:
+	var live := net.peers()
+	var n := 0
+	for peer in _unit_of:
+		if int(peer) != 1 and int(peer) in live and not _loaded.has(int(peer)):
+			n += 1
+	return n
+
+
+## Client: this fight is built and warmed; tell the host (repeated by pump
+## until the first snapshot lands).
+func announce_loaded() -> void:
+	if role != "client":
+		return
+	_announced = true
+	_last_loaded = Time.get_ticks_msec()
+	net.send(1, LOADED, {}, HHNet.CH_CONTROL)
+
+
 func send_order(o: Dictionary) -> void:
 	if role != "client" or o.is_empty():
 		return
@@ -252,6 +294,8 @@ func pump() -> void:
 		applied += 1
 	stats.max_catchup = maxi(int(stats.max_catchup), applied)
 	var now := Time.get_ticks_msec()
+	if _announced and sim.tick == 0 and now - _last_loaded > LOADED_EVERY_MS:
+		announce_loaded()
 	if _buf.is_empty() and sim.tick > 0:
 		_stuck_since = -1
 	elif not _buf.is_empty() or sim.tick == 0:
@@ -308,6 +352,9 @@ func _on_message(peer: int, kind: int, data: Variant) -> void:
 			NEED_FULL:
 				if _unit_of.has(peer):
 					_need_full[peer] = true
+			LOADED:
+				if _unit_of.has(peer):
+					_loaded[peer] = true
 	elif peer == 1 and data is Dictionary:
 		match kind:
 			FULL:

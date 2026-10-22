@@ -187,6 +187,11 @@ func test_loopback_fight_hash_agreement(c: HHSelfTest.HHCheck) -> void:
 	hr.setup(h, hs, cfgs.host)
 	var kr := HHReplicator.new()
 	kr.setup(k, ms, cfgs.client)
+	# the load gate (2026-10-21): the host holds the fight until the joiner has loaded
+	c.ok(not hr.ready_to_run(), "the host waits while the joiner is still loading")
+	c.eq(hr.waiting_for(), 1, "... for one hunter")
+	kr.announce_loaded()
+	c.ok(_poll([h, k], func(): return hr.ready_to_run(), 2000), "the joiner's LOADED opens the gate")
 	var events := []
 	kr.snapshot_applied.connect(func(ev): events.append_array(ev))
 	var host_hash := {}
