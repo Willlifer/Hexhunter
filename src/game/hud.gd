@@ -21,6 +21,10 @@ const ORB_GAP := 20.0               ## the orb socket to the nearest slot
 const BOTTOM := 14.0                ## the slots' bottom edge above the screen's
 const BAR_W := 520.0                ## the monster HP bar
 const BAR_H := 16.0
+const SBAR_H := 6.0                 ## H513: the stagger bar under the monster's HP
+const SBAR_GAP := 4.0
+const SBAR_TOP := Color(0.42, 0.72, 1.0)       ## water-blue fill (H441: water controls)
+const SBAR_BOT := Color(0.12, 0.36, 0.86)
 const KEYS := ["q", "w", "e", "r"]
 const ICON := 30.0                  ## status icon box
 const ICON_GAP := 5.0
@@ -620,6 +624,8 @@ var gone := {}                      ## hunter id -> true: that peer disconnected
 var spectating := ""                ## the ally the camera follows while the local hunter is down
 var _t := 0.0
 var _ghost := -1.0                  ## the monster bar's trailing (recent damage) fraction
+var _sb_flash := 0.0                ## H513: 1 on the frame the monster topples, fading
+var _sb_was := 0                    ## the toppled ticks seen last frame
 var _prev_cd := {}
 var _flash := {}
 
@@ -658,6 +664,11 @@ func tick(delta: float) -> void:
 				_ghost = mf
 			else:
 				_ghost = maxf(mf, _ghost - delta * 0.12)
+			var tp := int(m.get("toppled", 0))
+			if tp > 0 and _sb_was <= 0:
+				_sb_flash = 1.0                         # H513: the topple flash (state-driven: a co-op mirror sees it too)
+			_sb_was = tp
+	_sb_flash = maxf(0.0, _sb_flash - delta * 1.6)
 
 
 func _draw() -> void:
@@ -932,7 +943,8 @@ func _monster_plate(pt: Paint, bar: Rect2) -> void:
 		return
 	var mf := clampf(float(m.hp) / maxf(1.0, float(m.max_hp)), 0.0, 1.0)
 	var ghost := maxf(mf, _ghost)
-	var plate_r := Rect2(bar.position.x - 18.0, 8.0, bar.size.x + 36.0, bar.end.y + 9.0 - 8.0)
+	var sbr := stagger_rect(bar)
+	var plate_r := Rect2(bar.position.x - 18.0, 8.0, bar.size.x + 36.0, sbr.end.y + 8.0 - 8.0)
 	plate(pt, plate_r, false, true, 0.92)
 	# name
 	var title := HHRegistry.name_of("monster", monster_id).to_upper()
@@ -955,9 +967,10 @@ func _monster_plate(pt: Paint, bar: Rect2) -> void:
 	pt.frame(bar, GOLD_DIM, 1.0)
 	pt.text(Vector2(bar.get_center().x, bar.end.y - 3.0), "%d / %d" % [int(m.hp), int(m.max_hp)], 12, Color(1, 1, 1, 0.92), 1, 3)
 	pt.text(Vector2(bar.end.x, bar.position.y - 8.0), tier_tag(sim), 12, Color(GOLD.r, GOLD.g, GOLD.b, 0.7), 2, 3, serif())   # H243: the tier, small, right of the name
+	_stagger_bar(pt, sbr, m)
 	if int(m.get("exposed", 0)) > 0:                # H57: the punish window
 		var pulse := 0.7 + 0.3 * sin(_t * 12.0)
-		var tag := Rect2(bar.end.x - 92.0, bar.end.y + 5.0, 92.0, 20.0)
+		var tag := Rect2(bar.end.x - 92.0, sbr.end.y + 5.0, 92.0, 20.0)
 		pt.rect(tag.grow(1.0), Color(0, 0, 0, 0.85))
 		pt.rect(tag, Color(0.55, 0.38, 0.08, 0.9 * pulse))
 		pt.frame(tag, Color(1.0, 0.86, 0.45, pulse), 1.0)
@@ -987,6 +1000,46 @@ func _monster_plate(pt: Paint, bar: Rect2) -> void:
 	else:                                           # no state: the socket holds a dim ornament
 		socket(pt, sc, 20.0, GOLD_DIM)
 		pt.poly(_scaled(_star(Vector2(0.5, 0.5), 0.5, 0.18, 4), sc - Vector2(10, 10), 20.0), Color(GOLD_DIM.r, GOLD_DIM.g, GOLD_DIM.b, 0.8))
+
+
+## H513: where the stagger bar sits under the monster's HP bar.
+static func stagger_rect(bar: Rect2) -> Rect2:
+	return Rect2(bar.position.x, bar.end.y + SBAR_GAP, bar.size.x, SBAR_H)
+
+
+## The stagger bar's fill 0..1 from the monster's unit (0 when it has none).
+static func stagger_frac(m: Dictionary) -> float:
+	var need := float(m.get("sbar_need", 0.0))
+	return clampf(float(m.get("sbar", 0.0)) / need, 0.0, 1.0) if need > 0.0 else 0.0
+
+
+## H513: a thin water-blue meter under the HP. While the monster is down it
+## drains white-hot from full and a small TOPPLED tag sits under its left end;
+## the topple itself flashes the bar and its frame.
+func _stagger_bar(pt: Paint, r: Rect2, m: Dictionary) -> void:
+	if not m.has("sbar") or HHTune.value("sb_on") <= 0.0:
+		return
+	var f := stagger_frac(m)
+	var down := int(m.get("toppled", 0)) > 0
+	pt.rect(r.grow(1.0), Color(0, 0, 0, 0.9))
+	pt.rect(r, Color(0.04, 0.07, 0.13))
+	var fill := Rect2(r.position, Vector2(r.size.x * f, r.size.y))
+	if down:
+		var pulse := 0.75 + 0.25 * sin(_t * 10.0)
+		pt.vgrad(fill, Color(0.85, 0.95, 1.0, pulse), Color(0.35, 0.65, 1.0, pulse))
+	else:
+		pt.vgrad(fill, SBAR_TOP, SBAR_BOT)
+	pt.rect(Rect2(fill.position, Vector2(fill.size.x, 2.0)), Color(1, 1, 1, 0.18))
+	pt.frame(r, Color(GOLD_DIM.r, GOLD_DIM.g, GOLD_DIM.b, 0.8), 1.0)
+	if _sb_flash > 0.0:
+		pt.rect(r.grow(2.0 + 3.0 * _sb_flash), Color(0.75, 0.9, 1.0, 0.45 * _sb_flash))
+		pt.frame(r.grow(3.0), Color(0.85, 0.95, 1.0, _sb_flash), 2.0)
+	if down:
+		var tag := Rect2(r.position.x, r.end.y + 5.0, 96.0, 20.0)
+		pt.rect(tag.grow(1.0), Color(0, 0, 0, 0.85))
+		pt.rect(tag, Color(0.1, 0.3, 0.7, 0.92))
+		pt.frame(tag, Color(0.7, 0.88, 1.0), 1.0)
+		pt.text(Vector2(tag.get_center().x, tag.end.y - 4.0), "TOPPLED", 14, Color(0.92, 0.97, 1.0), 1, 3, serif())
 
 
 ## The fight's tier under the monster bar, small and dim (H243): "EASY" / "NORMAL".

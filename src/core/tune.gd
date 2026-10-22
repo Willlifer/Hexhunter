@@ -119,6 +119,37 @@ const DEFAULTS := {
 	"monster_reaction_player_frac": 0.2, # 3.3 / DECIDE-C: ... and each hunter in it this fraction (never below 1 HP)
 	"reaction_unit_other": 40.0, # superseded by monster_reaction_* (H364); kept for old readers, the sim no longer reads it
 	# ================= end of eruptions and reactions
+	# ================= STAGGER BAR (Lane SB, H510-H519; author: "I would add the stagger bar, it should take
+	# 10 full water combos to stagger, and scale everything from that"; L-61 "water fills it more strongly than
+	# any other element"). A per-monster meter on top of the per-hit stagger (which is unchanged). Every hit or
+	# reaction that carries stagger adds stagger x its element's (or reaction's) fill factor; full = TOPPLE.
+	# The anchor (H511): one "full water combo" = a water-active hunter's 3-hit basic string plus the Geysers
+	# its own water triggers on the monster, measured by tools/stagger_bar_calib.gd (design/stagger_bar.md).
+	"sb_on": 1.0,                # 0 switches the bar off (no fill, no topple)
+	"sb_need": 24.0,             # fill points to topple a solo monster the first time: 10 full water combos (lance 9 = 22.9, 10 = 25.7; daggers 9 = 21.8, 10 = 24.4)
+	"sb_hit_water": 1.0,         # a hunter's blow (basic, skill, shot) x its stagger, by the hunter's ACTIVE element: water controls
+	"sb_hit_ice": 0.6,           # ice stores (its fill comes through Shatter)
+	"sb_hit_thunder": 0.5,       # thunder cashes in (its fill comes through Detonate)
+	"sb_hit_wind": 0.5,          # wind moves
+	"sb_hit_fire": 0.35,         # fire burns
+	"sb_hit_dark": 0.35,         # dark exposes
+	"sb_hit_light": 0.35,        # light sustains
+	"sb_geyser": 1.0,            # reactions: x the reaction's own stagger (geyser_stagger 1.0 ...)
+	"sb_steam": 0.7,             # water quenching fire: control, most of water's
+	"sb_shatter": 0.6,           # (shatter_stagger 0.8): the stored break
+	"sb_detonate": 0.5,          # (detonate_stagger 0.35)
+	"sb_glint": 0.25,            # (glint_stagger 0.5)
+	"sb_eclipse": 0.3,           # (eclipse_stagger 0.35)
+	"sb_overheat": 0.35,         # (overheat_stagger 0: fills nothing until it staggers)
+	"sb_flux": 0.35,             # (flux_stagger 0: same)
+	"sb_monster_trigger_frac": 0.25, # a reaction a monster or the arena set off fills this fraction (= monster_reaction_frac)
+	"sb_party_mult": 0.6,        # the threshold x (1 + this per extra hunter): = party_hp_mult, so a party topples about as often per fight
+	"sb_rise": 0.35,             # each topple raises the next threshold by this fraction of the first (x1.35, x1.7, ...)
+	"sb_topple_s": 4.0,          # TOPPLE: knocked down this long: no brain (no new attacks), its pending telegraphs are cancelled,
+	                             # no movement; exposed (H57: x exposed_dmg_mult from hunters) for the whole time; the bar drains to 0
+	"sb_decay_delay_s": 6.0,     # not fed for this long: the bar starts to drain ...
+	"sb_decay_pct_s": 2.0,       # ... this pct of the current threshold per second
+	# ================= end of stagger bar
 	# the arena's own events (H51): one per biome, telegraphed, hits everyone, lays its element
 	"env_on": 1.0,               # 0 switches them off
 	"env_warn_s": 1.8,           # telegraph before each event lands
