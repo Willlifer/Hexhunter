@@ -125,7 +125,7 @@ func test_arrowstorm_glaze(c: HHSelfTest.HHCheck) -> void:
 	c.ok(s.charge.intensity(at, "fire") >= 2, "fire 2 under the archer")
 	c.ok(s.charge.is_crystal(at), "...crystallised in place (H365: ice on charge is a crystal now)")
 	c.ok(s.charge.is_crystal(Vector2i(0, 9)), "...out to the ring at 3")
-	c.ok(p.hex != at and not s.charge.is_crystal(p.hex), "the archer is pushed off the crystal under it (H366)")
+	c.eq(p.hex, at, "the archer stays put in the frost: hunters pass through crystals (H470, was H366's push)")
 	var t := _sim("bow", {})
 	_run(t, int(HHBow.TUNE.r_air_ticks) + 1, { "p1": { "cast": { "skill": "r", "aim": Vector2i(0, 6) } } })
 	c.ok(not t.charge.is_crystal(Vector2i(0, 6)), "a plain storm does not freeze")

@@ -166,6 +166,8 @@ func setup(p_arena: HHArena, seed: int, monster: String = "", p_asset: GKAsset =
 	view.name = "ArenaView"
 	add_child(view)
 	view.build(arena, asset)
+	if view.react != null:
+		view.react.viewer = player_id   # H471: crystals read "your element breaks this" for the local hunter
 	camera = HHCameraRig.new()
 	camera.name = "CameraRig"
 	camera.follow_tuned = true      # H280: camera lag from HHTune

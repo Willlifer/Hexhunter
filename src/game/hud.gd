@@ -699,6 +699,7 @@ func paint(pt: Paint, size: Vector2) -> bool:
 	var br: Rect2 = L.backup
 	slot(pt, br, str(p.backup), HHLook.element_color(str(p.backup)).darkened(0.1), "", 0.0, "", false, 0.0, 0.42)
 	pt.text(Vector2(br.get_center().x, br.position.y - 4.0), "W", 12, Color(1, 0.95, 0.85, 0.8), 1, 3, serif())
+	_crystal_hint(pt, er, br, crystal_hint(sim, p))
 	# the potion (H40)
 	var tcd := int(cooldowns.get("t", 0))
 	var tf := clampf(float(tcd) / maxf(1.0, HHTune.value("potion_cd")), 0.0, 1.0) if tcd > 0 else 0.0
@@ -727,6 +728,67 @@ func paint(pt: Paint, size: Vector2) -> bool:
 	if sim.over != "":
 		_banner(pt, size, "VICTORY" if sim.over == "win" else "FALLEN", sim.over == "win")
 	return true
+
+
+## H471: what the hunter's elements would do to the party's crystals within
+## `crystal_hint_hexes`: { text, kind: "shatter" | "swap" | "feed" | "",
+## mult, hexes }. The biggest Shatter the ACTIVE element would fire wins;
+## else the backup's ("W"); else a feed. Same rule as the sim
+## (HHCharge.crystal_response), so the HUD never promises a break that won't come.
+static func crystal_hint(s: HHSim, p: Dictionary) -> Dictionary:
+	var out := { "text": "", "kind": "", "mult": 0.0, "count": 0 }
+	if s == null or p.is_empty() or s.charge.entries.is_empty():
+		return out
+	var reach := int(HHTune.value("crystal_hint_hexes"))
+	var best_a := 0.0
+	var best_b := 0.0
+	var feed := false
+	var n_a := 0
+	for h in s.charge.entries:
+		var e: Dictionary = s.charge.entries[h]
+		if int(e.get("crystal", 0)) <= 0 or HHHex.distance(h, p.hex) > reach:
+			continue
+		var a := HHCharge.crystal_response(e, str(p.element), 1)
+		var b := HHCharge.crystal_response(e, str(p.backup), 1)
+		if str(a.kind) == "shatter":
+			best_a = maxf(best_a, float(a.mult))
+			n_a += 1
+		elif str(a.kind) == "feed":
+			feed = true
+		if str(b.kind) == "shatter":
+			best_b = maxf(best_b, float(b.mult))
+	if best_a > 0.0:
+		out.kind = "shatter"
+		out.mult = best_a
+		out.count = n_a
+		out.text = "%s SHATTERS  x%s" % [str(p.element).to_upper(), HHReactionFx._num(best_a)]
+	elif best_b > 0.0:
+		out.kind = "swap"
+		out.mult = best_b
+		out.text = "W: %s SHATTERS  x%s" % [str(p.backup).to_upper(), HHReactionFx._num(best_b)]
+	elif feed:
+		out.kind = "feed"
+		out.text = "%s FEEDS THE CRYSTAL" % str(p.element).to_upper()
+	return out
+
+
+## The hint line over the element pair: shatter pulses gold-white, a swap
+## hint is steady, a feed is quiet.
+func _crystal_hint(pt: Paint, er: Rect2, br: Rect2, hint: Dictionary) -> void:
+	if str(hint.text) == "":
+		return
+	var at := Vector2(er.position.x - 2.0, er.position.y - 16.0)       # left-aligned over the element pair: clear of the orb
+	var col := Color(0.8, 0.92, 1.0, 0.85)
+	var px := 14
+	match str(hint.kind):
+		"shatter":
+			var k := 0.5 + 0.5 * sin(_t * TAU * HHTune.value("crystal_primed_hz"))
+			col = GOLD.lerp(Color(1, 1, 0.92), 0.4 + 0.6 * k)
+			px = 17
+		"swap":
+			col = Color(0.85, 0.95, 1.0)
+			px = 15
+	pt.text(at, str(hint.text), px, col, 0, 4)
 
 
 ## The skills wear the active element (W recolours the whole bar).

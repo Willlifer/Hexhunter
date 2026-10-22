@@ -4,8 +4,8 @@ extends RefCounted
 ## hunter's weapon hit, or overcharge. Shatter = shatter_aa_mult_per_point x
 ## stored charge + shatter_aa_mult_per_ice x ice, heavy stagger, fragments splash
 ## tier 1 of the stored element onto the ring (contained). Crystals wall
-## hunters (the pathfinder routes round them) and never form on a hunter: it
-## is pushed to the nearest open hex.
+## nothing for hunters: they pass through (H470, superseding H366's wall and
+## push-out); the monster still crushes them.
 
 
 func _grid() -> HHCharge:
@@ -139,7 +139,10 @@ func test_crush_is_monster_triggered(c: HHSelfTest.HHCheck) -> void:
 	c.ok(hp_after >= 1.0 and hp_after < 10.0, "a hunter caught in it is hurt but never killed (DECIDE-C): %.1f HP" % hp_after)
 
 
-func test_crystal_walls_hunters_and_pushes(c: HHSelfTest.HHCheck) -> void:
+## H470 (supersedes H366): crystals are no wall for hunters (the trap the
+## author hit in play); the path goes straight through and no push-out fires.
+## test_el_crystal_trap holds the full case.
+func test_crystal_passable_for_hunters(c: HHSelfTest.HHCheck) -> void:
 	var s := HHSim.new(HHArena.round_flat(1, 17.5, 0.0), 1)
 	var p := s.add_player("p1", Vector2i(0, 4), "ice", "fire", "lance")
 	var wall: Array = []
@@ -151,31 +154,12 @@ func test_crystal_walls_hunters_and_pushes(c: HHSelfTest.HHCheck) -> void:
 	for h in wall:
 		c.ok(s.crystal_at(h), "crystal at %s" % h)
 	var b := s.blocked_for(p)
-	c.ok(wall.all(func(h): return b.has(h)), "crystals are walls for a hunter")
-	var path := s.arena.path(p.hex, Vector2i(0, 0), b)
-	c.ok(not path.is_empty(), "there is a way round")
-	c.ok(path.all(func(h): return not s.crystal_at(h)), "and the path never enters a crystal")
+	c.ok(not wall.any(func(h): return b.has(h)), "crystals are not walls for a hunter")
 	s.step({ "p1": { "move": Vector2i(0, 0), "move_pos": s.arena.stand(Vector2i(0, 0)) } })
-	var entered := false
 	for i in 150:
 		s.step()
-		if s.crystal_at(p.hex):
-			entered = true
-	c.ok(not entered, "walking never steps into a crystal")
-	c.eq(p.hex, Vector2i(0, 0), "arrived round the wall")
-	# a crystal forming under a hunter: formed, and the hunter pushed off
-	s.paint([p.hex], "water", "p1", 1)
-	s.step()
-	var under: Vector2i = p.hex
-	s.paint([under], "ice", "p1", 1)
-	var pushed := {}
-	for e in s.step():
-		if e.type == "push_out" and str(e.get("by", "")) == "crystal":
-			pushed = e
-	c.ok(s.crystal_at(under), "the crystal formed")
-	c.ok(not pushed.is_empty(), "the hunter was pushed (push_out by crystal)")
-	c.ok(p.hex != under and not s.crystal_at(p.hex) and s.arena.walkable(p.hex), "onto an open hex")
-	c.eq(HHHex.distance(p.hex, under), 1, "the nearest one")
+	c.eq(p.hex, Vector2i(0, 0), "walked straight through the wall")
+	c.ok(wall.all(func(h): return s.crystal_at(h)), "and the crystals are still there")
 
 
 func test_first_crystal_on_a_line(c: HHSelfTest.HHCheck) -> void:
