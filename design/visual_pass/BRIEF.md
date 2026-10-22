@@ -45,7 +45,7 @@ first and in close-up second.
 - Review renders go under `design/art/...` or `design/visual_pass/<lane>/`. Final
   comparison images are committed (force-add if gitignored) so the author can see them.
 - Godot: `<godot>`.
-  Blender 5.2: `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe` (glTF
+  Blender 5.2: `<blender>` (glTF
   exporter: one mesh object per colour role, H303).
 - GDScript: `:=` cannot infer from a Dictionary read or Variant; write `var x: Type =`.
 - Commit messages end with:
