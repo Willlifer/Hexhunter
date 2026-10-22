@@ -82,9 +82,9 @@ func test_tier_in_state_hash_and_deterministic(c: HHSelfTest.HHCheck) -> void:
 ## on purpose (and says so in DECIDE / DECISIONS) re-records EASY_BASELINE with
 ## the printed values; a lane that did not mean to has broken EASY.
 const EASY_BASELINE := {
-	"swampfang": { 1: [249378946, 2688883785, 2642306589], 2: [3259039944, 4258971457, 4044577419] },
+	"swampfang": { 1: [249378946, 3333416331, 1161075046], 2: [3259039944, 452810812, 542717093] },   # re-recorded H470 (hunters pass through crystals)
 	"colambros": { 1: [3466747275, 2035945734, 2760841996], 2: [751356112, 4238121478] },   # seed 2: the fight ends before tick 900
-	"rimeslithe": { 1: [611400001, 2243463847, 3000134039], 2: [3105665545, 1702892097, 4094889340] },
+	"rimeslithe": { 1: [611400001, 2243463847, 2487738666], 2: [3105665545, 101805020, 880579009] },   # re-recorded H470
 	"spirewalker": { 1: [3326115359, 2210666007, 870529319], 2: [254069852, 1621051224] },   # seed 2: the fight ends before tick 900
 }
 

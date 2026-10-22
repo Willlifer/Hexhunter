@@ -559,9 +559,34 @@ func _crystallise(e: Dictionary, ice: int, caster: String) -> Dictionary:
 	return { "op": "set", "entry": ne, "crystal": true }
 
 
+## H471 (Lane IC): what `element` landing on crystal entry `e` would do,
+## read from the very rule apply() uses (_crystal_route), so the view and the
+## HUD can say "this breaks it, x7" before the player acts. kind: "shatter",
+## "feed" or "none" (wind); mult: the Shatter multiple it would fire (the
+## overcharge case counts its capped ice), points / ice: what it stores now.
+static func crystal_response(e: Dictionary, element: String, steps: int = 1) -> Dictionary:
+	var pts := mini(absi(int(e.get("h", 0))), AXIS_MAX) + mini(absi(int(e.get("v", 0))), AXIS_MAX)
+	var ice := clampi(int(e.get("crystal", 1)), 1, ICE_MAX)
+	var out := { "kind": "none", "mult": 0.0, "points": pts, "ice": ice }
+	if int(e.get("crystal", 0)) <= 0:
+		return out
+	var p := _crystal_route(e, element, steps)
+	if p.has("shatter"):
+		out.kind = "shatter"
+		out.mult = float((p.shatter as Dictionary).mult)
+	elif str(p.op) == "set":
+		out.kind = "feed"
+	return out
+
+
+## The Shatter multiple a crystal entry holds right now (its size, H471).
+static func crystal_mult(e: Dictionary) -> float:
+	return float((_shatter_plan(e).shatter as Dictionary).mult)
+
+
 ## An element landing on a crystal: its own axis and ice feed it (past a cap
 ## it shatters, DECIDE-E); wind passes; anything else breaks it.
-func _crystal_route(e: Dictionary, element: String, steps: int) -> Dictionary:
+static func _crystal_route(e: Dictionary, element: String, steps: int) -> Dictionary:
 	if element == "wind":
 		return { "op": "none" }
 	var h := int(e.h)
@@ -587,7 +612,7 @@ func _crystal_route(e: Dictionary, element: String, steps: int) -> Dictionary:
 	return _shatter_plan(e)
 
 
-func _shatter_plan(e: Dictionary) -> Dictionary:
+static func _shatter_plan(e: Dictionary) -> Dictionary:
 	var pts := mini(absi(int(e.h)), AXIS_MAX) + mini(absi(int(e.v)), AXIS_MAX)
 	var ice := clampi(int(e.get("crystal", 1)), 1, ICE_MAX)
 	return { "op": "erase", "shatter": { "mult": float(HHFormulas.shatter_mult(pts, ice).value), "points": pts, "ice": ice,

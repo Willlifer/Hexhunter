@@ -374,10 +374,9 @@ func blocked_for(me: Dictionary) -> Dictionary:
 		for h in arena.cells:
 			if not arena.kind(h) in allowed:
 				b[h] = true
-	if str(me.kind) == "player":                         # H366: crystals wall hunters (a monster crushes them); not the one underfoot
-		for h in charge.entries:
-			if int((charge.entries[h] as Dictionary).get("crystal", 0)) > 0 and h != me.hex:
-				b[h] = true
+	# H470 (supersedes H366's wall): hunters pass through crystals, so a crystal
+	# can never box a hunter in. The monster still crushes them (H367) and a
+	# sweep beam still stops at them (cover, HHElementBridge.is_block).
 	return b
 
 
@@ -867,7 +866,6 @@ func step(orders: Dictionary = {}) -> Array:
 		var u: Dictionary = units[id]
 		if alive(u) and u.kind == "player":
 			_auto_attack(u)
-	_crystal_safety()                                    # H366: a crystal never holds a hunter
 	if tick % int(HHTune.value("ground_tick_every")) == 0:
 		for id in order:
 			var u: Dictionary = units[id]
@@ -1218,8 +1216,8 @@ func _walk_free(u: Dictionary) -> void:
 			u.unpull_until = tick + 15
 			u.pos = centre if off.length() <= step else from + off / off.length() * step
 			return
-		if (hull_hexes().has(nh) or charge.is_crystal(nh)) and _reroute(u, blocked):
-			return                                    # H254: a hull stepped into the way: go round it (H366: a crystal too)
+		if hull_hexes().has(nh) and _reroute(u, blocked):
+			return                                    # H254: a hull stepped into the way: go round it
 		_stop(u)                                      # the edge, a cliff, the monster's body
 		_emit({ "type": "blocked", "id": u.id, "hex": nh })
 		return
@@ -2209,60 +2207,8 @@ func _crush_landed(m: Dictionary) -> void:
 		shatter_as(hit, str(m.id))
 
 
-## H366 (spec 2.2 safety): a crystal never holds a hunter. One that formed
-## under a hunter (or a hunter set down on one) is slid to the nearest open
-## hex: walkable, no crystal, outside every hull, not held by another hunter.
-## Not a hit. Event `push_out` with by "crystal" (the view eases the slide).
-func _crystal_safety() -> void:
-	if charge.entries.is_empty():
-		return
-	var taken := {}
-	for id in order:
-		var p: Dictionary = units[id]
-		if p.kind != "player" or not (alive(p) or bool(p.get("downed", false))):
-			continue
-		if not (p.leap as Dictionary).is_empty() or not charge.is_crystal(p.hex):
-			continue
-		var to := _open_hex_near(p, taken)
-		if to == NO_HEX:
-			continue
-		taken[to] = true
-		var from_hex: Vector2i = p.hex
-		var from_pos: Vector3 = p.pos
-		p.prev = from_hex
-		p.hex = to
-		p.pos = arena.stand(to)
-		p.crossed = to
-		if not (p.get("dash", {}) as Dictionary).is_empty():
-			p.dash = {}
-			p.dash_recover = int(HHTune.value("dash_recover_ticks"))
-			_emit({ "type": "dash_end", "id": p.id, "hex": to })
-		p.path = [] as Array[Vector2i]                  # a walk or an approach re-plans from here
-		p.goal_pos = NO_POS
-		_emit({ "type": "push_out", "id": p.id, "by": "crystal", "from": from_hex, "to": to, "from_pos": from_pos, "to_pos": p.pos })
-
-
-func _open_hex_near(p: Dictionary, taken: Dictionary) -> Vector2i:
-	var walls := hull_hexes()
-	var held := {}
-	for q in players():
-		if q.id != p.id and (alive(q) or bool(q.get("downed", false))):
-			held[q.hex] = true
-	var at: Vector3 = p.pos
-	for r in range(1, 7):
-		var best := NO_HEX
-		var best_key := []
-		for h in arena.ring(p.hex, r):
-			if not arena.walkable(h) or walls.has(h) or charge.is_crystal(h) or held.has(h) or taken.has(h):
-				continue
-			var s := arena.stand(h)
-			var key := [Vector2(s.x - at.x, s.z - at.z).length_squared(), h.y, h.x]
-			if best_key.is_empty() or _key_less(key, best_key):
-				best_key = key
-				best = h
-		if best != NO_HEX:
-			return best
-	return NO_HEX
+## H470: H366's crystal push-out is gone: hunters pass through crystals, so
+## one forming underfoot holds nobody.
 
 
 ## `by` (optional): the unit that dealt it. A hunter's hit on a monster is

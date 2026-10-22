@@ -21,6 +21,7 @@ const SHELL_H := [0.0, 0.7, 1.05, 1.4]        # prism height by ice level
 const CORE_H := [0.0, 0.3, 0.55, 0.85]         # core height by stored tier
 const ICE := Color(0.75, 0.95, 1.0)
 const STEAM := Color(0.93, 0.95, 0.97)
+const PRIMED := Color(1.0, 0.93, 0.62)        # H471: the "your element breaks it" glow (cracks, label)
 
 var arena: HHArena
 var skill: HHSkillFx                            # the fx layer's: ring(), flash(), burst(), number()
@@ -30,10 +31,12 @@ var mix: HHFxParticles
 var rng := RandomNumberGenerator.new()
 var _prisms := {}                               # hex -> { shell, core, key }
 var _pool: Array = []
-var _shell_mats := {}
 var _core_mats := {}
+var viewer := ""                                # H471: the local hunter (fight.player_id): crystals say what ITS elements do
+var _clock := 0.0
 static var _shell_mesh: CylinderMesh
 static var _core_mesh: CylinderMesh
+static var _crack_mat: ShaderMaterial
 
 
 func setup(a: HHArena) -> void:
@@ -58,11 +61,43 @@ static func crystal_element(e: Dictionary) -> String:
 	return "light" if v > 0 else "dark"
 
 
+## H471: what the viewer's elements would do to crystal entry `e` right now:
+## { mult (the Shatter it would fire), active, backup: HHCharge.crystal_response,
+## primed: the active element breaks it, text: the label ("x7" + what breaks it) }.
+static func crystal_read(e: Dictionary, viewer_unit: Dictionary) -> Dictionary:
+	var now := HHCharge.crystal_mult(e)
+	var out := { "mult": now, "active": {}, "backup": {}, "primed": false, "text": "x%s" % _num(now) }
+	if viewer_unit.is_empty():
+		return out
+	var act := HHCharge.crystal_response(e, str(viewer_unit.get("element", "")), 1)
+	var bak := HHCharge.crystal_response(e, str(viewer_unit.get("backup", "")), 1)
+	out.active = act
+	out.backup = bak
+	if str(act.kind) == "shatter":
+		out.primed = true
+		out.mult = float(act.mult)
+		out.text = "x%s\nBREAK" % _num(float(act.mult))
+	elif str(bak.kind) == "shatter":
+		out.text = "x%s\nW: BREAK" % _num(float(bak.mult))
+	return out                                          # a feed or nothing: just its size (the HUD says "FEEDS")
+
+
+static func _num(m: float) -> String:
+	return ("%d" % int(roundf(m))) if is_equal_approx(m, roundf(m)) else ("%.1f" % m)
+
+
 ## Per frame: prisms for the live crystals, particles advance.
 func sync(sim: HHSim, delta: float) -> void:
 	if not enabled or sim == null:
 		return
+	_clock += delta
+	var me: Dictionary = sim.units.get(viewer, {})
+	if not me.is_empty() and str(me.get("kind", "")) != "player":
+		me = {}
 	var live := {}
+	var label_on := HHTune.value("crystal_label") > 0.5
+	var hz := HHTune.value("crystal_primed_hz")
+	var per_pt := HHTune.value("crystal_glow_per_point")
 	for hex in sim.charge.entries:
 		var e: Dictionary = sim.charge.entries[hex]
 		var ice := int(e.get("crystal", 0))
@@ -84,13 +119,38 @@ func sync(sim: HHSim, delta: float) -> void:
 		if float(p.grow) < 1.0:
 			p.grow = minf(1.0, float(p.grow) + delta * 6.0)
 			_place(p, 0.35 + 0.65 * (1.0 - pow(1.0 - float(p.grow), 3.0)))
+		# the read: size (glow by stored points), primed (cracks + pulse), the label
+		var rd := crystal_read(e, me)
+		var pts := int(HHCharge.crystal_response(e, "wind").points)
+		var pulse := 0.0
+		if bool(rd.primed):
+			pulse = 0.5 + 0.5 * sin(_clock * TAU * hz)
+		var sm: StandardMaterial3D = p.smat
+		sm.emission_energy_multiplier = 0.3 + per_pt * float(pts) + 0.7 * pulse
+		var crack_k := 0.0
+		if bool(rd.primed):
+			crack_k = clampf(0.45 + 0.1 * float(pts) + 0.05 * float(ice), 0.0, 1.0)
+		var ck: MeshInstance3D = p.crack
+		ck.visible = crack_k > 0.0
+		if ck.visible:
+			ck.set_instance_shader_parameter("k", crack_k * (0.7 + 0.3 * pulse))
+			ck.set_instance_shader_parameter("col", PRIMED)
+		var lb: Label3D = p.label
+		lb.visible = label_on
+		if label_on:
+			lb.text = str(rd.text)
+			var big := clampf(float(rd.mult) / 15.0, 0.0, 1.0)
+			lb.pixel_size = (0.0004 + 0.00025 * big) * (1.0 + 0.12 * pulse)
+			lb.modulate = PRIMED.lerp(Color.WHITE, 0.5 * pulse) if bool(rd.primed) else Color(0.82, 0.93, 1.0)
+			lb.position = (p.base as Vector3) + Vector3(0, float(p.hs) + 0.45, 0)
+		p.read = rd
 	for hex in _prisms.keys():
 		if live.has(hex):
 			continue
 		var p: Dictionary = _prisms[hex]
 		_prisms.erase(hex)
-		(p.shell as Node3D).visible = false
-		(p.core as Node3D).visible = false
+		for k in ["shell", "core", "crack", "label"]:
+			(p[k] as Node3D).visible = false
 		_pool.append(p)
 	add.step(delta)
 	mix.step(delta)
@@ -98,6 +158,11 @@ func sync(sim: HHSim, delta: float) -> void:
 
 func crystal_count() -> int:
 	return _prisms.size()
+
+
+## The live prism on `hex` (tests and previews), {} when none.
+func prism_at(hex: Vector2i) -> Dictionary:
+	return _prisms.get(hex, {})
 
 
 func _acquire() -> Dictionary:
@@ -116,15 +181,42 @@ func _acquire() -> Dictionary:
 		_core_mesh.top_radius = 0.22
 		_core_mesh.bottom_radius = 0.34
 		_core_mesh.height = 1.0
+		_crack_mat = ShaderMaterial.new()
+		_crack_mat.shader = load("res://shaders/fx_crystal_crack.gdshader")
 	var shell := MeshInstance3D.new()
 	shell.mesh = _shell_mesh
 	shell.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var smat := StandardMaterial3D.new()                 # one per prism: its glow tracks its own store and pulse
+	smat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	smat.roughness = 0.12
+	smat.metallic_specular = 0.9
+	smat.emission_enabled = true
+	smat.cull_mode = BaseMaterial3D.CULL_BACK
+	shell.material_override = smat
 	add_child(shell)
 	var core := MeshInstance3D.new()
 	core.mesh = _core_mesh
 	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(core)
-	return { "shell": shell, "core": core, "key": "", "grow": 0.0 }
+	var crack := MeshInstance3D.new()
+	crack.mesh = _shell_mesh
+	crack.material_override = _crack_mat
+	crack.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	crack.visible = false
+	add_child(crack)
+	var label := Label3D.new()
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.fixed_size = true
+	label.font_size = 56
+	label.outline_size = 14
+	label.outline_modulate = Color(0.04, 0.03, 0.02, 1.0)
+	label.line_spacing = -8.0
+	label.render_priority = 8
+	label.outline_render_priority = 7
+	label.visible = false
+	add_child(label)
+	return { "shell": shell, "core": core, "crack": crack, "label": label, "smat": smat, "key": "", "grow": 0.0, "read": {} }
 
 
 ## Size, colour and place one prism (the mesh is 1 m tall, centred: scaled and lifted).
@@ -135,7 +227,10 @@ func _dress(p: Dictionary, hex: Vector2i, el: String, ice: int, tier: int) -> vo
 	p.hs = float(SHELL_H[ice])
 	p.hc = float(CORE_H[tier]) if el != "" else 0.0
 	sh.visible = true
-	sh.material_override = _shell_mat(el)
+	var sm: StandardMaterial3D = p.smat
+	var tint := ICE.lerp(HHLook.element_color(el), 0.35) if el != "" else ICE
+	sm.albedo_color = Color(tint.r, tint.g, tint.b, 0.62)
+	sm.emission = ICE.lerp(HHLook.glow_color(el), 0.25) if el != "" else ICE
 	co.visible = float(p.hc) > 0.0
 	if co.visible:
 		co.material_override = _core_mat(el)
@@ -143,7 +238,8 @@ func _dress(p: Dictionary, hex: Vector2i, el: String, ice: int, tier: int) -> vo
 
 
 ## The prism at grow `s` (0..1 of its height): flats turned to the hex's
-## flats (pointy-top grid), standing on the ground.
+## flats (pointy-top grid), standing on the ground. The crack shell sits a
+## hair outside the ice.
 func _place(p: Dictionary, s: float) -> void:
 	var rot := Basis(Vector3.UP, deg_to_rad(30.0))
 	var base: Vector3 = p.base
@@ -151,23 +247,7 @@ func _place(p: Dictionary, s: float) -> void:
 	var hc := float(p.hc) * s
 	(p.shell as Node3D).transform = Transform3D(rot.scaled(Vector3(1.0, maxf(hs, 0.01), 1.0)), base + Vector3(0, hs * 0.5, 0))
 	(p.core as Node3D).transform = Transform3D(rot.scaled(Vector3(1.0, maxf(hc, 0.01), 1.0)), base + Vector3(0, hc * 0.5, 0))
-
-
-func _shell_mat(el: String) -> StandardMaterial3D:
-	if _shell_mats.has(el):
-		return _shell_mats[el]
-	var m := StandardMaterial3D.new()
-	var tint := ICE.lerp(HHLook.element_color(el), 0.35) if el != "" else ICE
-	m.albedo_color = Color(tint.r, tint.g, tint.b, 0.62)
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.roughness = 0.12
-	m.metallic_specular = 0.9
-	m.emission_enabled = true
-	m.emission = ICE.lerp(HHLook.glow_color(el), 0.25) if el != "" else ICE
-	m.emission_energy_multiplier = 0.35
-	m.cull_mode = BaseMaterial3D.CULL_BACK
-	_shell_mats[el] = m
-	return m
+	(p.crack as Node3D).transform = Transform3D(rot.scaled(Vector3(1.03, maxf(hs, 0.01) * 1.01, 1.03)), base + Vector3(0, hs * 0.5, 0))
 
 
 func _core_mat(el: String) -> StandardMaterial3D:
@@ -234,8 +314,28 @@ func _puff(at: Vector3, col: Color, n: int, shape: int, scale: float) -> void:
 
 
 ## Shards fly out of the hex (ice white and the stored element), a ring
-## sweeps the neighbours the fragments splash, a flash at the core.
+## sweeps the neighbours the fragments splash, a flash at the core. H471:
+## sized by the multiple (more and faster shards, a wider ring, a taller
+## crack-light column), a wide outer ring, and the "SHATTER xN" number.
 func _shatter(at: Vector3, e: Dictionary) -> void:
+	var m := float(e.get("mult", 3.0))
+	var big := clampf((m - 3.0) / 12.0, 0.0, 1.0)            # x3 .. x15
+	for i in int(8 + 10 * big):                                 # the crack-light: a white column bursting up out of the hex
+		add.spawn({ "pos": at + Vector3(rng.randf_range(-0.3, 0.3), 0.2, rng.randf_range(-0.3, 0.3)), "vel": Vector3(0, rng.randf_range(7.0, 11.0) * (0.8 + 0.6 * big), 0),
+			"life": 0.35, "size": 0.2, "size_end": 0.06, "color": Color(1, 1, 1, 1.0), "color_end": Color(ICE, 0.0), "shape": HHFxParticles.STREAK, "streak": 0.07 })
+	for i in int(16 + 24 * big):
+		var a2 := TAU * rng.randf()
+		var d2 := Vector3(cos(a2), rng.randf_range(0.1, 0.9), sin(a2)).normalized()
+		add.spawn({ "pos": at + Vector3(0, 0.5, 0), "vel": d2 * rng.randf_range(6.0, 11.0) * (0.9 + 0.5 * big), "life": rng.randf_range(0.4, 0.7),
+			"size": 0.18 + 0.1 * big, "size_end": 0.06, "color": Color(ICE, 1.0), "color_end": Color(ICE, 0.0),
+			"grav": 10.0, "drag": 1.2, "shape": HHFxParticles.SHARD })
+	_ring(at, PRIMED, 2.2 + 1.6 * big, 0.45)
+	if skill != null:
+		skill.number(at + Vector3(0, 1.9, 0), "SHATTER x%s" % _num(m), PRIMED.lerp(Color.WHITE, 0.3), 0.8 + 0.5 * big)
+	_shatter_core(at, e)
+
+
+func _shatter_core(at: Vector3, e: Dictionary) -> void:
 	var mix_el: Dictionary = e.get("mix", {})
 	var el := ""
 	var best := 0
