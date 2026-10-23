@@ -1,8 +1,7 @@
 extends RefCounted
 ## Lane SB (H510-H519): the monster stagger bar. Author: "I would add the
 ## stagger bar, it should take 10 full water combos to stagger, and scale
-## everything from that". One full water combo is defined and measured by
-## tools/stagger_bar_calib.gd (H511); these tests hold the sim to it.
+## everything from that". A combo is a water reaction (H520).
 
 const Calib := preload("res://tools/stagger_bar_calib.gd")
 
@@ -26,30 +25,29 @@ class CountBrain:
 			sim.telegraph(str(u.id), [Vector2i(0, 3)], 60, { "dmg_pct": 10.0, "name": "slam" })
 
 
-func test_ten_full_water_combos_topple_and_nine_do_not(c: HHSelfTest.HHCheck) -> void:
-	var need := HHTune.value("sb_need")
-	for w in ["lance", "daggers"]:
-		var r: Dictionary = Calib.measure(w, "water", 10)
-		var f: Array = r.fills
-		c.eq(f.size(), 10, "%s: ten combos measured" % w)
-		c.ok(float(f[8]) < need, "%s: 9 full water combos (%.2f) do not reach sb_need %.1f" % [w, float(f[8]), need])
-		c.ok(float(f[9]) >= need, "%s: the 10th full water combo (%.2f) reaches sb_need %.1f" % [w, float(f[9]), need])
-	# and live, with the real threshold: the lance topples on its 10th string, not before
-	var s := _flat()
-	var m := s.unit("m")
-	var combos := 0
-	var topple_at := -1
-	for t in 30 * 60:
-		var ev := s.step({ "p1": { "target": "m", "attack": true } } if t == 0 else {})
-		for e in ev:
-			if str(e.type) == "strike" and str(e.id) == "p1" and int(e.get("combo", 0)) >= 3:
-				combos += 1
-			if str(e.type) == "topple" and topple_at < 0:
-				topple_at = combos
-		if topple_at >= 0:
-			break
-	c.ok(topple_at == 10 or (topple_at == 9 and int(m.toppled) > 0 and combos == 9), "the lance topples during its 10th full water combo (after %d finished)" % topple_at)
-	c.ok(int(m.topples) == 1 and int(m.toppled) > 0, "it is down")
+## H520: the author's combo is a water reaction ("geysers or water related
+## reactions would be my definition of a combo"). A water hunter's basic
+## string on a still monster topples it on its 10th water reaction, the blows
+## that build each Geyser included; the bow on its 11th (its arrows feed less).
+func test_ten_water_reactions_topple(c: HHSelfTest.HHCheck) -> void:
+	for w in ["lance", "daggers", "bow"]:
+		var s := _flat()
+		s.unit("p1").weapon = w
+		var m := s.unit("m")
+		var n := 0
+		var topple_at := -1
+		for t in 30 * 120:
+			var ev := s.step({ "p1": { "target": "m", "attack": true } } if t == 0 else {})
+			for e in ev:
+				if str(e.type) == "reaction" and str(e.id) == "m" and str(e.cause) in ["geyser", "steam"]:
+					n += 1
+				if str(e.type) == "topple" and topple_at < 0:
+					topple_at = n
+			if topple_at >= 0:
+				break
+		var want := 11 if w == "bow" else 10
+		c.eq(topple_at, want, "%s: topples on water reaction %d" % [w, want])
+		c.ok(int(m.topples) == 1, "%s: it is down" % w)
 
 
 func test_water_fills_most(c: HHSelfTest.HHCheck) -> void:
@@ -139,7 +137,7 @@ func test_topple(c: HHSelfTest.HHCheck) -> void:
 	c.eq(int(m.toppled), 0, "it stands after sb_topple_s")
 	c.eq(m.hex, at, "it did not move while down")
 	c.near(float(m.sbar), 0.0, 1e-6, "the bar is empty")
-	c.near(float(m.sbar_need), need * (1.0 + HHTune.value("sb_rise")), 1e-4, "the next topple needs x(1 + sb_rise)")
+	c.near(float(m.sbar_need), need * HHTune.value("sb_rise_mult"), 1e-4, "the next topple needs x sb_rise_mult (H520: twice)")
 	s.step()
 	c.ok(brain.ticks > bt, "its brain runs again")
 
@@ -245,7 +243,7 @@ func test_coop_replication(c: HHSelfTest.HHCheck) -> void:
 	c.eq(mirror.state_hash(), host.state_hash(), "and the hashes agree")
 	var hm := host.unit("swampfang")
 	var stood := int(hm.topples) - (1 if int(hm.toppled) > 0 else 0)   # the threshold rises when it stands
-	c.near(float(hm.sbar_need) / (1.0 + HHTune.value("sb_rise") * float(stood)),
+	c.near(float(hm.sbar_need) / pow(HHTune.value("sb_rise_mult"), float(stood)),
 		2.0 * (1.0 + HHTune.value("sb_party_mult")), 1e-3, "two hunters: the threshold carries the party")
 	HHTune.reset()
 

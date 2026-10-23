@@ -85,10 +85,10 @@ func test_tier_in_state_hash_and_deterministic(c: HHSelfTest.HHCheck) -> void:
 ## and runs on EASY too. Verified before re-recording: with sb_on 0 and the bar
 ## left out of the hash, the H470 hashes still passed (the bar is a pure layer).
 const EASY_BASELINE := {
-	"swampfang": { 1: [1610649075, 1936253783, 3157246829], 2: [621666105, 669995903, 2770203125] },   # re-recorded H517 (stagger bar); before: H470
-	"colambros": { 1: [1475190524, 805989401, 4180214282], 2: [3487771179, 4259365894] },   # seed 2: the fight ends before tick 900
-	"rimeslithe": { 1: [4156208594, 3176160430, 2428687887], 2: [718538170, 3600714300, 3588315423] },   # re-recorded H517
-	"spirewalker": { 1: [416106125, 490468090, 3271541197], 2: [815214139, 1873765641] },   # seed 2: the fight ends before tick 900
+	"swampfang": { 1: [632207677, 154308321, 3140207734], 2: [2875899971, 508085001, 216914623] },   # re-recorded H517 (stagger bar); before: H470
+	"colambros": { 1: [551926278, 865612259, 3451004500], 2: [3685137845, 1062910416] },   # seed 2: the fight ends before tick 900
+	"rimeslithe": { 1: [2861998044, 3428484856, 461558169], 2: [3617902468, 3345306502, 3963751209] },   # re-recorded H517
+	"spirewalker": { 1: [3515690647, 1143317444, 1907215895], 2: [2125692101, 2378548563] },   # seed 2: the fight ends before tick 900
 }
 
 

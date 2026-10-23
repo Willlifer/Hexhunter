@@ -55,12 +55,13 @@ static func stagger_fill(stagger: float, key: String, frac: float = 1.0) -> Dict
 
 
 ## The fill a monster's bar needs to topple: sb_need x the party (1 +
-## sb_party_mult per extra hunter) x the rise (1 + sb_rise per topple so far).
+## sb_party_mult per extra hunter) x the resistance it has built
+## (sb_rise_mult ^ topples so far: x1, x2, x4 ... H520).
 static func stagger_need(hunters: int, topples: int) -> Dictionary:
 	var party := 1.0 + HHTune.value("sb_party_mult") * float(maxi(0, hunters - 1))
-	var rise := 1.0 + HHTune.value("sb_rise") * float(maxi(0, topples))
+	var rise := pow(HHTune.value("sb_rise_mult"), float(maxi(0, topples)))
 	var v := HHTune.value("sb_need") * party * rise
-	return calc("stagger need", v, "sb_need * (1 + sb_party_mult * (hunters-1)) * (1 + sb_rise * topples)",
+	return calc("stagger need", v, "sb_need * (1 + sb_party_mult * (hunters-1)) * sb_rise_mult ^ topples",
 		"%.1f * %.2f * %.2f" % [HHTune.value("sb_need"), party, rise])
 
 

@@ -107,7 +107,7 @@ static func render(n: int) -> String:
 	L.append("")
 	L.append("**One full water combo** = a hunter with water ACTIVE at its attack spot on a still monster, doing the weapon's whole basic string (lance / daggers: the 3-hit combo; the bow has no combo, so 3 arrows), counted with every reaction its own water sets off on the monster (the Geysers). No skills. Fill = stagger x the element's or reaction's factor (`sb_hit_<element>`, `sb_<reaction>`), through `HHFormulas.stagger_fill`.")
 	L.append("")
-	L.append("Threshold today: `sb_need` = **%.1f** (solo, first topple; x(1 + %.2f per extra hunter), x(1 + %.2f per topple so far)). The lance is the anchor (H511)." % [HHTune.value("sb_need"), HHTune.value("sb_party_mult"), HHTune.value("sb_rise")])
+	L.append("Threshold today: `sb_need` = **%.1f** (solo, first topple; x(1 + %.2f per extra hunter), x%.1f per topple so far). A combo is a water reaction (H520)." % [HHTune.value("sb_need"), HHTune.value("sb_party_mult"), HHTune.value("sb_rise_mult")])
 	L.append("")
 	L.append("## Water: the anchor, per weapon")
 	L.append("")

@@ -126,7 +126,7 @@ const DEFAULTS := {
 	# The anchor (H511): one "full water combo" = a water-active hunter's 3-hit basic string plus the Geysers
 	# its own water triggers on the monster, measured by tools/stagger_bar_calib.gd (design/stagger_bar.md).
 	"sb_on": 1.0,                # 0 switches the bar off (no fill, no topple)
-	"sb_need": 24.0,             # fill points to topple a solo monster the first time: 10 full water combos (lance 9 = 22.9, 10 = 25.7; daggers 9 = 21.8, 10 = 24.4)
+	"sb_need": 13.75,            # fill to topple a solo monster the first time: 10 water reactions (Geysers) with the blows that build them (H520: lance 9 = 12.97 / 10 = 14.62, daggers 12.32 / 13.84; the bow lands on its 11th)
 	"sb_hit_water": 1.0,         # a hunter's blow (basic, skill, shot) x its stagger, by the hunter's ACTIVE element: water controls
 	"sb_hit_ice": 0.6,           # ice stores (its fill comes through Shatter)
 	"sb_hit_thunder": 0.5,       # thunder cashes in (its fill comes through Detonate)
@@ -144,7 +144,7 @@ const DEFAULTS := {
 	"sb_flux": 0.35,             # (flux_stagger 0: same)
 	"sb_monster_trigger_frac": 0.25, # a reaction a monster or the arena set off fills this fraction (= monster_reaction_frac)
 	"sb_party_mult": 0.6,        # the threshold x (1 + this per extra hunter): = party_hp_mult, so a party topples about as often per fight
-	"sb_rise": 0.35,             # each topple raises the next threshold by this fraction of the first (x1.35, x1.7, ...)
+	"sb_rise_mult": 2.0,         # stagger resistance: each topple multiplies the next threshold by this (x1, x2, x4 ...; H520, the author)
 	"sb_topple_s": 4.0,          # TOPPLE: knocked down this long: no brain (no new attacks), its pending telegraphs are cancelled,
 	                             # no movement; exposed (H57: x exposed_dmg_mult from hunters) for the whole time; the bar drains to 0
 	"sb_decay_delay_s": 6.0,     # not fed for this long: the bar starts to drain ...
